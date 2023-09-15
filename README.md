@@ -1,4 +1,4 @@
-# Simulate spreading processes on networks!
+# Spreading Processes on Networks (SPoNet)
 
 [![build](https://github.com/lueckem/cnvm/actions/workflows/build.yml/badge.svg)](https://github.com/lueckem/cnvm/actions/workflows/build.yml)
 
