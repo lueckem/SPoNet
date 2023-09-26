@@ -53,16 +53,9 @@ def sample_many_runs(
     """
     t_out = np.linspace(0, t_max, num_timesteps)
 
-    if isinstance(params, CNVMParameters):
-        sample_subprocess = _sample_many_runs_subprocess_CNVM
-    elif isinstance(params, CNTMParameters):
-        sample_subprocess = _sample_many_runs_subprocess_CNTM
-    else:
-        raise ValueError("No valid Parameters.")
-
     # no multiprocessing
     if n_jobs is None or n_jobs == 1:
-        x_out = sample_subprocess(
+        x_out = _sample_many_runs_subprocess(
             params, initial_states, t_max, num_timesteps, num_runs, collective_variable
         )
         return t_out, x_out
@@ -102,14 +95,14 @@ def sample_many_runs(
         concat_axis = 0
 
     with mp.Pool(n_jobs) as pool:
-        x_out = pool.starmap(sample_subprocess, processes)
+        x_out = pool.starmap(_sample_many_runs_subprocess, processes)
     x_out = np.concatenate(x_out, axis=concat_axis)
 
     return t_out, x_out
 
 
-def _sample_many_runs_subprocess_CNVM(
-    params: CNVMParameters,
+def _sample_many_runs_subprocess(
+    params: Parameters,
     initial_states: np.ndarray,
     t_max: float,
     num_timesteps: int,
@@ -118,40 +111,15 @@ def _sample_many_runs_subprocess_CNVM(
 ) -> np.ndarray:
     t_out = np.linspace(0, t_max, num_timesteps)
     num_initial_states = initial_states.shape[0]
-    model = CNVM(params)
-    if collective_variable is None:
-        x_out = np.zeros(
-            (num_initial_states, num_runs, num_timesteps, model.params.num_agents)
-        )
+
+    if isinstance(params, CNVMParameters):
+        model_type = CNVM
+    elif isinstance(params, CNTMParameters):
+        model_type = CNTM
     else:
-        x_out = np.zeros(
-            (num_initial_states, num_runs, num_timesteps, collective_variable.dimension)
-        )
+        raise ValueError("Parameters not valid.")
+    model = model_type(params)
 
-    for j in range(num_initial_states):
-        for i in range(num_runs):
-            t, x = model.simulate(
-                t_max, len_output=4 * num_timesteps, x_init=initial_states[j]
-            )
-            t_ind = argmatch(t_out, t)
-            if collective_variable is None:
-                x_out[j, i, :, :] = x[t_ind, :]
-            else:
-                x_out[j, i, :, :] = collective_variable(x[t_ind, :])
-    return x_out
-
-
-def _sample_many_runs_subprocess_CNTM(
-    params: CNTMParameters,
-    initial_states: np.ndarray,
-    t_max: float,
-    num_timesteps: int,
-    num_runs: int,
-    collective_variable: CollectiveVariable = None,
-) -> np.ndarray:
-    t_out = np.linspace(0, t_max, num_timesteps)
-    num_initial_states = initial_states.shape[0]
-    model = CNTM(params)
     if collective_variable is None:
         x_out = np.zeros(
             (num_initial_states, num_runs, num_timesteps, model.params.num_agents)
