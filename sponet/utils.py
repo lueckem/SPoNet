@@ -201,12 +201,12 @@ def calc_rre_traj(
 
 
 def plot_trajectories(
-        params: Parameters,
-        t: float,
-        cv: CollectiveVariable,
-        ax: Axes,
-        num_initial_states: int = 3,
-        samples_per_state: int = 5,
+    params: Parameters,
+    t: float,
+    cv: CollectiveVariable,
+    ax: Axes,
+    num_initial_states: int = 3,
+    samples_per_state: int = 5,
 ) -> Axes:
     """
     Plot some trajectories with uniformly random initial states
@@ -229,9 +229,7 @@ def plot_trajectories(
     Axes
     """
     initial_states = np.random.randint(
-        0,
-        params.num_opinions,
-        size=(num_initial_states, params.num_agents)
+        0, params.num_opinions, size=(num_initial_states, params.num_agents)
     )
 
     t, c = sample_many_runs(
