@@ -109,10 +109,7 @@ percentage of neighbors of opinion n exceeds the threshold $b_{m,n}$.
 Additionally, each node changes its state randomly at rate $\tilde{r} \geq 0$ (noise).
 Hence, the rate at which node $i$ switches from opinion $m$ to opinion $n$ is
 
-$$ \begin{cases}
-r_{m,n} + \tilde{r}_{m,n}, & \quad \frac{d_{i,n}(\vec{x})}{d_{i}} \geq b_{m,n}\\
-\tilde{r}_{m,n}, & \quad \text{else}
-\end{cases} $$
+$$ r_{m,n} \delta_{\frac{d_{i,n}(x)}{d_{i}} \geq b_{m,n}} + \tilde{r} $$
 
 where $d_{i,n}(x)$ denotes the number of neighbors of node $i$ with opinion $n$ and $d_i$ is the degree of node $i$.
 Thus, in contrast to the CNVM, the CNTM assumes that a switch to a different opinion only occurs
