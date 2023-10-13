@@ -5,17 +5,21 @@
 This package provides an efficient implementation of popular discrete-state spreading processes on networks of interacting *agents*.
 They can be used to simulate how opinions about certain issues develop over time within a population, or how an infectious disease spreads.
 The simulation loop is just-in-time compiled using `numba`, which makes performance comparable with compiled languages like C++.
-Currently, a continuous-time noisy voter model (CNVM) and a continuous-time noisy threshold model (CNTM) are available.
+
+Available models:
+- continuous-time noisy voter model (CNVM)
+- continuous-time noisy threshold model (CNTM)
+
 
 ## Installation
 The package requires Python 3.9, 3.10, or 3.11.
 Install from the PyPI repository:
 ```
-pip install cnvm
+pip install sponet
 ```
 or get the latest version directly from GitHub:
 ```
-pip install git+https://github.com/lueckem/cnvm
+pip install git+https://github.com/lueckem/SPoNet
 ```
 
 ## About the CNVM
@@ -35,9 +39,9 @@ The second part $\tilde{r}_{m,n}$ describes transitions that are independent fro
 The parameter $\alpha$ can be used to tune the type of interaction. For $\alpha=1$ the transition rates are normalized because $d_{i,n}(x)/d_i \in [0,1]$.
 The setting $\alpha=0$ however yields a linear increase of the transition rates with the number of "infected" neighbors, and is often used in epidemic modeling, e.g., the contact process or SIS model.
 
-In the CNVM the network itself is static, i.e., the nodes and edges do not change over time.
+The network itself is static, i.e., the nodes and edges do not change over time.
 
-## Basic Usage
+### Basic Usage
 First define the model parameters:
 
 ```python
@@ -73,7 +77,7 @@ A more detailed overview of the package can be found in the jupyter notebook [*e
 Moreover, the behavior of the CNVM in the mean-field limit is discussed in [*examples/mean_field.ipynb*](examples/mean_field.ipynb).
 In the notebook [*examples/SIS-model.ipynb*](examples/SIS-model.ipynb) the existence of an epidemic threshold for the SIS model in epidemiology is demonstrated.
 
-## Implementation details
+### Implementation details
 
 After a node switches its opinion, the system state $x$ changes and hence all the generator matrices $Q^i$ may change as well.
 We apply a Gillespie-like algorithm to generate statistically correct samples of the process.
@@ -96,5 +100,20 @@ With probability $p_{m,n}$ agent $i$ switches to state $n$. Go back to 1.
 4. Draw $i$ from $\{1,\dots,N\}$ and $n$ from $\{1,\dots,M\}$ uniformly. Let $m$ denote the state of agent $i$.
 With probability $\tilde{p}_{m,n}$ agent $i$ switches to state $n$. Go back to 1.
 
+
 ## About the CNTM
-Under construction...
+On a network (undirected simple graph) of $N$ nodes, each node $i$ has one of two opinions $x_i \in \{0, 1\}$.
+At the rate $r \geq 0$, each node evaluates to change their opinion from its current
+opinion $m=\in \{0, 1\}$ to the other opinion $n=1-m$. It changes the opinion if the
+percentage of neighbors of opinion n exceeds the threshold $b_{m,n}$.
+Additionally, each node changes its state randomly at rate $\tilde{r} \geq 0$ (noise).
+Hence, the rate at which node $i$ switches from opinion $m$ to opinion $n$ is
+
+$$ \begin{cases}
+r_{m,n} + \tilde{r}_{m,n}, & \quad \frac{d_{i,n}(\vec{x})}{d_{i}} \geq b_{m,n}\\
+\tilde{r}_{m,n}, & \quad \text{else}
+\end{cases} $$
+
+where $d_{i,n}(x)$ denotes the number of neighbors of node $i$ with opinion $n$ and $d_i$ is the degree of node $i$.
+Thus, in contrast to the CNVM, the CNTM assumes that a switch to a different opinion only occurs
+if that opinion is already sufficiently established in the neighborhood.
