@@ -117,7 +117,7 @@ class CNVM:
             )
 
         else:
-            # decide which version is likely faster
+            # decide which version is likely faster, log-update or constant-update
             val = np.mean(self.degree_alpha / np.max(self.degree_alpha))
             if 1 / val < np.log2(self.params.num_agents):
                 sim_function = _numba_simulate_const
@@ -136,6 +136,108 @@ class CNVM:
                 self.params.prob_noise,
                 self.degree_alpha,
             )
+
+        return np.array(t_traj), np.array(x_traj, dtype=int)
+
+    def simulate_log_complexity(
+        self, t_max: float, x_init: np.ndarray = None, len_output: int = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Simulate the model from t=0 to t=t_max using the log-complexity update.
+
+        Depending on the model parameters, the log-complexity update can be faster
+        than the constant-complexity update because the constant-complexity update
+        more often performs iterations that do not result in a transition.
+
+
+        Parameters
+        ----------
+        t_max : float
+        x_init : np.ndarray, optional
+            Initial state, shape=(num_agents,). If no x_init is given, a random one is generated.
+        len_output : int, optional
+            Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
+            Needs to be at least 2 (for initial value and final value).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            t_traj (shape=(?,)), x_traj (shape=(?,num_agents))
+        """
+        if self.params.network_generator is not None:
+            self.update_network()
+
+        if x_init is None:
+            x_init = np.random.choice(
+                np.arange(self.params.num_opinions), size=self.params.num_agents
+            )
+        x = np.copy(x_init).astype(int)
+
+        t_delta = 0 if len_output is None else t_max / (len_output - 1)
+
+        t_traj, x_traj = _numba_simulate_log(
+            x,
+            t_delta,
+            t_max,
+            self.params.num_opinions,
+            self.neighbor_list,
+            self.params.r_imit,
+            self.params.r_noise,
+            self.params.prob_imit,
+            self.params.prob_noise,
+            self.degree_alpha,
+        )
+
+        return np.array(t_traj), np.array(x_traj, dtype=int)
+
+    def simulate_const_complexity(
+        self, t_max: float, x_init: np.ndarray = None, len_output: int = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Simulate the model from t=0 to t=t_max using the constant-complexity update.
+
+        Depending on the model parameters, the log-complexity update can be faster
+        than the constant-complexity update because the constant-complexity update
+        more often performs iterations that do not result in a transition.
+
+
+        Parameters
+        ----------
+        t_max : float
+        x_init : np.ndarray, optional
+            Initial state, shape=(num_agents,). If no x_init is given, a random one is generated.
+        len_output : int, optional
+            Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
+            Needs to be at least 2 (for initial value and final value).
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            t_traj (shape=(?,)), x_traj (shape=(?,num_agents))
+        """
+        if self.params.network_generator is not None:
+            self.update_network()
+
+        if x_init is None:
+            x_init = np.random.choice(
+                np.arange(self.params.num_opinions), size=self.params.num_agents
+            )
+        x = np.copy(x_init).astype(int)
+
+        t_delta = 0 if len_output is None else t_max / (len_output - 1)
+
+        t_traj, x_traj = _numba_simulate_const(
+            x,
+            t_delta,
+            t_max,
+            self.params.num_opinions,
+            self.neighbor_list,
+            self.params.r_imit,
+            self.params.r_noise,
+            self.params.prob_imit,
+            self.params.prob_noise,
+            self.degree_alpha,
+        )
 
         return np.array(t_traj), np.array(x_traj, dtype=int)
 
