@@ -4,6 +4,7 @@ from numba import njit
 from numba.typed import List
 
 from .parameters import CNVMParameters
+from .distr_sampling import rand_index_numba
 
 
 class CNVM:
@@ -241,27 +242,6 @@ class CNVM:
 
         return np.array(t_traj), np.array(x_traj, dtype=int)
 
-
-@njit()
-def _rand_index_numba(prob_cum_sum) -> int:
-    """
-    Sample random index 0 <= i < len(prob_cumsum) according to probability distribution.
-
-    Parameters
-    ----------
-    prob_cum_sum : np.ndarray
-        1D array containing the cumulative probabilities, i.e.,
-        the first entry is the probability of choosing index 0,
-        the second entry the probability of choosing index 0 or 1, and so on.
-        The last entry is 1.
-
-    Returns
-    -------
-    int
-    """
-    return np.searchsorted(prob_cum_sum, np.random.random(), side="right")
-
-
 @njit()
 def _numba_simulate_log(
     x: np.ndarray,
@@ -301,7 +281,7 @@ def _numba_simulate_log(
             if np.random.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
         else:
-            agent = _rand_index_numba(prob_cum_sum)
+            agent = rand_index_numba(prob_cum_sum)
             neighbors = neighbor_list[agent]
             new_opinion = x[np.random.choice(neighbors)]
             if np.random.random() < prob_imit[x[agent], new_opinion]:
