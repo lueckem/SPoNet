@@ -76,3 +76,17 @@ class TestModel(TestCase):
         self.assertEqual(t[0], 0)
         self.assertTrue(t[-1] >= t_max)
         self.assertTrue(np.allclose(x[0], x_init))
+
+    def test_rng(self):
+        t_max = 100
+
+        rng1 = np.random.default_rng(1)
+        model = CNVM(self.params_network)
+        t1, x1 = model.simulate(t_max, rng=rng1)
+
+        rng2 = np.random.default_rng(1)
+        model = CNVM(self.params_network)
+        t2, x2 = model.simulate(t_max, rng=rng2)
+
+        self.assertTrue(np.allclose(t1, t2))
+        self.assertTrue(np.allclose(x1, x2))
