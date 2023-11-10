@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.random import Generator, default_rng
 from numba import njit
 from numba.typed import List
 from .parameters import CNTMParameters
@@ -29,7 +30,11 @@ class CNTM:
         )
 
     def simulate(
-        self, t_max: float, x_init: np.ndarray, len_output: int = None
+        self,
+        t_max: float,
+        x_init: np.ndarray,
+        len_output: int = None,
+        rng: Generator = default_rng(),
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Simulate the model from t=0 to t=t_max.
@@ -41,6 +46,8 @@ class CNTM:
             shape=(num_agents,)
         len_output : int, optional
             number of snapshots to output, as equidistantly spaced as possible between 0 and t_max
+        rng : Generator, optional
+            random number generator
 
         Returns
         -------
@@ -61,6 +68,7 @@ class CNTM:
             self.params.threshold_01,
             self.params.threshold_10,
             self.neighbor_list,
+            rng,
         )
 
         return np.array(t_traj), np.array(x_traj)
@@ -77,6 +85,7 @@ def _simulate_numba(
     threshold_01,
     threshold_10,
     neighbor_list,
+    rng,
 ):
     x_traj = [np.copy(x)]
     t = 0
@@ -84,11 +93,11 @@ def _simulate_numba(
 
     t_store = t_delta
     while t < t_max:
-        t += np.random.exponential(next_event_rate)  # time of next event
-        agent = np.random.randint(0, num_agents)  # agent of next event
+        t += rng.exponential(next_event_rate)  # time of next event
+        agent = rng.integers(0, num_agents)  # agent of next event
 
-        if np.random.random() < noise_prob:  # noise
-            x[agent] = np.random.randint(0, 2)
+        if rng.random() < noise_prob:  # noise
+            x[agent] = rng.integers(0, 2)
         else:
             neighbors = neighbor_list[agent]
             if len(neighbors) > 0:

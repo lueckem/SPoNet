@@ -1,5 +1,6 @@
 from __future__ import annotations
 import numpy as np
+from numpy.random import Generator, default_rng
 from numba import njit
 from numba.typed import List
 
@@ -72,7 +73,11 @@ class CNVM:
         self.params.change_rates(r, r_tilde)
 
     def simulate(
-        self, t_max: float, x_init: np.ndarray = None, len_output: int = None
+        self,
+        t_max: float,
+        x_init: np.ndarray = None,
+        len_output: int = None,
+        rng: Generator = default_rng(),
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Simulate the model from t=0 to t=t_max.
@@ -85,6 +90,8 @@ class CNVM:
         len_output : int, optional
             Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
             Needs to be at least 2 (for initial value and final value).
+        rng : Generator, optional
+            random number generator
 
         Returns
         -------
@@ -95,7 +102,7 @@ class CNVM:
             self.update_network()
 
         if x_init is None:
-            x_init = np.random.choice(
+            x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
         x = np.copy(x_init).astype(int)
@@ -114,6 +121,7 @@ class CNVM:
                 self.params.prob_imit,
                 self.params.prob_noise,
                 self.degree_alpha,
+                rng,
             )
 
         else:
@@ -135,12 +143,17 @@ class CNVM:
                 self.params.prob_imit,
                 self.params.prob_noise,
                 self.degree_alpha,
+                rng,
             )
 
         return np.array(t_traj), np.array(x_traj, dtype=int)
 
     def simulate_log_complexity(
-        self, t_max: float, x_init: np.ndarray = None, len_output: int = None
+        self,
+        t_max: float,
+        x_init: np.ndarray = None,
+        len_output: int = None,
+        rng: Generator = default_rng(),
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Simulate the model from t=0 to t=t_max using the log-complexity update.
@@ -158,6 +171,8 @@ class CNVM:
         len_output : int, optional
             Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
             Needs to be at least 2 (for initial value and final value).
+        rng : Generator, optional
+            random number generator
 
         Returns
         -------
@@ -168,7 +183,7 @@ class CNVM:
             self.update_network()
 
         if x_init is None:
-            x_init = np.random.choice(
+            x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
         x = np.copy(x_init).astype(int)
@@ -186,12 +201,17 @@ class CNVM:
             self.params.prob_imit,
             self.params.prob_noise,
             self.degree_alpha,
+            rng,
         )
 
         return np.array(t_traj), np.array(x_traj, dtype=int)
 
     def simulate_const_complexity(
-        self, t_max: float, x_init: np.ndarray = None, len_output: int = None
+        self,
+        t_max: float,
+        x_init: np.ndarray = None,
+        len_output: int = None,
+        rng: Generator = default_rng(),
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Simulate the model from t=0 to t=t_max using the constant-complexity update.
@@ -209,6 +229,8 @@ class CNVM:
         len_output : int, optional
             Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
             Needs to be at least 2 (for initial value and final value).
+        rng : Generator, optional
+            random number generator
 
         Returns
         -------
@@ -219,7 +241,7 @@ class CNVM:
             self.update_network()
 
         if x_init is None:
-            x_init = np.random.choice(
+            x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
         x = np.copy(x_init).astype(int)
@@ -237,13 +259,14 @@ class CNVM:
             self.params.prob_imit,
             self.params.prob_noise,
             self.degree_alpha,
+            rng,
         )
 
         return np.array(t_traj), np.array(x_traj, dtype=int)
 
 
 @njit()
-def _rand_index_numba(prob_cum_sum) -> int:
+def _rand_index_numba(prob_cum_sum: np.ndarray, rng: Generator) -> int:
     """
     Sample random index 0 <= i < len(prob_cumsum) according to probability distribution.
 
@@ -254,12 +277,14 @@ def _rand_index_numba(prob_cum_sum) -> int:
         the first entry is the probability of choosing index 0,
         the second entry the probability of choosing index 0 or 1, and so on.
         The last entry is 1.
+    rng : Generator
+        random number generator
 
     Returns
     -------
     int
     """
-    return np.searchsorted(prob_cum_sum, np.random.random(), side="right")
+    return np.searchsorted(prob_cum_sum, rng.random(), side="right")
 
 
 @njit()
@@ -274,6 +299,7 @@ def _numba_simulate_log(
     prob_imit: np.ndarray,
     prob_noise: np.ndarray,
     degree_alpha: np.ndarray,
+    rng: Generator,
 ):
     """
     CNVM simulation with log-complexity update.
@@ -292,19 +318,20 @@ def _numba_simulate_log(
     # simulation loop
     t_store = t_delta
     while t < t_max:
-        t += np.random.exponential(next_event_rate)  # time of next event
-        noise = True if np.random.random() < noise_probability else False
+        t += rng.exponential(next_event_rate)  # time of next event
+        noise = True if rng.random() < noise_probability else False
 
         if noise:
-            agent = np.random.randint(0, num_agents)  # agent of next event
-            new_opinion = np.random.randint(0, num_opinions)
-            if np.random.random() < prob_noise[x[agent], new_opinion]:
+            agent = rng.integers(0, num_agents)  # agent of next event
+            new_opinion = rng.integers(0, num_opinions)
+            if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
         else:
-            agent = _rand_index_numba(prob_cum_sum)
+            agent = _rand_index_numba(prob_cum_sum, rng)
             neighbors = neighbor_list[agent]
-            new_opinion = x[np.random.choice(neighbors)]
-            if np.random.random() < prob_imit[x[agent], new_opinion]:
+            rand_neighbor = neighbors[rng.integers(0, len(neighbors))]
+            new_opinion = x[rand_neighbor]
+            if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
 
         if t >= t_store:
@@ -327,6 +354,7 @@ def _numba_simulate_const(
     prob_imit: np.ndarray,
     prob_noise: np.ndarray,
     degree_alpha: np.ndarray,
+    rng: Generator,
 ):
     """
     CNVM simulation with constant-complexity update.
@@ -346,18 +374,19 @@ def _numba_simulate_const(
     # simulation loop
     t_store = t_delta
     while t < t_max:
-        t += np.random.exponential(next_event_rate)  # time of next event
-        agent = np.random.randint(0, num_agents)  # agent of next event
-        noise = True if np.random.random() < noise_probability else False
+        t += rng.exponential(next_event_rate)  # time of next event
+        agent = rng.integers(0, num_agents)  # agent of next event
+        noise = True if rng.random() < noise_probability else False
 
         if noise:
-            new_opinion = np.random.randint(0, num_opinions)
-            if np.random.random() < prob_noise[x[agent], new_opinion]:
+            new_opinion = rng.integers(0, num_opinions)
+            if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
-        elif np.random.random() < prob_factor[agent]:
+        elif rng.random() < prob_factor[agent]:
             neighbors = neighbor_list[agent]
-            new_opinion = x[np.random.choice(neighbors)]
-            if np.random.random() < prob_imit[x[agent], new_opinion]:
+            rand_neighbor = neighbors[rng.integers(0, len(neighbors))]
+            new_opinion = x[rand_neighbor]
+            if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
 
         if t >= t_store:
@@ -379,6 +408,7 @@ def _numba_simulate_const_complete(
     prob_imit: np.ndarray,
     prob_noise: np.ndarray,
     degree_alpha: np.ndarray,
+    rng: Generator,
 ):
     """
     CNVM simulation for complete networks.
@@ -397,20 +427,20 @@ def _numba_simulate_const_complete(
     # simulation loop
     t_store = t_delta
     while t < t_max:
-        t += np.random.exponential(next_event_rate)  # time of next event
-        agent = np.random.randint(0, num_agents)  # agent of next event
-        noise = True if np.random.random() < noise_probability else False
+        t += rng.exponential(next_event_rate)  # time of next event
+        agent = rng.integers(0, num_agents)  # agent of next event
+        noise = True if rng.random() < noise_probability else False
 
         if noise:
-            new_opinion = np.random.randint(0, num_opinions)
-            if np.random.random() < prob_noise[x[agent], new_opinion]:
+            new_opinion = rng.integers(0, num_opinions)
+            if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
         else:
-            neighbor = np.random.randint(0, num_agents)
+            neighbor = rng.integers(0, num_agents)
             while neighbor == agent:
-                neighbor = np.random.randint(0, num_agents)
+                neighbor = rng.integers(0, num_agents)
             new_opinion = x[neighbor]
-            if np.random.random() < prob_imit[x[agent], new_opinion]:
+            if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
 
         if t >= t_store:

@@ -1,6 +1,7 @@
 from typing import Protocol
 import networkx as nx
 import numpy as np
+from numpy.random import Generator, default_rng
 import time
 
 
@@ -18,7 +19,13 @@ class NetworkGenerator(Protocol):
 
 
 class ErdosRenyiGenerator:
-    def __init__(self, num_agents: int, p: float, max_sample_time: float = 10):
+    def __init__(
+        self,
+        num_agents: int,
+        p: float,
+        max_sample_time: float = 10,
+        rng: Generator = default_rng(),
+    ):
         """
         Generate Erdös-Renyi (binomial) random graphs.
 
@@ -32,16 +39,19 @@ class ErdosRenyiGenerator:
         p : float
         max_sample_time : float, optional
             In seconds.
+        rng : Generator, optional
+            random number generator
         """
         self.num_agents = num_agents
         self.p = p
         self.max_sample_time = max_sample_time
+        self.rng = rng
 
     def __call__(self) -> nx.Graph:
         gnp_fun = nx.erdos_renyi_graph if self.p > 0.2 else nx.fast_gnp_random_graph
         start = time.time()
         while True:
-            network = gnp_fun(self.num_agents, self.p)
+            network = gnp_fun(self.num_agents, self.p, seed=self.rng)
             if nx.number_of_isolates(network) == 0:
                 return network
 
@@ -58,7 +68,7 @@ class ErdosRenyiGenerator:
 
 
 class RandomRegularGenerator:
-    def __init__(self, num_agents: int, d: int):
+    def __init__(self, num_agents: int, d: int, rng: Generator = default_rng()):
         """
         Generate random regular graphs.
 
@@ -66,12 +76,15 @@ class RandomRegularGenerator:
         ----------
         num_agents : int
         d : int
+        rng : Generator, optional
+            random number generator
         """
         self.num_agents = num_agents
         self.d = d
+        self.rng = rng
 
     def __call__(self) -> nx.Graph:
-        return nx.random_regular_graph(self.d, self.num_agents)
+        return nx.random_regular_graph(self.d, self.num_agents, seed=self.rng)
 
     def __repr__(self) -> str:
         return (
@@ -83,7 +96,7 @@ class RandomRegularGenerator:
 
 
 class BarabasiAlbertGenerator:
-    def __init__(self, num_agents: int, m: int):
+    def __init__(self, num_agents: int, m: int, rng: Generator = default_rng()):
         """
         Generate random scale-free graphs using the Barabasi-Albert model.
 
@@ -91,12 +104,15 @@ class BarabasiAlbertGenerator:
         ----------
         num_agents : int
         m : int
+        rng : Generator, optional
+            random number generator
         """
         self.num_agents = num_agents
         self.m = m
+        self.rng = rng
 
     def __call__(self) -> nx.Graph:
-        return nx.barabasi_albert_graph(self.num_agents, self.m)
+        return nx.barabasi_albert_graph(self.num_agents, self.m, seed=self.rng)
 
     def __repr__(self) -> str:
         return f"Barabasi-Albert random graph on {self.num_agents} nodes"
@@ -106,7 +122,13 @@ class BarabasiAlbertGenerator:
 
 
 class WattsStrogatzGenerator:
-    def __init__(self, num_agents: int, num_neighbors: int, p: float):
+    def __init__(
+        self,
+        num_agents: int,
+        num_neighbors: int,
+        p: float,
+        rng: Generator = default_rng(),
+    ):
         """
         Create random small-world networks using the Watts-Strogatz model.
 
@@ -115,14 +137,17 @@ class WattsStrogatzGenerator:
         num_agents : int
         num_neighbors : int
         p : float
+        rng : Generator, optional
+            random number generator
         """
         self.num_agents = num_agents
         self.num_neighbors = num_neighbors
         self.p = p
+        self.rng = rng
 
     def __call__(self) -> nx.Graph:
         return nx.connected_watts_strogatz_graph(
-            self.num_agents, self.num_neighbors, self.p
+            self.num_agents, self.num_neighbors, self.p, seed=self.rng
         )
 
     def __repr__(self) -> str:
@@ -134,7 +159,11 @@ class WattsStrogatzGenerator:
 
 class StochasticBlockGenerator:
     def __init__(
-        self, num_agents: int, p_matrix: np.ndarray, max_sample_time: float = 10
+        self,
+        num_agents: int,
+        p_matrix: np.ndarray,
+        max_sample_time: float = 10,
+        rng: Generator = default_rng(),
     ):
         """
         Creates n stochastic blocks, block i is randomly connected to block j with edge density p_matrix[i, j].
@@ -150,6 +179,8 @@ class StochasticBlockGenerator:
             (n x n) matrix of edge probabilities.
         max_sample_time : float, optional
             In seconds.
+        rng : Generator, optional
+            random number generator
         """
         self.p_matrix = p_matrix
         self.max_sample_time = max_sample_time
@@ -157,13 +188,14 @@ class StochasticBlockGenerator:
         self.num_blocks = p_matrix.shape[0]
         self.block_size = int(num_agents / self.num_blocks)
         self.num_agents = self.block_size * self.num_blocks
+        self.rng = rng
 
     def _sample_adj_matrix(self):
         adj_matrix = np.zeros((self.num_agents, self.num_agents))
         for i in range(self.num_blocks):
             for j in range(i + 1):
                 this_block = (
-                    np.random.random((self.block_size, self.block_size))
+                    self.rng.random((self.block_size, self.block_size))
                     <= self.p_matrix[i, j]
                 )
                 adj_matrix[
@@ -243,6 +275,7 @@ class BinomialWattsStrogatzGenerator:
         num_neighbors: int,
         p_rewire: float,
         max_sample_time: float = 10,
+        rng: Generator = default_rng(),
     ):
         """
         Creates a ring where each node is connected to the num_neighbors nearest neighbors.
@@ -263,6 +296,8 @@ class BinomialWattsStrogatzGenerator:
         p_rewire : float
         max_sample_time : float, optional
             In seconds.
+        rng : Generator, optional
+            random number generator
         """
         self.num_agents = num_agents
         self.num_neighbors = num_neighbors
@@ -275,17 +310,20 @@ class BinomialWattsStrogatzGenerator:
         self.gnp_fun = (
             nx.erdos_renyi_graph if self.p_insert > 0.2 else nx.fast_gnp_random_graph
         )
+        self.rng = rng
 
     def _sample_network(self):
-        network = nx.watts_strogatz_graph(self.num_agents, self.num_neighbors, 0)
+        network = nx.watts_strogatz_graph(
+            self.num_agents, self.num_neighbors, 0, seed=self.rng
+        )
 
         # remove edges
         edges = np.array(network.edges)
-        idx_to_keep = np.random.random(edges.shape[0]) > self.p_rewire
+        idx_to_keep = self.rng.random(edges.shape[0]) > self.p_rewire
         edges = edges[idx_to_keep, :]
 
         # insert edges
-        network = self.gnp_fun(self.num_agents, self.p_insert)
+        network = self.gnp_fun(self.num_agents, self.p_insert, seed=self.rng)
         network.add_edges_from(edges)
         return network
 
