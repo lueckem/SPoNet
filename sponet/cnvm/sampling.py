@@ -5,6 +5,10 @@ from numpy.random import Generator, default_rng
 from numba import njit
 
 
+# todo: "log" complexity: replace sampling with Alias method
+# todo: const complexity is not needed anymore
+# todo: replace all rng.integer with int(rng.random() * n)
+
 @njit()
 def rand_index_numba(prob_cum_sum: np.ndarray, rng: Generator) -> int:
     """
@@ -57,11 +61,11 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 @njit()
 def sample_alias(table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> int:
-    # u = rng.random()
-    # idx = int(u * table_prob.shape[0])
-    # y = table_prob.shape[0] * u - idx
-    idx = rng.integers(0, table_prob.shape[0])
-    if rng.random() < table_prob[idx]:
+    u = rng.random()
+    idx = int(u * table_prob.shape[0])
+    y = table_prob.shape[0] * u - idx
+    # idx = rng.integers(0, table_prob.shape[0])
+    if y < table_prob[idx]:
         return idx
     return table_alias[idx]
 
@@ -82,12 +86,22 @@ def bench_bisect(n: int, cumsum: np.ndarray, rng: Generator) -> np.ndarray:
     return results
 
 
+@njit()
+def bench_uniform(n: int, high: int,  rng: Generator) -> np.ndarray:
+    results = np.zeros(n)
+    for i in range(n):
+        # results[i] = rng.integers(0, high)
+        results[i] = int(rng.random() * high)
+    return results
+
+
 def benchmark_sampling():
     n_list = [100, 1000, 10000, 100000, 1000000]
-    num_iter = 100000
+    num_iter = 1000000
 
     performance_cdf = []
     performance_table = []
+    performance_uniform = []
 
     rng = default_rng()
 
@@ -115,8 +129,16 @@ def benchmark_sampling():
         end = time.time()
         performance_table.append(end - start)
 
+        # uniform sampling
+        bench_uniform(1, n, rng)  # compile
+        start = time.time()
+        bench_uniform(num_iter, n, rng)
+        end = time.time()
+        performance_uniform.append(end - start)
+
     plt.loglog(n_list, performance_cdf, label="cdf")
     plt.loglog(n_list, performance_table, label="table")
+    plt.loglog(n_list, performance_uniform, label="uniform")
     plt.legend()
     plt.grid()
     plt.show()
