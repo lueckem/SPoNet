@@ -4,25 +4,20 @@ import numpy as np
 from numpy.random import Generator, default_rng
 from numba import njit
 
-
-# todo: "log" complexity: replace sampling with Alias method
 # todo: const complexity is not needed anymore
-# todo: replace all rng.integer with int(rng.random() * n)
+
 
 @njit()
-def rand_index_numba(prob_cum_sum: np.ndarray, rng: Generator) -> int:
+def sample_randint(high_excl: int, rng: Generator) -> int:
     """
-    Sample random index 0 <= i < len(prob_cumsum) according to probability distribution.
+    Sample uniformly random integer in {0, ..., high_excl - 1}.
 
-    Via bisection of CDF (log complexity).
+    It is faster than numpy.randint for single samples.
+    It has a detectable bias if high_excl is really large. (For high_excl < 10^10 it is fine though.)
 
     Parameters
     ----------
-    prob_cum_sum : np.ndarray
-        1D array containing the cumulative probabilities, i.e.,
-        the first entry is the probability of choosing index 0,
-        the second entry the probability of choosing index 0 or 1, and so on.
-        The last entry is 1.
+    high_excl : int
     rng : Generator
         random number generator
 
@@ -30,7 +25,7 @@ def rand_index_numba(prob_cum_sum: np.ndarray, rng: Generator) -> int:
     -------
     int
     """
-    return np.searchsorted(prob_cum_sum, rng.random(), side="right")
+    return int(rng.random() * high_excl)
 
 
 @njit()
@@ -60,11 +55,10 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 @njit()
-def sample_alias(table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> int:
+def sample_from_alias(table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> int:
     u = rng.random()
     idx = int(u * table_prob.shape[0])
     y = table_prob.shape[0] * u - idx
-    # idx = rng.integers(0, table_prob.shape[0])
     if y < table_prob[idx]:
         return idx
     return table_alias[idx]
@@ -74,7 +68,7 @@ def sample_alias(table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator
 def bench_alias(n: int, table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> np.ndarray:
     results = np.zeros(n)
     for i in range(n):
-        results[i] = sample_alias(table_prob, table_alias, rng)
+        results[i] = sample_from_alias(table_prob, table_alias, rng)
     return results
 
 
@@ -82,7 +76,7 @@ def bench_alias(n: int, table_prob: np.ndarray, table_alias: np.ndarray, rng: Ge
 def bench_bisect(n: int, cumsum: np.ndarray, rng: Generator) -> np.ndarray:
     results = np.zeros(n)
     for i in range(n):
-        results[i] = rand_index_numba(cumsum, rng)
+        results[i] = sample_weighted_bisect(cumsum, rng)
     return results
 
 
@@ -90,9 +84,32 @@ def bench_bisect(n: int, cumsum: np.ndarray, rng: Generator) -> np.ndarray:
 def bench_uniform(n: int, high: int,  rng: Generator) -> np.ndarray:
     results = np.zeros(n)
     for i in range(n):
-        # results[i] = rng.integers(0, high)
-        results[i] = int(rng.random() * high)
+        results[i] = sample_randint(high, rng)
     return results
+
+
+@njit()
+def sample_weighted_bisect(prob_cum_sum: np.ndarray, rng: Generator) -> int:
+    """
+    Sample random index 0 <= i < len(prob_cumsum) according to probability distribution.
+
+    Via bisection of CDF (log complexity).
+
+    Parameters
+    ----------
+    prob_cum_sum : np.ndarray
+        1D array containing the cumulative probabilities, i.e.,
+        the first entry is the probability of choosing index 0,
+        the second entry the probability of choosing index 0 or 1, and so on.
+        The last entry is 1.
+    rng : Generator
+        random number generator
+
+    Returns
+    -------
+    int
+    """
+    return np.searchsorted(prob_cum_sum, rng.random(), side="right")
 
 
 def benchmark_sampling():

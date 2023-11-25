@@ -5,7 +5,7 @@ from numba import njit
 from numba.typed import List
 
 from .parameters import CNVMParameters
-from .sampling import rand_index_numba
+from .sampling import sample_from_alias, build_alias_table, sample_randint
 
 
 class CNVM:
@@ -287,7 +287,7 @@ def _numba_simulate_log(
     num_agents = x.shape[0]
     next_event_rate = 1 / (r_imit * np.sum(degree_alpha) + r_noise * num_agents)
     noise_probability = r_noise * num_agents * next_event_rate
-    prob_cum_sum = np.cumsum(degree_alpha / np.sum(degree_alpha))
+    prob_table, alias_table = build_alias_table(degree_alpha)
 
     # initialize
     x_traj = [np.copy(x)]
@@ -301,14 +301,14 @@ def _numba_simulate_log(
         noise = True if rng.random() < noise_probability else False
 
         if noise:
-            agent = rng.integers(0, num_agents)  # agent of next event
-            new_opinion = rng.integers(0, num_opinions)
+            agent = sample_randint(num_agents, rng)  # agent of next event
+            new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
         else:
-            agent = rand_index_numba(prob_cum_sum, rng)
+            agent = sample_from_alias(prob_table, alias_table, rng)
             neighbors = neighbor_list[agent]
-            rand_neighbor = neighbors[rng.integers(0, len(neighbors))]
+            rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
             new_opinion = x[rand_neighbor]
             if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
@@ -407,17 +407,17 @@ def _numba_simulate_const_complete(
     t_store = t_delta
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
-        agent = rng.integers(0, num_agents)  # agent of next event
+        agent = sample_randint(num_agents, rng)  # agent of next event
         noise = True if rng.random() < noise_probability else False
 
         if noise:
-            new_opinion = rng.integers(0, num_opinions)
+            new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
         else:
-            neighbor = rng.integers(0, num_agents)
+            neighbor = sample_randint(num_agents, rng)
             while neighbor == agent:
-                neighbor = rng.integers(0, num_agents)
+                neighbor = sample_randint(num_agents, rng)
             new_opinion = x[neighbor]
             if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
