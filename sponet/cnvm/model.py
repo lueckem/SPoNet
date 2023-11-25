@@ -158,7 +158,7 @@ def _numba_simulate(
     rng: Generator,
 ):
     """
-    CNVM simulation with log-complexity update.
+    CNVM simulation.
     """
     # pre-calculate some values
     num_agents = x.shape[0]
