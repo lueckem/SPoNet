@@ -1,10 +1,6 @@
-import time
-import matplotlib.pyplot as plt
 import numpy as np
-from numpy.random import Generator, default_rng
+from numpy.random import Generator
 from numba import njit
-
-# todo: const complexity is not needed anymore
 
 
 @njit()
@@ -30,6 +26,21 @@ def sample_randint(high_excl: int, rng: Generator) -> int:
 
 @njit()
 def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Construct the probability table and alias table for given weights.
+
+    The tables can be used for an O(1) sampling of the weighted discrete distribution
+    with Prob(i) = weights[i] / sum(weights).
+
+    Parameters
+    ----------
+    weights : np.ndarray
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        probability table, alias table
+    """
     table_prob = weights / np.sum(weights) * weights.shape[0]
     table_alias = np.zeros(weights.shape[0], dtype=np.int32)
 
@@ -56,36 +67,28 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 @njit()
 def sample_from_alias(table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> int:
+    """
+    Sample from weighted discrete distribution given by the probability and alias tables.
+
+    Sampling has O(1) complexity.
+    Should only be used if len(table_prob) < 10^10 due to bias for large numbers.
+
+    Parameters
+    ----------
+    table_prob : np.ndarray
+    table_alias : np.ndarray
+    rng : Generator
+
+    Returns
+    -------
+    int
+    """
     u = rng.random()
     idx = int(u * table_prob.shape[0])
     y = table_prob.shape[0] * u - idx
     if y < table_prob[idx]:
         return idx
     return table_alias[idx]
-
-
-@njit()
-def bench_alias(n: int, table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> np.ndarray:
-    results = np.zeros(n)
-    for i in range(n):
-        results[i] = sample_from_alias(table_prob, table_alias, rng)
-    return results
-
-
-@njit()
-def bench_bisect(n: int, cumsum: np.ndarray, rng: Generator) -> np.ndarray:
-    results = np.zeros(n)
-    for i in range(n):
-        results[i] = sample_weighted_bisect(cumsum, rng)
-    return results
-
-
-@njit()
-def bench_uniform(n: int, high: int,  rng: Generator) -> np.ndarray:
-    results = np.zeros(n)
-    for i in range(n):
-        results[i] = sample_randint(high, rng)
-    return results
 
 
 @njit()
@@ -110,75 +113,3 @@ def sample_weighted_bisect(prob_cum_sum: np.ndarray, rng: Generator) -> int:
     int
     """
     return np.searchsorted(prob_cum_sum, rng.random(), side="right")
-
-
-def benchmark_sampling():
-    n_list = [100, 1000, 10000, 100000, 1000000]
-    num_iter = 1000000
-
-    performance_cdf = []
-    performance_table = []
-    performance_uniform = []
-
-    rng = default_rng()
-
-    for n in n_list:
-        print(n)
-        expected_value = n / 10
-        param_geom = 1 / expected_value
-        probability_vector = [(1 - param_geom) ** k * param_geom for k in range(n)]
-        probability_vector = np.array(probability_vector) / np.sum(probability_vector)
-        probability_vector = np.ones(n) / n
-
-        # cdf sampling
-        cum_sum = np.cumsum(probability_vector)
-        bench_bisect(1, cum_sum, rng)  # compile
-        start = time.time()
-        bench_bisect(num_iter, cum_sum, rng)
-        end = time.time()
-        performance_cdf.append(end - start)
-
-        # table sampling
-        tp, ta = build_alias_table(probability_vector)
-        bench_alias(1, tp, ta, rng)  # compile
-        start = time.time()
-        bench_alias(num_iter, tp, ta, rng)
-        end = time.time()
-        performance_table.append(end - start)
-
-        # uniform sampling
-        bench_uniform(1, n, rng)  # compile
-        start = time.time()
-        bench_uniform(num_iter, n, rng)
-        end = time.time()
-        performance_uniform.append(end - start)
-
-    plt.loglog(n_list, performance_cdf, label="cdf")
-    plt.loglog(n_list, performance_table, label="table")
-    plt.loglog(n_list, performance_uniform, label="uniform")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-
-if __name__ == '__main__':
-    benchmark_sampling()
-    # rng = default_rng()
-    #
-    # p = np.array([0.4581, 0.0032, 0.1985, 0.3298, 0.0022, 0.0080, 0.0002])
-    # tp, ta = build_alias_table(p)
-    # sample_alias(tp, ta, rng)
-    # # print(tp)
-    # # print(ta)
-    #
-    # results = []
-    # start = time.time()
-    # for i in range(10000000):
-    #     results.append(sample_alias(tp, ta, rng))
-    # end = time.time()
-    #
-    # unique, counts = np.unique(results, return_counts=True)
-    # p_sample = counts / len(results)
-    # print(p_sample)
-    # print(end - start)
-
