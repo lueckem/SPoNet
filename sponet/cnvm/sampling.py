@@ -54,7 +54,9 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         table_alias[small_id] = large_id
         table_prob[large_id] = table_prob[large_id] + table_prob[small_id] - 1
 
-        small_ids.append(large_id) if table_prob[large_id] < 1 else large_ids.append(large_id)
+        small_ids.append(large_id) if table_prob[large_id] < 1 else large_ids.append(
+            large_id
+        )
 
     while large_ids:
         table_prob[large_ids.pop()] = 1
@@ -66,7 +68,9 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 @njit()
-def sample_from_alias(table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator) -> int:
+def sample_from_alias(
+    table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator
+) -> int:
     """
     Sample from weighted discrete distribution given by the probability and alias tables.
 
