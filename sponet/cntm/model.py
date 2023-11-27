@@ -3,6 +3,7 @@ from numpy.random import Generator, default_rng
 from numba import njit
 from numba.typed import List
 from .parameters import CNTMParameters
+from ..sampling import sample_randint
 
 
 class CNTM:
@@ -94,10 +95,10 @@ def _simulate_numba(
     t_store = t_delta
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
-        agent = rng.integers(0, num_agents)  # agent of next event
+        agent = sample_randint(num_agents, rng)  # agent of next event
 
         if rng.random() < noise_prob:  # noise
-            x[agent] = rng.integers(0, 2)
+            x[agent] = sample_randint(2, rng)
         else:
             neighbors = neighbor_list[agent]
             if len(neighbors) > 0:
