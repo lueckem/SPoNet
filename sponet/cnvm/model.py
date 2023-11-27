@@ -5,7 +5,7 @@ from numba import njit
 from numba.typed import List
 
 from .parameters import CNVMParameters
-from .sampling import sample_from_alias, build_alias_table, sample_randint
+from ..sampling import sample_from_alias, build_alias_table, sample_randint
 
 
 class CNVM:
