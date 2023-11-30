@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sponet"
-version = "1.4.0"
+version = "1.4.1"
 description = "Spreading Processes on Networks"
 license = "GPL-3.0-or-later"
 authors = ["Marvin Lücke"]
