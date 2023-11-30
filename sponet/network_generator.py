@@ -379,24 +379,22 @@ class BianconiBarabasiGenerator:
 
     def __call__(self) -> nx.Graph:
         g = nx.star_graph(self.m)
-        size_g = len(g)
-        degrees = [d for _, d in g.degree()]
-        fitness_values = self.rng.beta(1, self.lamda + 1, size_g).tolist()
+        degrees = np.array([d for _, d in g.degree()])
+        degrees = np.concatenate(
+            [degrees, np.ones(self.num_agents - len(degrees)) * self.m]
+        )
+        fitness_values = self.rng.beta(1, self.lamda + 1, self.num_agents)
 
-        while size_g < self.num_agents:
-            probabilities = np.array(degrees) * np.array(fitness_values)
+        for size_g in range(len(g), self.num_agents):
+            probabilities = degrees[:size_g] * fitness_values[:size_g]
             probabilities /= np.sum(probabilities)
             nodes_to_link = self.rng.choice(
                 size_g, size=self.m, replace=False, p=probabilities, shuffle=False
             )
             g.add_edges_from(zip([size_g] * self.m, nodes_to_link))
 
-            fitness_values.append(self.rng.beta(1, self.lamda + 1))
             for other in nodes_to_link:
                 degrees[other] += 1
-            degrees.append(self.m)
-
-            size_g += 1
 
         return g
 
