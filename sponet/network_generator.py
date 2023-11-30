@@ -347,7 +347,9 @@ class BinomialWattsStrogatzGenerator:
 
 
 class BianconiBarabasiGenerator:
-    def __init__(self, num_agents: int, m: int, lamda: float, rng: Generator = default_rng()):
+    def __init__(
+        self, num_agents: int, m: int, lamda: float, rng: Generator = default_rng()
+    ):
         """
         Generate random graphs using the Bianconi-Barabasi model.
 
@@ -384,7 +386,9 @@ class BianconiBarabasiGenerator:
         while size_g < self.num_agents:
             probabilities = np.array(degrees) * np.array(fitness_values)
             probabilities /= np.sum(probabilities)
-            nodes_to_link = self.rng.choice(size_g, size=self.m, replace=False, p=probabilities, shuffle=False)
+            nodes_to_link = self.rng.choice(
+                size_g, size=self.m, replace=False, p=probabilities, shuffle=False
+            )
             g.add_edges_from(zip([size_g] * self.m, nodes_to_link))
 
             fitness_values.append(self.rng.beta(1, self.lamda + 1))
