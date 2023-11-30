@@ -344,3 +344,60 @@ class BinomialWattsStrogatzGenerator:
 
     def abrv(self):
         return f"binWS_k{self.num_neighbors}_p{int(self.p_rewire * 100)}_N{self.num_agents}"
+
+
+class BianconiBarabasiGenerator:
+    def __init__(self, num_agents: int, m: int, lamda: float, rng: Generator = default_rng()):
+        """
+        Generate random graphs using the Bianconi-Barabasi model.
+
+        Every node has a fitness eta in [0,1] that is drawn randomly from the distribution with density
+        p(eta) = (lambda + 1) (1 - eta)^lambda.
+        Each new node i is linked to m existing nodes.
+        The probability for a link between the new node i and an existing node j is proportional to
+        eta_j d_j, where d_j is the degree of node j.
+
+        For lambda > 1, the network undergoes Bose-Einstein condensation, i.e., there is one node that
+        maintains a non-vanishing fraction of the links (winner takes it all).
+        For lambda < 1, the fittest nodes accumulate most links,
+        but every node has a vanishing fraction of links (fit get rich).
+
+        Parameters
+        ----------
+        num_agents : int
+        m : int
+        lamda: float
+        rng : Generator, optional
+            random number generator
+        """
+        self.num_agents = num_agents
+        self.m = m
+        self.lamda = lamda
+        self.rng = rng
+
+    def __call__(self) -> nx.Graph:
+        g = nx.star_graph(self.m)
+        size_g = len(g)
+        degrees = [d for _, d in g.degree()]
+        fitness_values = self.rng.beta(1, self.lamda + 1, size_g).tolist()
+
+        while size_g < self.num_agents:
+            probabilities = np.array(degrees) * np.array(fitness_values)
+            probabilities /= np.sum(probabilities)
+            nodes_to_link = self.rng.choice(size_g, size=self.m, replace=False, p=probabilities, shuffle=False)
+            g.add_edges_from(zip([size_g] * self.m, nodes_to_link))
+
+            fitness_values.append(self.rng.beta(1, self.lamda + 1))
+            for other in nodes_to_link:
+                degrees[other] += 1
+            degrees.append(self.m)
+
+            size_g += 1
+
+        return g
+
+    def __repr__(self) -> str:
+        return f"Bianconi-Barabasi random graph on {self.num_agents} nodes"
+
+    def abrv(self):
+        return f"bianconi_barabasi_m{self.m}_N{self.num_agents}"
