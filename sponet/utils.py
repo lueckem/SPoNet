@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.random import Generator
 from numba import njit
 from scipy.integrate import solve_ivp
 import multiprocessing as mp
@@ -23,7 +22,7 @@ def sample_many_runs(
     num_runs: int,
     n_jobs: int = None,
     collective_variable: CollectiveVariable = None,
-    rng: Generator = np.random.default_rng(),
+    seed: int = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Sample multiple runs of the model specified by params.
@@ -47,8 +46,10 @@ def sample_many_runs(
     collective_variable : CollectiveVariable, optional
         If collective variable is specified, the projected trajectory will be returned
         instead of the full trajectory.
-    rng : Generator, optional
-        random number generator
+    seed : int, optional
+        Seed for random number generation.
+        If multiprocessing is used, the subprocesses receive the seeds {seed, seed + 1, ...}.
+
 
     Returns
     -------
@@ -58,6 +59,9 @@ def sample_many_runs(
     """
     t_out = np.linspace(0, t_max, num_timesteps)
 
+    if seed is None:
+        seed = np.random.default_rng().integers(2**31)
+
     # no multiprocessing
     if n_jobs is None or n_jobs == 1:
         x_out = _sample_many_runs_subprocess(
@@ -66,7 +70,7 @@ def sample_many_runs(
             t_max,
             num_timesteps,
             num_runs,
-            rng,
+            seed,
             collective_variable,
         )
         return t_out, x_out
@@ -84,10 +88,10 @@ def sample_many_runs(
                 t_max,
                 num_timesteps,
                 chunk,
-                rng,
+                seed + i,
                 collective_variable,
             )
-            for chunk in chunks
+            for i, chunk in enumerate(chunks)
         ]
         concat_axis = 1
 
@@ -100,10 +104,10 @@ def sample_many_runs(
                 t_max,
                 num_timesteps,
                 num_runs,
-                rng,
+                seed + i,
                 collective_variable,
             )
-            for chunk in chunks
+            for i, chunk in enumerate(chunks)
         ]
         concat_axis = 0
 
@@ -120,11 +124,12 @@ def _sample_many_runs_subprocess(
     t_max: float,
     num_timesteps: int,
     num_runs: int,
-    rng: Generator,
+    seed: int,
     collective_variable: CollectiveVariable = None,
 ) -> np.ndarray:
     t_out = np.linspace(0, t_max, num_timesteps)
     num_initial_states = initial_states.shape[0]
+    rng = np.random.default_rng(seed)
 
     if isinstance(params, CNVMParameters):
         model_type = CNVM
