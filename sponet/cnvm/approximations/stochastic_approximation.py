@@ -2,15 +2,15 @@ import numpy as np
 from numba import njit, prange
 
 from ..parameters import CNVMParameters
-from ... utils import argmatch
+from ...utils import argmatch
 
 
 def sample_stochastic_approximation(
-        params: CNVMParameters,
-        initial_state: np.ndarray,
-        max_time: float,
-        num_timesteps: int,
-        num_samples: int,
+    params: CNVMParameters,
+    initial_state: np.ndarray,
+    max_time: float,
+    num_timesteps: int,
+    num_samples: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
 
@@ -28,18 +28,26 @@ def sample_stochastic_approximation(
     -------
     tuple[np.ndarray, np.ndarray]
     """
-    return _sample_many(initial_state, max_time, params.num_agents, params.r, params.r_tilde, num_timesteps, num_samples)
+    return _sample_many(
+        initial_state,
+        max_time,
+        params.num_agents,
+        params.r,
+        params.r_tilde,
+        num_timesteps,
+        num_samples,
+    )
 
 
 @njit(parallel=True)
 def _sample_many(
-        initial_state: np.ndarray,
-        t_max: float,
-        num_agents: int,
-        r: np.ndarray,
-        r_tilde: np.ndarray,
-        num_timesteps: int,
-        num_samples: int
+    initial_state: np.ndarray,
+    t_max: float,
+    num_agents: int,
+    r: np.ndarray,
+    r_tilde: np.ndarray,
+    num_timesteps: int,
+    num_samples: int,
 ):
     t_delta = t_max / (5 * num_timesteps)
     t_out = np.linspace(0, t_max, num_timesteps + 1)
@@ -65,12 +73,12 @@ def _sample_many(
 
 @njit
 def _simulate(
-        initial_state: np.ndarray,
-        t_max: float,
-        t_delta: float,
-        num_agents: int,
-        r: np.ndarray,
-        r_tilde: np.ndarray
+    initial_state: np.ndarray,
+    t_max: float,
+    t_delta: float,
+    num_agents: int,
+    r: np.ndarray,
+    r_tilde: np.ndarray,
 ):
     t = 0
     c = initial_state.copy()
@@ -103,11 +111,11 @@ def _simulate(
 
 @njit
 def _update_propensities(
-        props: np.ndarray,
-        r: np.ndarray,
-        r_tilde: np.ndarray,
-        c: np.ndarray,
-        num_agents: int,
+    props: np.ndarray,
+    r: np.ndarray,
+    r_tilde: np.ndarray,
+    c: np.ndarray,
+    num_agents: int,
 ):
     for m in range(props.shape[0]):
         for n in range(props.shape[1]):
