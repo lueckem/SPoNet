@@ -1,6 +1,6 @@
 import numba
 import numpy as np
-from .parameters import CNVMParameters
+from ..parameters import CNVMParameters
 
 
 def sample_cle(

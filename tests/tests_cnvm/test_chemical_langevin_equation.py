@@ -1,7 +1,7 @@
 from unittest import TestCase
 import numpy as np
 from sponet.cnvm.parameters import CNVMParameters
-from sponet.cnvm.chemical_langevin_equation import sample_cle
+from sponet.cnvm.approximations.chemical_langevin_equation import sample_cle
 
 
 class TestCLE(TestCase):

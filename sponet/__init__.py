@@ -1,5 +1,5 @@
 from .parameters import Parameters, load_params, save_params
-from .utils import sample_many_runs, calc_rre_traj, plot_trajectories
+from .utils import sample_many_runs, plot_trajectories
 
-from .cnvm import CNVMParameters, CNVM
+from .cnvm import CNVMParameters, CNVM, calc_rre_traj, sample_cle
 from .cntm import CNTMParameters, CNTM
