@@ -31,7 +31,7 @@ class TestCLE(TestCase):
 class TestStochasticApprox(TestCase):
     def test_sample(self):
         num_opinions = 3
-        num_agents = 100
+        num_agents = 10000
         r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
         r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
 
@@ -45,5 +45,6 @@ class TestStochasticApprox(TestCase):
         t_max = 100
         initial_state = np.array([0.9, 0.1, 0.0])
 
-        t, c = sample_stochastic_approximation(params, initial_state, t_max)
-        print(t)
+        t, c = sample_stochastic_approximation(params, initial_state, t_max, 4, 1000)
+        print(len(t))
+        print(c.shape)

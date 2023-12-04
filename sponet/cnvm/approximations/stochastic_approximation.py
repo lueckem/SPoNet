@@ -1,17 +1,16 @@
 import numpy as np
-from numpy.random import Generator
-from numba import njit
+from numba import njit, prange
 
 from ..parameters import CNVMParameters
-from ...sampling import sample_weighted_bisect
+from ... utils import argmatch
 
 
 def sample_stochastic_approximation(
-    params: CNVMParameters,
-    initial_state: np.ndarray,
-    max_time: float,
-    len_output: int = None,
-    rng: Generator = np.random.default_rng(),
+        params: CNVMParameters,
+        initial_state: np.ndarray,
+        max_time: float,
+        num_timesteps: int,
+        num_samples: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
 
@@ -21,39 +20,57 @@ def sample_stochastic_approximation(
     initial_state : np.ndarray
         Initial shares c.
     max_time : float
-    len_output : int, optional
-        Number of states to return, as equidistantly placed as possible.
-        If None, the whole trajectory is returned.
-    rng : Generator, optional
-        random number generator
+    num_timesteps : int
+        Number of states to return, at equidistant times.
+    num_samples: int
 
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
     """
-    t_delta = 0 if len_output is None else max_time / (len_output - 1)
+    return _sample_many(initial_state, max_time, params.num_agents, params.r, params.r_tilde, num_timesteps, num_samples)
 
-    t_traj, c_traj = _simulate(
-        initial_state,
-        max_time,
-        t_delta,
-        params.num_agents,
-        params.r,
-        params.r_tilde,
-        rng,
-    )
-    return np.array(t_traj), np.array(c_traj)
+
+@njit(parallel=True)
+def _sample_many(
+        initial_state: np.ndarray,
+        t_max: float,
+        num_agents: int,
+        r: np.ndarray,
+        r_tilde: np.ndarray,
+        num_timesteps: int,
+        num_samples: int
+):
+    t_delta = t_max / (5 * num_timesteps)
+    t_out = np.linspace(0, t_max, num_timesteps + 1)
+    c_out = np.zeros((num_samples, t_out.shape[0], initial_state.shape[0]))
+
+    for i in prange(num_samples):
+        t, c = _simulate(
+            initial_state,
+            t_max,
+            t_delta,
+            num_agents,
+            r,
+            r_tilde,
+        )
+        t = np.array(t)
+        c = make_2d(c)
+
+        t_ind = argmatch(t_out, t)
+        c_out[i] = c[t_ind, :]
+
+    return t_out, c_out
 
 
 @njit
 def _simulate(
-    initial_state: np.ndarray,
-    t_max: float,
-    t_delta: float,
-    num_agents: int,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-    rng: Generator,
+        initial_state: np.ndarray,
+        t_max: float,
+        t_delta: float,
+        num_agents: int,
+        r: np.ndarray,
+        r_tilde: np.ndarray
 ):
     t = 0
     c = initial_state.copy()
@@ -68,9 +85,10 @@ def _simulate(
         _update_propensities(props, r, r_tilde, c, num_agents)
 
         sum_props = np.sum(props)
-        t += rng.exponential(1 / sum_props)
+        t += np.random.exponential(1 / sum_props)
 
-        reaction = sample_weighted_bisect(np.cumsum(props / sum_props), rng)
+        cum_sum = np.cumsum(props / sum_props)
+        reaction = np.searchsorted(cum_sum, np.random.random(), side="right")
         m, n = reaction // num_opinions, reaction % num_opinions
         c[m] -= 1 / num_agents
         c[n] += 1 / num_agents
@@ -85,11 +103,11 @@ def _simulate(
 
 @njit
 def _update_propensities(
-    props: np.ndarray,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-    c: np.ndarray,
-    num_agents: int,
+        props: np.ndarray,
+        r: np.ndarray,
+        r_tilde: np.ndarray,
+        c: np.ndarray,
+        num_agents: int,
 ):
     for m in range(props.shape[0]):
         for n in range(props.shape[1]):
@@ -97,3 +115,13 @@ def _update_propensities(
                 continue
             props[m, n] = c[m] * (r[m, n] * c[n] + r_tilde[m, n])
     props *= num_agents
+
+
+@njit
+def make_2d(arraylist):
+    n = len(arraylist)
+    k = arraylist[0].shape[0]
+    a2d = np.zeros((n, k))
+    for i in range(n):
+        a2d[i] = arraylist[i]
+    return a2d
