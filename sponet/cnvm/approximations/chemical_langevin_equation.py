@@ -8,7 +8,7 @@ def sample_cle(
     initial_state: np.ndarray,
     max_time: float,
     num_time_steps: int,
-    num_samples: int,
+    num_samples: int = 1,
     saving_offset: int = 1,
 ) -> tuple[np.ndarray, np.ndarray]:
     """

@@ -1,7 +1,6 @@
 from unittest import TestCase
 import numpy as np
-from sponet.cnvm.parameters import CNVMParameters
-from sponet.cnvm.approximations.chemical_langevin_equation import sample_cle
+from sponet import CNVMParameters, sample_cle, sample_stochastic_approximation
 
 
 class TestCLE(TestCase):
@@ -27,3 +26,24 @@ class TestCLE(TestCase):
         self.assertTrue(np.allclose(t, np.linspace(0, t_max, num_time_steps + 1)))
         self.assertEqual(c.shape, (num_samples, num_time_steps + 1, num_opinions))
         self.assertTrue(np.allclose(c[0, 0, :], initial_state))
+
+
+class TestStochasticApprox(TestCase):
+    def test_sample(self):
+        num_opinions = 3
+        num_agents = 100
+        r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
+        r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
+
+        params = CNVMParameters(
+            num_opinions=num_opinions,
+            num_agents=num_agents,
+            r=r,
+            r_tilde=r_tilde,
+        )
+
+        t_max = 100
+        initial_state = np.array([0.9, 0.1, 0.0])
+
+        t, c = sample_stochastic_approximation(params, initial_state, t_max)
+        print(t)
