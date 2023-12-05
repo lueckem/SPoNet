@@ -1,5 +1,6 @@
 from .parameters import Parameters, load_params, save_params
-from .utils import sample_many_runs, plot_trajectories
+from .multiprocessing import sample_many_runs
+from .plotting import plot_trajectories
 
 from .cnvm import (
     CNVMParameters,

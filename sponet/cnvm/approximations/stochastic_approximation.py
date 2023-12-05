@@ -84,8 +84,8 @@ def _simulate(
     c = initial_state.copy()
     num_opinions = c.shape[0]
 
-    t_list = []
-    c_list = []
+    t_list = [0]
+    c_list = [initial_state.copy()]
     props = np.zeros((num_opinions, num_opinions))
 
     t_store = t_delta
