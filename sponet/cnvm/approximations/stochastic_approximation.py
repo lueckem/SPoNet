@@ -13,20 +13,29 @@ def sample_stochastic_approximation(
     num_samples: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
+    Simulate the opinion shares directly.
+
+    Assumes well-mixedness in the sense that the propensity of
+    reaction m -> n is given by
+    c[m] * (r[m, n] * c[n] + r_tilde[m, n]).
+
+    This is only true for complete networks.
+    For other networks the quality of this approximation may vary.
 
     Parameters
     ----------
     params : CNVMParameters
     initial_state : np.ndarray
-        Initial shares c.
+        Initial shares c of shape (num_opinions,).
     max_time : float
     num_timesteps : int
-        Number of states to return, at equidistant times.
+        Number of states in returned trajectory, at equidistant times.
     num_samples: int
 
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
+        t with shape (num_timesteps,), c with shape (num_timesteps, num_opinions)
     """
     return _sample_many(
         initial_state,
