@@ -147,9 +147,9 @@ class OpinionSharesByDegree:
             x_agg = x_agg[:, self.idx_to_return]
             if self.normalize:
                 x_agg /= np.sum(weights)
-            cv[
-                :, i * len(self.idx_to_return) : (i + 1) * len(self.idx_to_return)
-            ] = np.copy(x_agg)
+            cv[:, i * len(self.idx_to_return) : (i + 1) * len(self.idx_to_return)] = (
+                np.copy(x_agg)
+            )
 
         return cv
 

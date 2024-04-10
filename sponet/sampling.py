@@ -54,8 +54,10 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         table_alias[small_id] = large_id
         table_prob[large_id] = table_prob[large_id] + table_prob[small_id] - 1
 
-        small_ids.append(large_id) if table_prob[large_id] < 1 else large_ids.append(
-            large_id
+        (
+            small_ids.append(large_id)
+            if table_prob[large_id] < 1
+            else large_ids.append(large_id)
         )
 
     while large_ids:
