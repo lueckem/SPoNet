@@ -1,6 +1,6 @@
 # Spreading Processes on Networks (SPoNet)
 
-[![build](https://github.com/lueckem/cnvm/actions/workflows/build.yml/badge.svg)](https://github.com/lueckem/cnvm/actions/workflows/build.yml)
+[![build](https://github.com/lueckem/SPoNet/actions/workflows/build.yml/badge.svg)](https://github.com/lueckem/SPoNet/actions/workflows/build.yml)
 
 This package provides an efficient implementation of popular discrete-state spreading processes on networks of interacting *agents*.
 They can be used to simulate how opinions about certain issues develop over time within a population, or how an infectious disease spreads.
