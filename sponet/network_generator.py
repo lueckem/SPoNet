@@ -426,5 +426,5 @@ def _unisolate_vertices(network: nx.Graph) -> None:
         j = i
         while j == i:
             j = np.random.randint(0, network.number_of_nodes())
-        # print(i, j)
+
         network.add_edge(i, j)
