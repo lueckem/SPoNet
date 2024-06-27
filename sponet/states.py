@@ -193,3 +193,47 @@ def sample_states_local_clusters(
         x = np.unique(x.astype(int), axis=0)
 
     return x
+
+
+def build_state_by_degree(
+    network: nx.Graph,
+    opinion_shares: np.ndarray,
+    opinion_order: np.ndarray,
+) -> np.ndarray:
+    """
+    Construct a state where the largest degree nodes have certain opinion.
+
+    Example
+    ----------
+    opinion_shares = [0.2, 0.5, 0.3], opinion_order = [1, 2, 0]
+    means that the 20% of nodes with the largest degree get opinion 1,
+    the subsequent 50% of nodes with the largest degree get opinion 2,
+    and the remaining 30% of nodes (which will have the smallest degrees) get opinion 0.
+
+    Parameters
+    ----------
+    network : nx.Graph
+    opinion_shares : np.ndarray
+        shape = (num_opinions,), has to sum to 1
+    opinion_order : np.ndarray
+        shape = (num_opinions,), permutation of {0, ..., num_opinions - 1}
+
+    Returns
+    -------
+    np.ndarray
+    """
+    num_nodes = network.number_of_nodes()
+    x = np.zeros(num_nodes, dtype=int)
+    degrees = [d for _, d in network.degree()]
+    degrees_sorted_idx = np.argsort(degrees)[::-1]
+
+    opinion_counts = np.round(opinion_shares * num_nodes).astype(int)
+    opinion_counts[-1] = num_nodes - np.sum(opinion_counts[:-1])
+
+    i = 0
+    for opinion, opinion_count in zip(opinion_order, opinion_counts):
+        for _ in range(opinion_count):
+            x[degrees_sorted_idx[i]] = opinion
+            i += 1
+
+    return x
