@@ -61,9 +61,10 @@ class TestStateSampling(TestCase):
         self.assertTrue(np.all(x == np.array([1, 1, 0, 0, 2])))
 
     def test_sample_state_target_cvs(self):
-        num_agents = 1000
+        num_agents = 100
         num_opinions = 3
         col_var = cv.OpinionShares(num_opinions, normalize=True)
         target_cvs = np.array([0.1, 0.7, 0.2])
 
         x = ss.sample_state_target_cvs(num_agents, num_opinions, col_var, target_cvs)
+        self.assertTrue(np.allclose(col_var(x[np.newaxis, :])[0], target_cvs))

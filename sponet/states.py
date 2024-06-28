@@ -278,15 +278,32 @@ def sample_state_target_cvs(
     np.ndarray
         shape = (num_agents,)
     """
-    x = _initial_states_target_cvs(num_agents, num_opinions, 10, col_var, target_cv_value, rng)
+    # pick the best initial state from some randomly sampled ones
+    x = _initial_states_target_cvs(
+        num_agents, num_opinions, 10, col_var, target_cv_value, rng
+    )
+
     norm_target_cv = np.linalg.norm(target_cv_value, 1)
     cv_x = col_var(x[np.newaxis, :])[0]
     diff = np.linalg.norm(cv_x - target_cv_value, 1) / norm_target_cv
 
+    # set temperature in relation to num_agents
+    base_temperature = -2.0 / num_agents / np.log(0.5)
+    temperature_decay_factor = 0.1 ** (1.0 / num_agents)
+    temperature = base_temperature
+    iterations_until_temperature_reset = num_agents
+
     num_iterations = 0
+    iterations_since_improvement = 0
     start = time.time()
     while diff > rtol:
         num_iterations += 1
+        iterations_since_improvement += 1
+        temperature *= temperature_decay_factor
+        # if no improvement could be achieved, increase temperature again
+        if iterations_since_improvement > iterations_until_temperature_reset:
+            temperature = base_temperature
+
         opinion_to_change = num_iterations % num_opinions
         possible_idxs = np.argwhere(x == opinion_to_change)
         if len(possible_idxs) == 0:
@@ -299,7 +316,11 @@ def sample_state_target_cvs(
         x[idx_to_change] = new_opinion
         new_cv_x = col_var(x[np.newaxis, :])[0]
         new_diff = np.linalg.norm(new_cv_x - target_cv_value, 1) / norm_target_cv
-        probability_switch = 1 if new_diff < diff else np.exp(-25 * (new_diff - diff))
+        if new_diff < diff:
+            iterations_since_improvement = 0
+        probability_switch = (
+            1 if new_diff < diff else np.exp(-(new_diff - diff) / temperature)
+        )
         switch = rng.random() <= probability_switch
         if switch:
             diff = new_diff
@@ -312,7 +333,6 @@ def sample_state_target_cvs(
                 f"Timeout: could not generate a state with target CV value after {num_iterations} iterations."
             )
 
-    # print(num_iterations)
     return x
 
 
@@ -324,8 +344,13 @@ def _initial_states_target_cvs(
     target_cv_value: np.ndarray,
     rng: Generator,
 ):
-    x_initial_choices = sample_states_uniform_shares(num_agents, num_opinions, num_initial_samples, rng)
+    x_initial_choices = sample_states_uniform_shares(
+        num_agents, num_opinions, num_initial_samples, rng
+    )
     cv_initial_choices = col_var(x_initial_choices)
-    diffs = [np.linalg.norm(cv_initial_choices[i] - target_cv_value, 1) for i in range(num_initial_samples)]
+    diffs = [
+        np.linalg.norm(cv_initial_choices[i] - target_cv_value, 1)
+        for i in range(num_initial_samples)
+    ]
     min_diff_idx = np.argmin(diffs)
     return x_initial_choices[min_diff_idx]
