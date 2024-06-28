@@ -91,7 +91,8 @@ def sample_states_local_clusters(
     """
     Create states by the following procedure:
     1) Pick uniformly random opinion shares
-    2) Pick num_seeds random seeds on the graph for each opinion (uniformly between min_num_seeds and max_num_seeds)
+    2) Pick num_seeds random seeds on the graph for each opinion
+    (num_seeds is uniformly random between min_num_seeds and max_num_seeds)
     3) Propagate the opinions outward from each seed to neighboring nodes until the shares are reached
 
     Parameters
