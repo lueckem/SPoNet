@@ -30,7 +30,7 @@ class TestStateSampling(TestCase):
         )
         self.assert_states_valid(x, num_agents, 3, 2)
 
-    def test_build_state_by_degree(self):
+    def test_build_state_by_degree_valid_shape(self):
         num_agents = 100
         opinion_shares = np.array([0.2, 0.3, 0.5])
         opinion_order = np.array([1, 0, 2])
@@ -40,3 +40,21 @@ class TestStateSampling(TestCase):
         self.assertTrue(np.issubdtype(x.dtype, np.integer))
         self.assertTrue(np.all(x >= 0))
         self.assertTrue(np.all(x < 3))
+
+    def test_build_state_by_degree_example(self):
+        network = nx.Graph()
+        network.add_edges_from(
+            [
+                (0, 1),
+                (0, 2),
+                (0, 3),
+                (0, 4),
+                (1, 2),
+                (1, 3),
+            ]
+        )  # degrees = [4, 3, 2, 2, 1]
+
+        opinion_shares = np.array([0.4, 0.4, 0.2])
+        opinion_order = np.array([1, 0, 2])
+        x = ss.build_state_by_degree(network, opinion_shares, opinion_order)
+        self.assertTrue(np.all(x == np.array([1, 1, 0, 0, 2])))
