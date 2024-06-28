@@ -1,6 +1,9 @@
 import numpy as np
 from numpy.random import Generator, default_rng
 import networkx as nx
+import time
+
+from .collective_variables import CollectiveVariable
 
 
 def sample_states_uniform(
@@ -238,3 +241,91 @@ def build_state_by_degree(
             i += 1
 
     return x
+
+
+def sample_state_target_cvs(
+    num_agents: int,
+    num_opinions: int,
+    col_var: CollectiveVariable,
+    target_cv_value: np.ndarray,
+    rtol: float = 1e-4,
+    rng: Generator = default_rng(),
+    max_sample_time: float = 10,
+) -> np.ndarray:
+    """
+    Sample a state with target collective variable value.
+
+    Samples a state x such that approximately
+    cv(x) = target_cv_value
+    via MCMC.
+
+    Parameters
+    ----------
+    num_agents : int
+    num_opinions : int
+    col_var : CollectiveVariable
+    target_cv_value : np.ndarray
+        shape = (cv_dim,)
+    rtol : float, optional
+        relative tolerance
+    rng : Generator, optional
+        random number generator
+    max_sample_time : float, optional
+            in seconds
+
+    Returns
+    -------
+    np.ndarray
+        shape = (num_agents,)
+    """
+    x = _initial_states_target_cvs(num_agents, num_opinions, 10, col_var, target_cv_value, rng)
+    norm_target_cv = np.linalg.norm(target_cv_value, 1)
+    cv_x = col_var(x[np.newaxis, :])[0]
+    diff = np.linalg.norm(cv_x - target_cv_value, 1) / norm_target_cv
+
+    num_iterations = 0
+    start = time.time()
+    while diff > rtol:
+        num_iterations += 1
+        opinion_to_change = num_iterations % num_opinions
+        possible_idxs = np.argwhere(x == opinion_to_change)
+        if len(possible_idxs) == 0:
+            continue
+
+        idx_to_change = rng.choice(possible_idxs)
+        new_opinion = rng.integers(num_opinions)
+        while new_opinion == opinion_to_change:
+            new_opinion = rng.integers(num_opinions)
+        x[idx_to_change] = new_opinion
+        new_cv_x = col_var(x[np.newaxis, :])[0]
+        new_diff = np.linalg.norm(new_cv_x - target_cv_value, 1) / norm_target_cv
+        probability_switch = 1 if new_diff < diff else np.exp(-25 * (new_diff - diff))
+        switch = rng.random() <= probability_switch
+        if switch:
+            diff = new_diff
+        else:
+            # switch the opinion back
+            x[idx_to_change] = opinion_to_change
+
+        if time.time() - start > max_sample_time:
+            raise RuntimeError(
+                f"Timeout: could not generate a state with target CV value after {num_iterations} iterations."
+            )
+
+    # print(num_iterations)
+    return x
+
+
+def _initial_states_target_cvs(
+    num_agents: int,
+    num_opinions: int,
+    num_initial_samples: int,
+    col_var: CollectiveVariable,
+    target_cv_value: np.ndarray,
+    rng: Generator,
+):
+    x_initial_choices = sample_states_uniform_shares(num_agents, num_opinions, num_initial_samples, rng)
+    cv_initial_choices = col_var(x_initial_choices)
+    diffs = [np.linalg.norm(cv_initial_choices[i] - target_cv_value, 1) for i in range(num_initial_samples)]
+    min_diff_idx = np.argmin(diffs)
+    return x_initial_choices[min_diff_idx]
