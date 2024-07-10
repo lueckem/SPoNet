@@ -1,5 +1,6 @@
 import numpy as np
 import multiprocessing as mp
+import time
 
 from .collective_variables import CollectiveVariable
 from .parameters import Parameters
@@ -21,6 +22,7 @@ def sample_many_runs(
     n_jobs: int = None,
     collective_variable: CollectiveVariable = None,
     seed: int = None,
+    verbose: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Sample multiple runs of the model specified by params.
@@ -47,6 +49,9 @@ def sample_many_runs(
     seed : int, optional
         Seed for random number generation.
         If multiprocessing is used, the subprocesses receive the seeds {seed, seed + 1, ...}.
+    verbose : bool, optional
+        Whether to print the progress.
+        If multiprocessing is used, only the progress of the first subprocess is printed.
 
 
     Returns
@@ -69,6 +74,7 @@ def sample_many_runs(
             num_timesteps,
             num_runs,
             seed,
+            verbose,
             collective_variable,
         )
         return t_out, x_out
@@ -80,15 +86,16 @@ def sample_many_runs(
     if num_runs >= initial_states.shape[0]:  # parallelization along runs
         chunks = _split_runs(num_runs, n_jobs)
         processes = [
-            (
+            [
                 params,
                 initial_states,
                 t_max,
                 num_timesteps,
                 chunk,
                 seed + i,
+                False,
                 collective_variable,
-            )
+            ]
             for i, chunk in enumerate(chunks)
         ]
         concat_axis = 1
@@ -96,18 +103,22 @@ def sample_many_runs(
     else:  # parallelization along initial states
         chunks = np.array_split(initial_states, n_jobs)
         processes = [
-            (
+            [
                 params,
                 chunk,
                 t_max,
                 num_timesteps,
                 num_runs,
                 seed + i,
+                False,
                 collective_variable,
-            )
+            ]
             for i, chunk in enumerate(chunks)
         ]
         concat_axis = 0
+
+    if verbose:
+        processes[0][6] = True
 
     with mp.Pool(n_jobs) as pool:
         x_out = pool.starmap(_sample_many_runs_subprocess, processes)
@@ -123,6 +134,7 @@ def _sample_many_runs_subprocess(
     num_timesteps: int,
     num_runs: int,
     seed: int,
+    verbose: bool,
     collective_variable: CollectiveVariable = None,
 ) -> np.ndarray:
     t_out = np.linspace(0, t_max, num_timesteps)
@@ -146,8 +158,21 @@ def _sample_many_runs_subprocess(
             (num_initial_states, num_runs, num_timesteps, collective_variable.dimension)
         )
 
+    num_iter = 0
+    total_num_iter = num_initial_states * num_runs
+    iter_delta = round(total_num_iter / 20)
+    next_print_iter = 0
+    start_time = time.time()
+
     for j in range(num_initial_states):
         for i in range(num_runs):
+            if verbose and num_iter >= next_print_iter:
+                percentage = round(num_iter / total_num_iter * 100)
+                elapsed_time = round(time.time() - start_time, 1)
+                print(f"t={elapsed_time}s: {percentage}%")
+                next_print_iter += iter_delta
+            num_iter += 1
+
             t, x = model.simulate(
                 t_max, len_output=4 * num_timesteps, x_init=initial_states[j], rng=rng
             )
