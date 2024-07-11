@@ -1,6 +1,7 @@
 import numpy as np
 import multiprocessing as mp
 import time
+from datetime import timedelta
 
 from .collective_variables import CollectiveVariable
 from .parameters import Parameters
@@ -161,18 +162,14 @@ def _sample_many_runs_subprocess(
     num_iter = 0
     total_num_iter = num_initial_states * num_runs
     iter_delta = round(total_num_iter / 20)
-    next_print_iter = 0
+    next_print_iter = iter_delta
     start_time = time.time()
+    if verbose:
+        print("t=0.0s: 0%.")
 
     for j in range(num_initial_states):
         for i in range(num_runs):
-            if verbose and num_iter >= next_print_iter:
-                percentage = round(num_iter / total_num_iter * 100)
-                elapsed_time = round(time.time() - start_time, 1)
-                print(f"t={elapsed_time}s: {percentage}%")
-                next_print_iter += iter_delta
             num_iter += 1
-
             t, x = model.simulate(
                 t_max, len_output=4 * num_timesteps, x_init=initial_states[j], rng=rng
             )
@@ -181,6 +178,18 @@ def _sample_many_runs_subprocess(
                 x_out[j, i, :, :] = x[t_ind, :]
             else:
                 x_out[j, i, :, :] = collective_variable(x[t_ind, :])
+
+            if verbose and num_iter >= next_print_iter:
+                elapsed_time = time.time() - start_time
+                estimated_duration = elapsed_time / (num_iter / total_num_iter)
+                estimated_time_left = timedelta(
+                    seconds=round(estimated_duration - elapsed_time)
+                )
+                percentage = round(num_iter / total_num_iter * 100)
+                print(
+                    f"t={elapsed_time:.1f}s: {percentage}%. (Time remaining ~{estimated_time_left})"
+                )
+                next_print_iter += iter_delta
     return x_out
 
 
