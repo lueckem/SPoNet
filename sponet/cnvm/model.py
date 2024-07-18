@@ -6,6 +6,7 @@ from numba.typed import List
 
 from .parameters import CNVMParameters
 from ..sampling import sample_from_alias, build_alias_table, sample_randint
+from ..utils import mask_subsequent_duplicates
 
 
 class CNVM:
@@ -140,7 +141,15 @@ class CNVM:
                 rng,
             )
 
-        return np.array(t_traj), np.array(x_traj, dtype=int)
+        t_traj = np.array(t_traj)
+        x_traj = np.array(x_traj, dtype=int)
+        if len_output is None:
+            # remove duplicate subsequent states
+            mask = mask_subsequent_duplicates(x_traj)
+            x_traj = x_traj[mask]
+            t_traj = t_traj[mask]
+
+        return t_traj, x_traj
 
 
 @njit()

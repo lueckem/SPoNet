@@ -41,3 +41,31 @@ def argmatch(x_ref, x):
         ref_ind += 1
 
     return out
+
+
+def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
+    """
+    Calculate mask that removes subsequent duplicates.
+
+    For example if x=[1,1,2,2,3,1,3,3] then x[mask]=[1,2,3,1,3].
+    If x has more than one dimensions, the duplicates are removed w.r.t. the first axis.
+    For example if x=[[1,1],[1,1],[2,2]] then x[mask]=[[1,1],[2,2]].
+
+    Parameters
+    ----------
+    x : np.ndarray
+        1D or 2D array.
+
+    Returns
+    -------
+    np.ndarray
+    """
+    if x.ndim == 1:
+        mask = x[:-1] != x[1:]
+    elif x.ndim == 2:
+        mask = np.any(x[:-1] != x[1:], axis=1)
+    else:
+        raise ValueError("Only 1D and 2D arrays are supported.")
+    mask = np.concatenate((np.array([True]), mask))
+
+    return mask

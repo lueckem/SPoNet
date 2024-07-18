@@ -41,7 +41,6 @@ class TestModel(TestCase):
         t_max = 100
         t, x = model.simulate(t_max)
         self.assertEqual(t[0], 0)
-        self.assertTrue(t[-1] >= t_max)
         self.assertEqual(t.shape[0], x.shape[0])
 
         t, x = model.simulate(t_max, len_output=10)
@@ -53,7 +52,6 @@ class TestModel(TestCase):
         model = CNVM(self.params_network)
         t, x = model.simulate(t_max)
         self.assertEqual(t[0], 0)
-        self.assertTrue(t[-1] >= t_max)
         self.assertEqual(t.shape[0], x.shape[0])
 
         t, x = model.simulate(t_max, len_output=10)
@@ -66,7 +64,6 @@ class TestModel(TestCase):
         model = CNVM(self.params_generator)
         t, x = model.simulate(t_max, x_init=x_init)
         self.assertEqual(t[0], 0)
-        self.assertTrue(t[-1] >= t_max)
         self.assertEqual(t.shape[0], x.shape[0])
         self.assertTrue(np.allclose(x[0], x_init))
 
@@ -90,3 +87,13 @@ class TestModel(TestCase):
 
         self.assertTrue(np.allclose(t1, t2))
         self.assertTrue(np.allclose(x1, x2))
+
+    def test_output_concise(self):
+        # If len_output is not specified, the output should only contain states that
+        # have changed from one snapshot to the next
+        model = CNVM(self.params_network)
+        t_max = 100
+        t, x = model.simulate(t_max)
+
+        for i in range(x.shape[0] - 1):
+            self.assertFalse(np.allclose(x[i], x[i + 1]))
