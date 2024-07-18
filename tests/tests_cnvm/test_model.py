@@ -90,3 +90,15 @@ class TestModel(TestCase):
 
         self.assertTrue(np.allclose(t1, t2))
         self.assertTrue(np.allclose(x1, x2))
+
+    def test_output_concise(self):
+        # If len_output is not specified, the output should only contain states that
+        # have changed from one snapshot to the next
+        model = CNVM(self.params_network)
+        t_max = 100
+        t, x = model.simulate(t_max)
+
+        for i in range(x.shape[0] - 1):
+            # if np.allclose(x[i], x[i + 1]):
+            #     print(i)
+            self.assertFalse(np.allclose(x[i], x[i + 1]))
