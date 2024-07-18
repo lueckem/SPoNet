@@ -54,26 +54,18 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
     Parameters
     ----------
     x : np.ndarray
+        1D or 2D array.
 
     Returns
     -------
     np.ndarray
     """
-    # mask = np.full(x.shape[0], True, dtype=bool)
-    # for i in range(x.shape[0] - 1):
-    #     if np.all(x[i] == x[i + 1]):
-    #         mask[i + 1] = False
-
-    # mask = [True] + [not np.all(x[i] == x[i + 1]) for i in range(x.shape[0] - 1)]
-    # mask = np.array(mask, dtype=bool)
-
     if x.ndim == 1:
         mask = x[:-1] != x[1:]
+    elif x.ndim == 2:
+        mask = np.all(x[:-1] != x[1:], axis=1)
     else:
-        mask = np.all(x[:-1] != x[1:], axis=-1)
-    mask = np.concatenate([np.array([True]), mask])
-
-    print(x[:-1] != x[1:])
-    print(np.all(x[:-1] != x[1:], axis=-1))
+        raise ValueError("Only 1D and 2D arrays are supported.")
+    mask = np.concatenate((np.array([True]), mask))
 
     return mask
