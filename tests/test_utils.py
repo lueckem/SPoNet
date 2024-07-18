@@ -24,11 +24,10 @@ class TestMaskSubsequentDuplicates(TestCase):
         self.assertTrue(np.all(x[mask] == [1, 2, 3, 1, 3]))
 
     def test_2d(self):
-        x = np.array([[1, 1], [1, 1], [2, 2], [2, 2], [2, 2], [1, 1]], dtype=int)
+        x = np.array([[1, 1], [1, 1], [2, 2], [2, 1], [2, 1], [1, 1]], dtype=int)
         mask = mask_subsequent_duplicates(x)
-        self.assertTrue(np.all(x[mask] == [[1, 1], [2, 2], [1, 1]]))
+        self.assertTrue(np.all(x[mask] == [[1, 1], [2, 2], [2, 1], [1, 1]]))
 
     def test_exception(self):
         with self.assertRaises(ValueError):
             mask_subsequent_duplicates(np.zeros((3, 3, 3)))
-

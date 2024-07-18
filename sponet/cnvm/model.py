@@ -145,9 +145,11 @@ class CNVM:
         x_traj = np.array(x_traj, dtype=int)
         if len_output is None:
             # remove duplicate subsequent states
-            pass
+            mask = mask_subsequent_duplicates(x_traj)
+            x_traj = x_traj[mask]
+            t_traj = t_traj[mask]
 
-        return np.array(t_traj), np.array(x_traj, dtype=int)
+        return t_traj, x_traj
 
 
 @njit()

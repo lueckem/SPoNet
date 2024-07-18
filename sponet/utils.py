@@ -63,7 +63,7 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
     if x.ndim == 1:
         mask = x[:-1] != x[1:]
     elif x.ndim == 2:
-        mask = np.all(x[:-1] != x[1:], axis=1)
+        mask = np.any(x[:-1] != x[1:], axis=1)
     else:
         raise ValueError("Only 1D and 2D arrays are supported.")
     mask = np.concatenate((np.array([True]), mask))
