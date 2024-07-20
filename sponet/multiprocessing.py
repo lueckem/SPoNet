@@ -165,7 +165,7 @@ def _sample_many_runs_subprocess(
     next_print_iter = iter_delta
     start_time = time.time()
     if verbose:
-        print("t=0.0s: 0%.")
+        print("t=0:00:00 : 0%.")
 
     for j in range(num_initial_states):
         for i in range(num_runs):
@@ -185,9 +185,10 @@ def _sample_many_runs_subprocess(
                 estimated_time_left = timedelta(
                     seconds=round(estimated_duration - elapsed_time)
                 )
+                elapsed_time = timedelta(seconds=round(elapsed_time))
                 percentage = round(num_iter / total_num_iter * 100)
                 print(
-                    f"t={elapsed_time:.1f}s: {percentage}%. (Time remaining ~{estimated_time_left})"
+                    f"t={elapsed_time} : {percentage}%. (Time remaining ~{estimated_time_left})"
                 )
                 next_print_iter += iter_delta
     return x_out
