@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<3.13"
 numpy = ">=1.21"
 numba = ">=0.56"
 networkx = ">=2.8.4"
