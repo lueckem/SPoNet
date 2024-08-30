@@ -36,6 +36,7 @@ class TestModel(TestCase):
             r_tilde=self.r_tilde,
         )
 
+
     def test_output(self):
         model = CNVM(self.params_complete)
         t_max = 100
@@ -97,3 +98,34 @@ class TestModel(TestCase):
 
         for i in range(x.shape[0] - 1):
             self.assertFalse(np.allclose(x[i], x[i + 1]))
+
+    def test_output_dtype(self):
+
+        num_opinions_list = [2, 256]
+
+        for num_opinions in num_opinions_list:
+            r = np.ones((num_opinions, num_opinions))
+            r_tilde = np.ones((num_opinions, num_opinions))
+            np.fill_diagonal(r, 0)
+            np.fill_diagonal(r_tilde, 0)
+
+            params = CNVMParameters(
+                num_opinions=num_opinions,
+                num_agents=self.num_agents,
+                r=r,
+                r_tilde=r_tilde,
+            )
+
+            model = CNVM(params)
+            t_max = 5
+            t, x = model.simulate(t_max)
+
+            self.assertEqual(np.min_scalar_type(num_opinions), x.dtype)
+
+
+
+
+
+
+
+

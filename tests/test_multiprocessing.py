@@ -114,3 +114,32 @@ class TestSampleManyRuns(TestCase):
                 self.num_opinions,
             ),
         )
+
+    def test_output_dtype_no_cv(self):
+        num_opinions_list = [2, 256]
+
+        for num_opinions in num_opinions_list:
+            r = np.ones((num_opinions, num_opinions))
+            r_tilde = np.ones((num_opinions, num_opinions))
+            np.fill_diagonal(r, 0)
+            np.fill_diagonal(r_tilde, 0)
+
+            params = CNVMParameters(
+                num_opinions=num_opinions,
+                num_agents=self.num_agents,
+                r=r,
+                r_tilde=r_tilde,
+            )
+
+            t, x = sample_many_runs(
+                params=params,
+                initial_states=self.initial_states,
+                t_max=self.t_max,
+                num_timesteps=self.num_timesteps,
+                num_runs=2,
+                n_jobs=2,
+                collective_variable=None,
+            )
+
+            self.assertEqual(np.min_scalar_type(num_opinions), x.dtype)
+
