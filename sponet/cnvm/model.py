@@ -103,7 +103,7 @@ class CNVM:
         if self.params.network_generator is not None:
             self.update_network()
 
-        opinion_dtype = np.min_scalar_type(self.params.num_opinions)
+        opinion_dtype = np.min_scalar_type(self.params.num_opinions-1)
 
         if x_init is None:
             x_init = rng.choice(

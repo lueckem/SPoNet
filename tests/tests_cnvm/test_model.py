@@ -101,26 +101,22 @@ class TestModel(TestCase):
 
     def test_output_dtype(self):
 
-        num_opinions_list = [2, 256]
+        num_opinions_list = [2, 257]
+        correct_dtype_list = [np.uint8, np.uint16]
 
-        for num_opinions in num_opinions_list:
-            r = np.ones((num_opinions, num_opinions))
-            r_tilde = np.ones((num_opinions, num_opinions))
-            np.fill_diagonal(r, 0)
-            np.fill_diagonal(r_tilde, 0)
-
+        for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
             params = CNVMParameters(
                 num_opinions=num_opinions,
                 num_agents=self.num_agents,
-                r=r,
-                r_tilde=r_tilde,
+                r=1,
+                r_tilde=1,
             )
 
             model = CNVM(params)
             t_max = 5
             t, x = model.simulate(t_max)
 
-            self.assertEqual(np.min_scalar_type(num_opinions), x.dtype)
+            self.assertEqual(correct_dtype, x.dtype)
 
 
 
