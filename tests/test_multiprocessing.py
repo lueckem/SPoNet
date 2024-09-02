@@ -120,7 +120,6 @@ class TestSampleManyRuns(TestCase):
         correct_dtype_list = [np.uint8, np.uint16]
 
         for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
-
             params = CNVMParameters(
                 num_opinions=num_opinions,
                 num_agents=self.num_agents,
@@ -139,4 +138,3 @@ class TestSampleManyRuns(TestCase):
             )
 
             self.assertEqual(correct_dtype, x.dtype)
-

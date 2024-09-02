@@ -36,7 +36,6 @@ class TestModel(TestCase):
             r_tilde=self.r_tilde,
         )
 
-
     def test_output(self):
         model = CNVM(self.params_complete)
         t_max = 100
@@ -100,7 +99,6 @@ class TestModel(TestCase):
             self.assertFalse(np.allclose(x[i], x[i + 1]))
 
     def test_output_dtype(self):
-
         num_opinions_list = [2, 257]
         correct_dtype_list = [np.uint8, np.uint16]
 
@@ -117,11 +115,3 @@ class TestModel(TestCase):
             t, x = model.simulate(t_max)
 
             self.assertEqual(correct_dtype, x.dtype)
-
-
-
-
-
-
-
-
