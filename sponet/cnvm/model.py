@@ -109,7 +109,7 @@ class CNVM:
             x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
-        x = np.copy(x_init).astype(opinion_dtype)
+        x = x_init.astype(opinion_dtype)
 
         t_delta = 0 if len_output is None else t_max / (len_output - 1)
 
