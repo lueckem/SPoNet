@@ -103,11 +103,13 @@ class CNVM:
         if self.params.network_generator is not None:
             self.update_network()
 
+        opinion_dtype = np.min_scalar_type(self.params.num_opinions-1)
+
         if x_init is None:
             x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
-        x = np.copy(x_init).astype(int)
+        x = np.copy(x_init).astype(opinion_dtype)
 
         t_delta = 0 if len_output is None else t_max / (len_output - 1)
 
@@ -142,7 +144,7 @@ class CNVM:
             )
 
         t_traj = np.array(t_traj)
-        x_traj = np.array(x_traj, dtype=int)
+        x_traj = np.array(x_traj, dtype=opinion_dtype)
         if len_output is None:
             # remove duplicate subsequent states
             mask = mask_subsequent_duplicates(x_traj)

@@ -151,8 +151,12 @@ def _sample_many_runs_subprocess(
     model = model_type(params)
 
     if collective_variable is None:
+
+        opinion_dtype = np.min_scalar_type(params.num_opinions-1)
+
         x_out = np.zeros(
-            (num_initial_states, num_runs, num_timesteps, model.params.num_agents)
+            (num_initial_states, num_runs, num_timesteps, model.params.num_agents),
+            dtype=opinion_dtype
         )
     else:
         x_out = np.zeros(

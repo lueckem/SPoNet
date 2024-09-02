@@ -114,3 +114,29 @@ class TestSampleManyRuns(TestCase):
                 self.num_opinions,
             ),
         )
+
+    def test_output_dtype_no_cv(self):
+        num_opinions_list = [2, 257]
+        correct_dtype_list = [np.uint8, np.uint16]
+
+        for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
+
+            params = CNVMParameters(
+                num_opinions=num_opinions,
+                num_agents=self.num_agents,
+                r=1,
+                r_tilde=1,
+            )
+
+            t, x = sample_many_runs(
+                params=params,
+                initial_states=self.initial_states,
+                t_max=5,
+                num_timesteps=self.num_timesteps,
+                num_runs=2,
+                n_jobs=2,
+                collective_variable=None,
+            )
+
+            self.assertEqual(correct_dtype, x.dtype)
+
