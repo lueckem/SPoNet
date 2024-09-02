@@ -103,15 +103,26 @@ class TestModel(TestCase):
         correct_dtype_list = [np.uint8, np.uint16]
 
         for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
+            # complete network
             params = CNVMParameters(
                 num_opinions=num_opinions,
                 num_agents=self.num_agents,
                 r=1,
                 r_tilde=1,
             )
-
             model = CNVM(params)
             t_max = 5
             t, x = model.simulate(t_max)
+            self.assertEqual(correct_dtype, x.dtype)
 
+            # network
+            params = CNVMParameters(
+                num_opinions=num_opinions,
+                network=nx.barabasi_albert_graph(self.num_agents, 2),
+                r=1,
+                r_tilde=1,
+            )
+            model = CNVM(params)
+            t_max = 5
+            t, x = model.simulate(t_max)
             self.assertEqual(correct_dtype, x.dtype)
