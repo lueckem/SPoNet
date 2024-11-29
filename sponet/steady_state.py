@@ -10,7 +10,10 @@ from .parameters import Parameters
 
 
 def estimate_steady_state(
-    params: Parameters, col_var: CollectiveVariable, tol_abs: float = 0.01
+    params: Parameters,
+    col_var: CollectiveVariable,
+    tol_abs: float = 0.01,
+    max_chunk_size: int = 1000,
 ) -> np.ndarray:
     """
     Estimate steady state of collective variable via a long simulation.
@@ -25,6 +28,8 @@ def estimate_steady_state(
     col_var: CollectiveVariable
     tol_abs : float, optional
         absolute tolerance
+    max_chunk_size : int, optional
+        bound how many samples are acquired in one step to reduce memory consumption
 
     Returns
     -------
@@ -42,8 +47,6 @@ def estimate_steady_state(
         raise ValueError("Parameters not valid.")
 
     delta_t = float(delta_t)
-    print(f"delta_t = {delta_t}")
-
     # transient phase: integrate until steady state
     print("Integrating through transient phase...")
     _, x = model.simulate(1000 * delta_t, len_output=2)
@@ -55,7 +58,10 @@ def estimate_steady_state(
 
     while remaining_samples > 0:
         print(f"Current esimate: {mean_c}")
+        print(f"Approximately {remaining_samples} more samples are required.")
+        remaining_samples = min(remaining_samples, max_chunk_size)
         print(f"Acquiring {remaining_samples} more samples...")
+        print("")
 
         _, x = model.simulate(
             remaining_samples * delta_t, x[-1], len_output=remaining_samples + 1
