@@ -2,6 +2,7 @@ from .cntm import CNTM, CNTMParameters
 from .cnvm import (
     CNVM,
     CNVMParameters,
+    calc_pair_approximation_traj,
     calc_rre_traj,
     sample_cle,
     sample_stochastic_approximation,

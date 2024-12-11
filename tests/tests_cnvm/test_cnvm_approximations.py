@@ -1,11 +1,15 @@
 from unittest import TestCase
+
+import networkx as nx
 import numpy as np
+
 from sponet import (
     CNVMParameters,
-    sample_many_runs,
-    sample_cle,
-    sample_stochastic_approximation,
+    calc_pair_approximation_traj,
     calc_rre_traj,
+    sample_cle,
+    sample_many_runs,
+    sample_stochastic_approximation,
 )
 from sponet.collective_variables import OpinionShares
 
@@ -121,3 +125,43 @@ class TestAgreement(TestCase):
         self.assertTrue(np.mean((mean_c - mean_c_cle) ** 2) < 1e-3)
         self.assertTrue(np.mean((mean_c - mean_c_sa) ** 2) < 1e-3)
         self.assertTrue(np.mean((mean_c - c_rre) ** 2) < 1e-3)
+
+
+class TestPairApprox(TestCase):
+    def test_calc_pair_approximation_traj(self):
+        from sponet.collective_variables import Interfaces
+
+        num_opinions = 2
+        num_agents = 1000
+        r = np.array([[0, 1], [1.1, 0]])
+        r_tilde = 0.01
+        network = nx.barabasi_albert_graph(num_agents, 3)
+
+        params = CNVMParameters(
+            num_opinions=num_opinions,
+            network=network,
+            r=r,
+            r_tilde=r_tilde,
+        )
+
+        t_max = 100
+        num_time_steps = 10000
+        x_0 = np.zeros(num_agents)
+        x_0[:100] = 1
+        c_0 = 0.1
+        s_0 = 0.5 * Interfaces(network, True)(np.array([x_0]))[0, 0]
+        mean_degree = np.mean([d for _, d in network.degree()])
+
+        t, c_pa = calc_pair_approximation_traj(
+            params,
+            c_0,
+            s_0,
+            mean_degree,
+            t_max,
+            t_eval=np.linspace(0, t_max, num_time_steps + 1),
+        )
+
+        self.assertEqual(c_pa.shape, (10001, 2))
+        self.assertEqual(c_pa[0, 0], c_0)
+        self.assertEqual(c_pa[0, 1], s_0)
+        self.assertTrue(np.allclose(t, np.linspace(0, t_max, num_time_steps + 1)))
