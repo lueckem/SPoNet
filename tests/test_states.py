@@ -1,9 +1,10 @@
 from unittest import TestCase
-import numpy as np
-import networkx as nx
 
-import sponet.states as ss
+import networkx as nx
+import numpy as np
+
 import sponet.collective_variables as cv
+import sponet.states as ss
 
 
 class TestStateSampling(TestCase):
@@ -22,6 +23,17 @@ class TestStateSampling(TestCase):
     def test_sample_states_uniform_shares(self):
         x = ss.sample_states_uniform_shares(100, 3, 2)
         self.assert_states_valid(x, 100, 3, 2)
+
+    def test_sample_states_target_shares(self):
+        num_agents = 100
+        target_shares = np.array([0.236, 0.464, 0.3])
+        x = ss.sample_states_target_shares(num_agents, target_shares, 10)
+        self.assert_states_valid(x, num_agents, 3, 10)
+
+        for i in range(10):
+            self.assertEqual(np.sum(x[i, :] == 0), 24)
+            self.assertEqual(np.sum(x[i, :] == 1), 46)
+            self.assertEqual(np.sum(x[i, :] == 2), 30)
 
     def test_sample_states_local_cluster(self):
         num_agents = 100

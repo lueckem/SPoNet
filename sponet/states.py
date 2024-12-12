@@ -1,7 +1,8 @@
+import time
+
+import networkx as nx
 import numpy as np
 from numpy.random import Generator, default_rng
-import networkx as nx
-import time
 
 from .collective_variables import CollectiveVariable
 
@@ -79,6 +80,46 @@ def sample_states_uniform_shares(
             ]
         )
         x = np.unique(x.astype(int), axis=0)
+
+    return x
+
+
+def sample_states_target_shares(
+    num_agents: int,
+    target_shares: np.ndarray,
+    num_states: int,
+    rng: Generator = default_rng(),
+) -> np.ndarray:
+    """
+    Sample random states with target opinion shares.
+
+    Each state respects the given target_shares of each opinion, such that sum(target_shares) = 1.
+    Each state is randomly shuffled.
+
+    Parameters
+    ----------
+    num_agents : int
+    target_share : np.ndarray
+        shape = (num_opinions,)
+    num_states : int
+    rng : Generator, optional
+        random number generator
+
+    Returns
+    -------
+    np.ndarray
+        shape = (num_states, num_agents)
+    """
+    x = np.zeros((num_states, num_agents)).astype(int)
+
+    target_counts = np.round(target_shares * num_agents)
+    target_counts = target_counts.astype(int)
+    target_counts[-1] = max(0, num_agents - np.sum(target_counts[:-1]))
+    x_ordered = np.repeat(np.arange(len(target_counts)), target_counts)
+
+    for i in range(num_states):
+        x[i] = x_ordered
+        rng.shuffle(x[i])
 
     return x
 
