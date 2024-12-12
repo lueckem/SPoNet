@@ -26,9 +26,9 @@ def calc_pair_approximation_traj(
     ----------
     params : CNVMParameters
     c_0 : float
-        Initial share of c.
+        Initial state of c.
     s_0 : float
-        Initial share of s.
+        Initial state of s.
     t_max : float
         End time.
     t_eval : np.ndarray, optional
@@ -63,6 +63,7 @@ def calc_pair_approximation_traj(
             - 2 * params.r_tilde[0, 1]
             - 2 * params.r_tilde[1, 0]
         )
+        ds += params.r_tilde[0, 1]
 
         return np.array([dc, ds])
 
