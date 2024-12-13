@@ -50,19 +50,19 @@ def calc_pair_approximation_traj(
         c, s = c_pa
 
         dc = (
-            s * (params.r[0, 1] + params.r[1, 0])
-            - c * (params.r[1, 0] + params.r_tilde[0, 1] + params.r_tilde[1, 0])
+            s * (params.r[0, 1] - params.r[1, 0])
+            - c * (params.r_tilde[0, 1] + params.r_tilde[1, 0])
             + params.r_tilde[0, 1]
         )
 
-        ds = -2 * (d - 1) / d * s * s / (1 - c) * (params.r[0, 1] + params.r[1, 0])
-        ds += c * (params.r[1, 0] + params.r_tilde[1, 0] - params.r_tilde[0, 1])
+        ds = -2 * (d - 1) / d * s * s / (1 - c) * params.r[0, 1]
+        ds += -2 * (d - 1) / d * s * s / c * params.r[1, 0]
         ds += s * (
-            (d - 2) / d * params.r[0, 1]
-            - params.r[1, 0]
+            (d - 2) / d * (params.r[0, 1] + params.r[1, 0])
             - 2 * params.r_tilde[0, 1]
             - 2 * params.r_tilde[1, 0]
         )
+        ds += c * (params.r_tilde[1, 0] - params.r_tilde[0, 1])
         ds += params.r_tilde[0, 1]
 
         return np.array([dc, ds])
