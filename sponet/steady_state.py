@@ -57,8 +57,6 @@ def estimate_steady_state(
     mean_c = c[-1]
 
     while remaining_samples > 0:
-        print(f"Current esimate: {mean_c}")
-        print(f"Approximately {remaining_samples} more samples are required.")
         remaining_samples = min(remaining_samples, max_chunk_size)
         print(f"Acquiring {remaining_samples} more samples...")
         print("")
@@ -74,5 +72,10 @@ def estimate_steady_state(
         total_samples = int(4 * np.max(var_c) / tol_abs**2)
         remaining_samples = total_samples - c.shape[0]
 
+        if remaining_samples > 0:
+            print(f"Current esimate: {mean_c}")
+            print(f"Approximately {remaining_samples} more samples are required.")
+
+    print(f"Finished after acquiring {c.shape[0]} samples.")
     print(f"Final estimate: {mean_c}")
     return mean_c
