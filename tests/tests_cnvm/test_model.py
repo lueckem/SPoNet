@@ -1,10 +1,11 @@
 from unittest import TestCase
-import numpy as np
-import networkx as nx
 
-from sponet.cnvm.parameters import CNVMParameters
-from sponet.cnvm.model import CNVM
+import networkx as nx
+import numpy as np
+
 import sponet.network_generator as ng
+from sponet.cnvm.model import CNVM
+from sponet.cnvm.parameters import CNVMParameters
 
 
 class TestModel(TestCase):
@@ -126,3 +127,20 @@ class TestModel(TestCase):
             t_max = 5
             t, x = model.simulate(t_max)
             self.assertEqual(correct_dtype, x.dtype)
+
+    def test_output_fill(self):
+        # If there are less transitions than the requested len_output,
+        # the output should be filled with copies appropriately
+        num_agents = 5
+        num_opinions = 2
+        network = nx.cycle_graph(num_agents)
+        params = CNVMParameters(
+            num_opinions=num_opinions, network=network, r=1, r_tilde=0.01
+        )
+        model = CNVM(params)
+        rng = np.random.default_rng(1)
+        t, x = model.simulate(10, len_output=1001, rng=rng)
+        print(t[:10])
+        print(x[:10, 0])
+        self.assertEqual(t.shape, (1001,))
+        self.assertEqual(x.shape, (1001, num_agents))

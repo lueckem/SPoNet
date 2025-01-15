@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 import numpy as np
-from numpy.random import Generator, default_rng
 from numba import njit
 from numba.typed import List
+from numpy.random import Generator, default_rng
 
+from ..sampling import build_alias_table, sample_from_alias, sample_randint
+from ..utils import argmatch, mask_subsequent_duplicates
 from .parameters import CNVMParameters
-from ..sampling import sample_from_alias, build_alias_table, sample_randint
-from ..utils import mask_subsequent_duplicates
 
 
 class CNVM:
@@ -150,6 +151,13 @@ class CNVM:
             mask = mask_subsequent_duplicates(x_traj)
             x_traj = x_traj[mask]
             t_traj = t_traj[mask]
+        elif t_traj.shape[0] != len_output:
+            # there might be less samples than len_output
+            # -> fill them with duplicates
+            t_ref = np.linspace(0, t_max, len_output)
+            t_ind = argmatch(t_ref, t_traj)
+            t_traj = t_ref
+            x_traj = x_traj[t_ind]
 
         return t_traj, x_traj
 
