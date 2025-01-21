@@ -3,6 +3,9 @@ from typing import Protocol, Union
 import networkx as nx
 import numpy as np
 from numba import njit
+from numba.typed import List
+
+from sponet.utils import calculate_neighbor_list
 
 from .cnvm.parameters import CNVMParameters
 
@@ -248,33 +251,55 @@ class Propensities:
         self.params = params
 
     def __call__(self, x_traj: np.ndarray) -> np.ndarray:
-        out = np.zeros((x_traj.shape[0], 2))
-        for j in range(self.params.num_agents):
-            if self.params.network is not None:
-                neighbors = list(self.params.network.neighbors(j))
-                degrees = [d for _, d in self.params.network.degree()]
-            else:  # complete
-                neighbors = list(range(0, j)) + list(
-                    range(j + 1, self.params.num_agents)
-                )
-                degrees = (self.params.num_agents - 1) * np.ones(self.params.num_agents)
-
-            for i in range(x_traj.shape[0]):
-                if x_traj[i, j] == 0:
-                    m, n = 0, 1
-                else:
-                    m, n = 1, 0
-                count_opinion_n = np.sum(x_traj[i, neighbors] == n)
-
-                prop_mn = (
-                    self.params.r[m, n]
-                    * count_opinion_n
-                    / (degrees[i] ** self.params.alpha)
-                )
-                prop_mn += self.params.r_tilde[m, n]
-                out[i, m] += prop_mn
-
+        if self.params.network is None:
+            degree_alpha = (self.params.num_agents - 1) ** self.params.alpha
+            out = _propensities_complete_numba(
+                x_traj, degree_alpha, self.params.r, self.params.r_tilde
+            )
+        else:
+            degrees_alpha = (
+                np.array([d for _, d in self.params.network.degree()])
+                ** self.params.alpha
+            )
+            neighbors_list = List(calculate_neighbor_list(self.params.network))
+            out = _propensities_numba(
+                x_traj,
+                neighbors_list,
+                degrees_alpha,
+                self.params.r,
+                self.params.r_tilde,
+            )
         return out
+
+
+@njit
+def _propensities_numba(x_traj, neighbor_list, degrees_alpha, r, r_tilde):
+    out = np.zeros((x_traj.shape[0], 2))
+    for j in range(x_traj.shape[1]):  # timesteps
+        for i in range(x_traj.shape[0]):  # agents
+            if x_traj[i, j] == 0:
+                m, n = 0, 1
+            else:
+                m, n = 1, 0
+            count_opinion_n = np.sum(x_traj[i, neighbor_list[j]] == n)
+            prop_mn = r[m, n] * count_opinion_n / degrees_alpha[j] + r_tilde[m, n]
+            out[i, m] += prop_mn
+    return out
+
+
+@njit
+def _propensities_complete_numba(x_traj, degree_alpha, r, r_tilde):
+    out = np.zeros((x_traj.shape[0], 2))
+    for j in range(x_traj.shape[1]):  # timesteps
+        for i in range(x_traj.shape[0]):  # agents
+            if x_traj[i, j] == 0:
+                m, n = 0, 1
+            else:
+                m, n = 1, 0
+            count_opinion_n = np.sum(x_traj[i, :] == n)
+            prop_mn = r[m, n] * count_opinion_n / degree_alpha + r_tilde[m, n]
+            out[i, m] += prop_mn
+    return out
 
 
 @njit
