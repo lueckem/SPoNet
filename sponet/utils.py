@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 from numba import njit
 
@@ -69,3 +70,24 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
     mask = np.concatenate((np.array([True]), mask))
 
     return mask
+
+
+def calculate_neighbor_list(network: nx.Graph):
+    """
+    Calculate list of neighbors.
+
+    The i-th element of the list is a numpy array containing the
+    node-indices of the neighbors of node i.
+
+    Parameters
+    ----------
+    network : nx.Graph
+
+    Returns
+    -------
+    List[np.ndarray]
+    """
+    neighbor_list = []
+    for i in network.nodes():
+        neighbor_list.append(np.array(list(network.neighbors(i)), dtype=int))
+    return neighbor_list

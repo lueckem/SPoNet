@@ -1,6 +1,9 @@
 from unittest import TestCase
+
+import networkx as nx
 import numpy as np
-from sponet.utils import argmatch, mask_subsequent_duplicates
+
+from sponet.utils import argmatch, calculate_neighbor_list, mask_subsequent_duplicates
 
 
 class TestArgmatch(TestCase):
@@ -31,3 +34,32 @@ class TestMaskSubsequentDuplicates(TestCase):
     def test_exception(self):
         with self.assertRaises(ValueError):
             mask_subsequent_duplicates(np.zeros((3, 3, 3)))
+
+
+class TestNeighborList(TestCase):
+    def test_complete(self):
+        network = nx.complete_graph(3)
+        expected = [
+            np.array([1, 2]),
+            np.array([0, 2]),
+            np.array([0, 1]),
+        ]
+        neighbor_list = calculate_neighbor_list(network)
+
+        self.assertEqual(len(neighbor_list), 3)
+        for i in range(0, 3):
+            self.assertCountEqual(neighbor_list[i], expected[i])
+
+    def test_star(self):
+        network = nx.star_graph(3)
+        expected = [
+            np.array([1, 2, 3]),
+            np.array([0]),
+            np.array([0]),
+            np.array([0]),
+        ]
+        neighbor_list = calculate_neighbor_list(network)
+
+        self.assertEqual(len(neighbor_list), 4)
+        for i in range(0, 4):
+            self.assertCountEqual(neighbor_list[i], expected[i])

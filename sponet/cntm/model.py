@@ -1,10 +1,11 @@
 import numpy as np
-from numpy.random import Generator, default_rng
 from numba import njit
 from numba.typed import List
-from .parameters import CNTMParameters
+from numpy.random import Generator, default_rng
+
 from ..sampling import sample_randint
-from ..utils import mask_subsequent_duplicates
+from ..utils import calculate_neighbor_list, mask_subsequent_duplicates
+from .parameters import CNTMParameters
 
 
 class CNTM:
@@ -18,13 +19,8 @@ class CNTM:
         """
         self.params = params
 
-        self.neighbor_list = (
-            List()
-        )  # self.neighbor_list[i] = array of neighbors of node i
-        for i in range(self.params.num_agents):
-            self.neighbor_list.append(
-                np.array(list(self.params.network.neighbors(i)), dtype=int)
-            )
+        # self.neighbor_list[i] = array of neighbors of node i
+        self.neighbor_list = List(calculate_neighbor_list(params.network))
 
         self.noise_prob = self.params.r_tilde / (self.params.r + self.params.r_tilde)
         self.next_event_rate = 1 / (

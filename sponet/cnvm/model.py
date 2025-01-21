@@ -6,7 +6,7 @@ from numba.typed import List
 from numpy.random import Generator, default_rng
 
 from ..sampling import build_alias_table, sample_from_alias, sample_randint
-from ..utils import argmatch, mask_subsequent_duplicates
+from ..utils import argmatch, calculate_neighbor_list, mask_subsequent_duplicates
 from .parameters import CNVMParameters
 
 
@@ -33,10 +33,7 @@ class CNVM:
         """
         self.neighbor_list = List()
         if self.params.network is not None:  # not needed for complete network
-            for i in range(self.params.num_agents):
-                self.neighbor_list.append(
-                    np.array(list(self.params.network.neighbors(i)), dtype=int)
-                )
+            self.neighbor_list = List(calculate_neighbor_list(self.params.network))
 
     def _calculate_degree_alpha(self):
         """
