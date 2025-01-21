@@ -1,3 +1,4 @@
+from locale import normalize
 from typing import Protocol, Union
 
 import networkx as nx
@@ -233,7 +234,7 @@ class Interfaces:
 
 
 class Propensities:
-    def __init__(self, params: CNVMParameters):
+    def __init__(self, params: CNVMParameters, normalize: bool = False):
         """
         The propensities are defined as cumulative transition rates in the system.
 
@@ -246,9 +247,11 @@ class Propensities:
         Parameters
         ----------
         params : CNVMParameters
+        normalize : bool, optional
         """
         self.dimension = 2
         self.params = params
+        self.normalize = normalize
 
     def __call__(self, x_traj: np.ndarray) -> np.ndarray:
         if self.params.network is None:
@@ -269,14 +272,16 @@ class Propensities:
                 self.params.r,
                 self.params.r_tilde,
             )
+        if self.normalize:
+            out /= self.params.num_agents
         return out
 
 
 @njit
 def _propensities_numba(x_traj, neighbor_list, degrees_alpha, r, r_tilde):
     out = np.zeros((x_traj.shape[0], 2))
-    for j in range(x_traj.shape[1]):  # timesteps
-        for i in range(x_traj.shape[0]):  # agents
+    for j in range(x_traj.shape[1]):
+        for i in range(x_traj.shape[0]):
             if x_traj[i, j] == 0:
                 m, n = 0, 1
             else:
@@ -290,8 +295,8 @@ def _propensities_numba(x_traj, neighbor_list, degrees_alpha, r, r_tilde):
 @njit
 def _propensities_complete_numba(x_traj, degree_alpha, r, r_tilde):
     out = np.zeros((x_traj.shape[0], 2))
-    for j in range(x_traj.shape[1]):  # timesteps
-        for i in range(x_traj.shape[0]):  # agents
+    for j in range(x_traj.shape[1]):
+        for i in range(x_traj.shape[0]):
             if x_traj[i, j] == 0:
                 m, n = 0, 1
             else:

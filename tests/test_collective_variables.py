@@ -1,6 +1,7 @@
 from unittest import TestCase
-import numpy as np
+
 import networkx as nx
+import numpy as np
 
 import sponet.collective_variables as cv
 from sponet.cnvm.parameters import CNVMParameters
@@ -160,4 +161,17 @@ class TestPropensities(TestCase):
         propensities = cv.Propensities(params)
         x = np.array([[0, 1, 0, 1, 1], [1, 1, 1, 0, 0]])
         c = np.array([[6.2, 6.3], [4.2, 4.3]])
+        self.assertTrue(np.allclose(propensities(x), c))
+
+    def test_network_normalized(self):
+        params = CNVMParameters(
+            num_opinions=2,
+            network=self.network,
+            r=self.r,
+            r_tilde=self.r_tilde,
+            alpha=0,
+        )
+        propensities = cv.Propensities(params, True)
+        x = np.array([[0, 1, 0, 1, 1], [1, 1, 1, 0, 0]])
+        c = np.array([[6.2, 6.3], [4.2, 4.3]]) / 5.0
         self.assertTrue(np.allclose(propensities(x), c))
