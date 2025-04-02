@@ -93,7 +93,11 @@ def _numba_euler_maruyama(
     for i in range(num_time_steps):
         drift, diffusion = _drift_and_diffusion(x[i], r, r_tilde, num_agents)
         x[i + 1] = x[i] + drift * delta_t + diffusion @ wiener_increments[i]
+
+        # Wiener increments can lead to negative values that cause problems for square root
         x[i + 1] = np.clip(x[i + 1], 0, 1)
+        # Renormalize after clipping to contain trajectory in standard simplex
+        x[i + 1] /= np.sum(x[i + 1])
 
     return x
 
