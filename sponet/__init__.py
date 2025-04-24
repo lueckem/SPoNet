@@ -11,4 +11,5 @@ from .cnvm import (
 from .multiprocessing import sample_many_runs
 from .parameters import Parameters, load_params, save_params
 from .plotting import plot_trajectories
+from .sample_moments import sample_moments
 from .steady_state import estimate_steady_state

@@ -15,7 +15,7 @@ def sample_moments(
     t_max: float,
     num_timesteps: int,
     batch_size: int,
-    rel_tol: float = 1e-3,
+    rel_tol: float = 0.01,
     n_jobs: Optional[int] = None,
     collective_variable: Optional[CollectiveVariable] = None,
     seed: Optional[int] = None,
@@ -80,7 +80,8 @@ def sample_moments(
     num_samples = 0
 
     while True:
-        print(f"Total number of samples: {num_samples}.")
+        if verbose:
+            print(f"Total number of samples: {num_samples}.")
         t, x = sample_many_runs(
             params,
             np.array([initial_state]),
@@ -91,7 +92,7 @@ def sample_moments(
             collective_variable=collective_variable,
             seed=seed,
         )
-        seed += n_jobs
+        seed += n_jobs  # each process should get a new seed
         num_samples += batch_size
         sum_x += np.sum(x[0], axis=0)
         sum_xx += np.sum(x[0] ** 2, axis=0)
@@ -99,7 +100,8 @@ def sample_moments(
         mean = sum_x / num_samples
         variance = sum_xx / num_samples - mean**2
         confidence_size = 4 * np.sqrt(variance / num_samples)
-        rel_error = np.max(confidence_size / mean)
-        print(f"Relative error: {rel_error}.\n")
+        rel_error = np.nanmax(confidence_size / mean)
+        if verbose:
+            print(f"Relative error: {rel_error}.\n")
         if rel_error < rel_tol:
             return t, mean, variance, num_samples
