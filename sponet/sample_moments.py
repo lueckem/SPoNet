@@ -1,4 +1,6 @@
 import multiprocessing as mp
+import sys
+import time
 from typing import Optional
 
 import numpy as np
@@ -19,12 +21,14 @@ def sample_moments(
     n_jobs: Optional[int] = None,
     collective_variable: Optional[CollectiveVariable] = None,
     seed: Optional[int] = None,
+    filename: Optional[str] = None,
+    timeout_seconds: Optional[int] = None,
     verbose: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """
-    Sample in batches and estimate first and second moments.
+    Sample in batches and estimate mean and variance.
 
-    Estimates a confidence interval for the mean (first moment) and
+    Estimates a confidence interval for the mean and
     samples until the size of the confidence interval relative to the mean is less than a tolerance:
     [4 sigma / sqrt(N)] / mu < rel_tol.
 
@@ -51,6 +55,11 @@ def sample_moments(
     seed : int, optional
         Seed for random number generation.
         If multiprocessing is used, the subprocesses receive the seeds {seed, seed + 1, ...}.
+    filename : str, optional
+        Save the results afer each batch using numpy.savez.
+        The entries are "t", "mean", "variance", "num_samples", "confidence_size", "rel_error", "time_elapsed".
+    timeout_seconds : int, optional
+        Stop afer the given time has passed.
     verbose : bool, optional
         Whether to print the progress.
 
@@ -75,10 +84,14 @@ def sample_moments(
     elif n_jobs == -1:
         n_jobs = mp.cpu_count()
 
+    if timeout_seconds is None:
+        timeout_seconds = sys.maxsize
+
     sum_x = np.zeros((num_timesteps, num_a))
     sum_xx = np.zeros((num_timesteps, num_a))
     num_samples = 0
 
+    start = time.time()
     while True:
         if verbose:
             print(f"Total number of samples: {num_samples}.")
@@ -101,7 +114,18 @@ def sample_moments(
         variance = sum_xx / num_samples - mean**2
         confidence_size = 4 * np.sqrt(variance / num_samples)
         rel_error = np.nanmax(confidence_size / mean)
+        if filename is not None:
+            np.savez_compressed(
+                filename,
+                t=t,
+                mean=mean,
+                variance=variance,
+                num_samples=num_samples,
+                confidence_size=confidence_size,
+                rel_error=rel_error,
+                time_elapsed=time.time() - start,
+            )
         if verbose:
             print(f"Relative error: {rel_error}.\n")
-        if rel_error < rel_tol:
+        if rel_error < rel_tol or time.time() - start >= timeout_seconds:
             return t, mean, variance, num_samples

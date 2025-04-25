@@ -1,3 +1,4 @@
+import time
 from unittest import TestCase
 
 import numpy as np
@@ -26,7 +27,7 @@ class TestSampleMoments(TestCase):
         self.cv = OpinionShares(self.num_opinions)
         self.initial_state = np.random.randint(3, size=(self.num_agents,))
 
-    def test_runs(self):
+    def test_rel_tol(self):
         t, mean, variance, num_samples = sample_moments(
             params=self.params,
             initial_state=self.initial_state,
@@ -37,6 +38,24 @@ class TestSampleMoments(TestCase):
             n_jobs=1,
             collective_variable=self.cv,
         )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(mean.shape, (self.num_timesteps, self.num_opinions))
+        self.assertEqual(variance.shape, (self.num_timesteps, self.num_opinions))
+
+    def test_timeout(self):
+        start = time.time()
+        t, mean, variance, num_samples = sample_moments(
+            params=self.params,
+            initial_state=self.initial_state,
+            t_max=self.t_max,
+            num_timesteps=self.num_timesteps,
+            batch_size=100,
+            rel_tol=1e-10,
+            n_jobs=1,
+            timeout_seconds=1,
+            collective_variable=self.cv,
+        )
+        self.assertTrue(time.time() - start < 5)
         self.assertEqual(t.shape, (self.num_timesteps,))
         self.assertEqual(mean.shape, (self.num_timesteps, self.num_opinions))
         self.assertEqual(variance.shape, (self.num_timesteps, self.num_opinions))
