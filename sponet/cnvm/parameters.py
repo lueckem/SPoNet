@@ -26,23 +26,14 @@ class CNVMParameters:
         prob_imit: Union[float, NDArray] = 1,
         prob_noise: Union[float, NDArray] = 1,
     ):
+        # TODO: Docs
         self.num_opinions = num_opinions
         self.alpha = alpha
 
         # network
-        if network_generator is None and network is None and num_agents is None:
-            raise ValueError(
-                "Either a network or a NetworkGenerator or num_agents has to be specified."
-            )
-        self.network_generator = network_generator
-        self.network = network
-        if network_generator is not None:
-            self.num_agents = network_generator.num_agents
-            self.network = None
-        elif network is not None:
-            self.num_agents = network.number_of_nodes()
-        else:
-            self.num_agents = num_agents
+        self.num_agents, self.network, self.network_generator = _sanitize_network_input(
+            num_agents, network, network_generator
+        )
 
         # rates
         one_mat = np.ones((num_opinions, num_opinions))
@@ -167,6 +158,22 @@ class CNVMParameters:
             self.prob_imit,
             self.prob_noise,
         ) = convert_rate_to_cnvm(self.r, self.r_tilde)
+
+
+def _sanitize_network_input(
+    num_agents: Optional[int],
+    network: Optional[nx.Graph],
+    network_generator: Optional[NetworkGenerator],
+) -> tuple[int, Optional[nx.Graph], Optional[NetworkGenerator]]:
+    if network_generator is not None:
+        return (network_generator.num_agents, None, network_generator)
+    if network is not None:
+        return (network.number_of_nodes(), network, None)
+    if num_agents is not None:
+        return (num_agents, None, None)
+    raise ValueError(
+        "Either a network or a NetworkGenerator or num_agents has to be specified."
+    )
 
 
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
