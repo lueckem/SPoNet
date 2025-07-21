@@ -10,6 +10,26 @@ from ..network_generator import NetworkGenerator
 
 
 class CNVMParameters:
+    """
+    Container for the parameters of the Continuous-time Noisy Voter Model (CNVM).
+
+    A node i transitions from its current opinion m to a different opinion n at rate
+    r[m,n] * d(i,n) / (d(i)^alpha) + r_tilde[m,n],
+    where d(i,n) is the count of opinion n in the neighborhood of agent i, and d(i) the degree of node i.
+
+    Either a network has to specified, or a NetworkGenerator,
+    or num_agents, in which case a complete network is used.
+    If multiple are given, NetworkGenerator overrules network, and network overrules num_agents.
+
+    The rate parameters r and r_tilde can be given as numpy arrays of shape (num_opinions, num_opinions),
+    or as floats, in which case all rates are set to this value.
+
+    (Internally, the CNVM uses an equivalent set of rate parameters: r_imit, r_noise, prob_imit and prob_noise.
+    A node i transitions from its current opinion m to a different opinion n at rate
+    r_imit * d(i,n) / (d(i)^alpha) * prob_imit[m, n] + r_noise * (1/num_opinions) * prob_noise[m, n].
+    These parameters can be provided instead of the usual r and r_tilde.)
+    """
+
     def __init__(
         self,
         num_opinions: int,
@@ -26,7 +46,6 @@ class CNVMParameters:
         prob_imit: Union[float, NDArray] = 1,
         prob_noise: Union[float, NDArray] = 1,
     ):
-        # TODO: Docs
         self.num_opinions = num_opinions
         self.alpha = alpha
 
