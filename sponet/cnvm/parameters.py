@@ -280,7 +280,7 @@ def convert_rate_to_cnvm(
     return r_imit, r_noise, prob_imit, prob_noise
 
 
-def convert_rate_from_cnvm(params: CNVMParameters) -> tuple[np.ndarray, np.ndarray]:
+def convert_rate_from_cnvm(params: CNVMParameters) -> tuple[NDArray, NDArray]:
     """
     Convert the rates used in the CNVM to r and r_tilde.
 
