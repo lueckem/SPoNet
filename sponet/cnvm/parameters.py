@@ -172,17 +172,9 @@ def _sanitize_rates_input(
     prob_imit: Union[float, NDArray],
     prob_noise: Union[float, NDArray],
 ) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
-    one_mat = np.ones((num_opinions, num_opinions))
-
     if r is not None and r_tilde is not None:  # style 1
-        if isinstance(r, (int, float)):
-            r = r * one_mat
-        np.fill_diagonal(r, 0)
-
-        if isinstance(r_tilde, (int, float)):
-            r_tilde = r_tilde * one_mat
-        np.fill_diagonal(r_tilde, 0)
-
+        r = _to_matrix(num_opinions, r)
+        r_tilde = _to_matrix(num_opinions, r_tilde)
         if np.min(r) < 0 or np.min(r_tilde) < 0:
             raise ValueError("Rates have to be non-negative.")
 
@@ -196,14 +188,8 @@ def _sanitize_rates_input(
         return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     if r_imit is not None and r_noise is not None:  # style 2
-        if isinstance(prob_imit, (float, int)):
-            prob_imit = prob_imit * one_mat
-        np.fill_diagonal(prob_imit, 0)
-
-        if isinstance(prob_noise, (float, int)):
-            prob_noise = prob_noise * one_mat
-        np.fill_diagonal(prob_noise, 0)
-
+        prob_imit = _to_matrix(num_opinions, prob_imit)
+        prob_noise = _to_matrix(num_opinions, prob_noise)
         if r_imit < 0 or r_noise < 0:
             raise ValueError("Rates have to be non-negative.")
         if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
@@ -217,6 +203,17 @@ def _sanitize_rates_input(
         return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     raise ValueError("Rate parameters have to be provided.")
+
+
+def _to_matrix(num_opinions: int, r: Union[float, NDArray]) -> NDArray:
+    """
+    If `r` is a already a NDArray, return `r` but with 0 put on the diagonal.
+    If `r` is a float, return a `num_opinions` x `num_opinions` matrix with 0 on the diagonal and `r` everywhere else.
+    """
+    if isinstance(r, (int, float)):
+        r = r * np.ones((num_opinions, num_opinions))
+    np.fill_diagonal(r, 0)
+    return r
 
 
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
