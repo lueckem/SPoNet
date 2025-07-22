@@ -122,29 +122,16 @@ class CNVMParameters:
         r : float | np.ndarray, optional
         r_tilde : float | np.ndarray
         """
-        one_mat = np.ones((self.num_opinions, self.num_opinions))
-
-        if r is not None:
-            if isinstance(r, (int, float)):
-                r = r * one_mat
-            np.fill_diagonal(r, 0)
-            if np.min(r) < 0:
-                raise ValueError("Rates have to be non-negative.")
-            self.r = r
-        if r_tilde is not None:
-            if isinstance(r_tilde, (int, float)):
-                r_tilde = r_tilde * one_mat
-            np.fill_diagonal(r_tilde, 0)
-            if np.min(r_tilde) < 0:
-                raise ValueError("Rates have to be non-negative.")
-            self.r_tilde = r_tilde
-
+        r = r if r is not None else self.r
+        r_tilde = r_tilde if r_tilde is not None else self.r_tilde
         (
+            self.r,
+            self.r_tilde,
             self.r_imit,
             self.r_noise,
             self.prob_imit,
             self.prob_noise,
-        ) = convert_rate_to_cnvm(self.r, self.r_tilde)
+        ) = _sanitize_rates_input(self.num_opinions, r, r_tilde, None, None, 1, 1)
 
 
 def _sanitize_network_input(
