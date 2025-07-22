@@ -54,48 +54,16 @@ class CNVMParameters:
             num_agents, network, network_generator
         )
 
-        # rates
-        one_mat = np.ones((num_opinions, num_opinions))
-        if r is not None and r_tilde is not None:  # style 1
-            if isinstance(r, (int, float)):
-                r = r * one_mat
-            if isinstance(r_tilde, (int, float)):
-                r_tilde = r_tilde * one_mat
-            np.fill_diagonal(r, 0)
-            np.fill_diagonal(r_tilde, 0)
-
-            if np.min(r) < 0 or np.min(r_tilde) < 0:
-                raise ValueError("Rates have to be non-negative.")
-
-            self.r = r
-            self.r_tilde = r_tilde
-            (
-                self.r_imit,
-                self.r_noise,
-                self.prob_imit,
-                self.prob_noise,
-            ) = convert_rate_to_cnvm(self.r, self.r_tilde)
-        elif r_imit is not None and r_noise is not None:  # style 2
-            if isinstance(prob_imit, (float, int)):
-                prob_imit = prob_imit * one_mat
-            if isinstance(prob_noise, (float, int)):
-                prob_noise = prob_noise * one_mat
-            np.fill_diagonal(prob_imit, 0)
-            np.fill_diagonal(prob_noise, 0)
-
-            if r_imit < 0 or r_noise < 0:
-                raise ValueError("Rates have to be non-negative.")
-            if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
-                raise ValueError("Probabilities have to be between 0 and 1.")
-            if np.min(prob_noise) < 0 or np.max(prob_noise) > 1:
-                raise ValueError("Probabilities have to be between 0 and 1.")
-
-            self.r_imit, self.r_noise = r_imit, r_noise
-            self.prob_imit, self.prob_noise = prob_imit, prob_noise
-            self.r = self.r_imit * self.prob_imit
-            self.r_tilde = self.r_noise * self.prob_noise / self.num_opinions
-        else:
-            raise ValueError("Rate parameters have to be provided.")
+        (
+            self.r,
+            self.r_tilde,
+            self.r_imit,
+            self.r_noise,
+            self.prob_imit,
+            self.prob_noise,
+        ) = _sanitize_rates_input(
+            num_opinions, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise
+        )
 
     def get_network(self) -> nx.Graph:
         """
@@ -195,6 +163,62 @@ def _sanitize_network_input(
     )
 
 
+def _sanitize_rates_input(
+    num_opinions: int,
+    r: Union[float, NDArray, None],
+    r_tilde: Union[float, NDArray, None],
+    r_imit: Optional[float],
+    r_noise: Optional[float],
+    prob_imit: Union[float, NDArray],
+    prob_noise: Union[float, NDArray],
+) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
+    one_mat = np.ones((num_opinions, num_opinions))
+
+    if r is not None and r_tilde is not None:  # style 1
+        if isinstance(r, (int, float)):
+            r = r * one_mat
+        np.fill_diagonal(r, 0)
+
+        if isinstance(r_tilde, (int, float)):
+            r_tilde = r_tilde * one_mat
+        np.fill_diagonal(r_tilde, 0)
+
+        if np.min(r) < 0 or np.min(r_tilde) < 0:
+            raise ValueError("Rates have to be non-negative.")
+
+        (
+            r_imit,
+            r_noise,
+            prob_imit,
+            prob_noise,
+        ) = convert_rate_to_cnvm(r, r_tilde)
+
+        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+
+    if r_imit is not None and r_noise is not None:  # style 2
+        if isinstance(prob_imit, (float, int)):
+            prob_imit = prob_imit * one_mat
+        np.fill_diagonal(prob_imit, 0)
+
+        if isinstance(prob_noise, (float, int)):
+            prob_noise = prob_noise * one_mat
+        np.fill_diagonal(prob_noise, 0)
+
+        if r_imit < 0 or r_noise < 0:
+            raise ValueError("Rates have to be non-negative.")
+        if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
+            raise ValueError("Probabilities have to be between 0 and 1.")
+        if np.min(prob_noise) < 0 or np.max(prob_noise) > 1:
+            raise ValueError("Probabilities have to be between 0 and 1.")
+
+        r = r_imit * prob_imit
+        r_tilde = r_noise * prob_noise / num_opinions
+
+        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+
+    raise ValueError("Rate parameters have to be provided.")
+
+
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
     """
     Save parameters as a readable .txt file.
@@ -227,8 +251,8 @@ def save_params_as_txt_file(filename: str, params: CNVMParameters):
 
 
 def convert_rate_to_cnvm(
-    r: np.ndarray, r_tilde: np.ndarray
-) -> tuple[float, float, np.ndarray, np.ndarray]:
+    r: NDArray, r_tilde: NDArray
+) -> tuple[float, float, NDArray, NDArray]:
     """
     Convert the rates r and r_tilde to the parameters used in the CNVM, i.e., r_imit, r_noise, prob_imit, prob_noise.
 
