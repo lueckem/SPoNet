@@ -1,12 +1,14 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+
+from typing import Optional, Union
+
 import networkx as nx
 import numpy as np
+from numpy.typing import NDArray
 
 from ..network_generator import NetworkGenerator
 
 
-@dataclass()
 class CNVMParameters:
     """
     Container for the parameters of the Continuous-time Noisy Voter Model (CNVM).
@@ -28,99 +30,40 @@ class CNVMParameters:
     These parameters can be provided instead of the usual r and r_tilde.)
     """
 
-    num_opinions: int
-    num_agents: int = None
-    network: nx.Graph | None = field(default=None, repr=False)
-    network_generator: NetworkGenerator | None = None
-    alpha: float = 1
-
-    # rate parameters in style 1
-    r: float | np.ndarray = None
-    r_tilde: float | np.ndarray = None
-
-    # rate parameters in style 2
-    r_imit: float = None
-    r_noise: float = None
-    prob_imit: float | np.ndarray = 1
-    prob_noise: float | np.ndarray = 1
-
-    def __post_init__(self):
-        # rates
-        self._tidy_up_rates()
-
-        # networks
-        if self.network_generator is not None:
-            self.num_agents = self.network_generator.num_agents
-            self.network = None
-        elif self.network is not None:
-            self.num_agents = len(self.network.nodes)
-        elif self.num_agents is None:
-            raise ValueError(
-                "Either a network or a NetworkGenerator or num_agents has to be specified."
-            )
-
-    def _tidy_up_rates(self):
-        """
-        Check if the given rate parameters are valid and set up the other rate parameters accordingly.
-        """
-        one_mat = np.ones((self.num_opinions, self.num_opinions))
-        if self.r is not None and self.r_tilde is not None:  # style 1
-            if isinstance(self.r, (float, int)):
-                self.r = self.r * one_mat
-            if isinstance(self.r_tilde, (float, int)):
-                self.r_tilde = self.r_tilde * one_mat
-            np.fill_diagonal(self.r, 0)
-            np.fill_diagonal(self.r_tilde, 0)
-
-            if np.min(self.r) < 0 or np.min(self.r_tilde) < 0:
-                raise ValueError("Rates have to be non-negative.")
-
-            (
-                self.r_imit,
-                self.r_noise,
-                self.prob_imit,
-                self.prob_noise,
-            ) = convert_rate_to_cnvm(self.r, self.r_tilde)
-
-        elif self.r_imit is not None and self.r_noise is not None:  # style 2
-            if isinstance(self.prob_imit, (float, int)):
-                self.prob_imit = self.prob_imit * one_mat
-            if isinstance(self.prob_noise, (float, int)):
-                self.prob_noise = self.prob_noise * one_mat
-            np.fill_diagonal(self.prob_imit, 0)
-            np.fill_diagonal(self.prob_noise, 0)
-
-            if np.min(self.r_imit) < 0 or np.min(self.r_noise) < 0:
-                raise ValueError("Rates have to be non-negative.")
-            if np.min(self.prob_imit) < 0 or np.max(self.prob_imit) > 1:
-                raise ValueError("Probabilities have to be between 0 and 1.")
-            if np.min(self.prob_noise) < 0 or np.max(self.prob_noise) > 1:
-                raise ValueError("Probabilities have to be between 0 and 1.")
-
-            self.r = self.r_imit * self.prob_imit
-            self.r_tilde = self.r_noise * self.prob_noise / self.num_opinions
-
-        else:
-            raise ValueError("Rate parameters have to be provided.")
-
-    def change_rates(
-        self, r: float | np.ndarray = None, r_tilde: float | np.ndarray = None
+    def __init__(
+        self,
+        num_opinions: int,
+        num_agents: Optional[int] = None,
+        network: Optional[nx.Graph] = None,
+        network_generator: Optional[NetworkGenerator] = None,
+        alpha: float = 1.0,
+        # rate parameters in style 1
+        r: Union[float, NDArray, None] = None,
+        r_tilde: Union[float, NDArray, None] = None,
+        # rate parameters in style 2
+        r_imit: Optional[float] = None,
+        r_noise: Optional[float] = None,
+        prob_imit: Union[float, NDArray] = 1,
+        prob_noise: Union[float, NDArray] = 1,
     ):
-        """
-        Change one or both rate parameters.
+        self.num_opinions = num_opinions
+        self.alpha = alpha
 
-        If only one argument is given, the other rate parameter stays the same.
+        # network
+        self.num_agents, self.network, self.network_generator = _sanitize_network_input(
+            num_agents, network, network_generator
+        )
 
-        Parameters
-        ----------
-        r : float | np.ndarray, optional
-        r_tilde : float | np.ndarray
-        """
-        if r is not None:
-            self.r = r
-        if r_tilde is not None:
-            self.r_tilde = r_tilde
-        self._tidy_up_rates()
+        (
+            self.r,
+            self.r_tilde,
+            self.r_imit,
+            self.r_noise,
+            self.prob_imit,
+            self.prob_noise,
+        ) = _sanitize_rates_input(
+            num_opinions, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise
+        )
 
     def get_network(self) -> nx.Graph:
         """
@@ -164,6 +107,101 @@ class CNVMParameters:
             raise ValueError("No NetworkGenerator was given.")
         self.network = self.network_generator()
 
+    def change_rates(
+        self,
+        r: Union[float, NDArray, None] = None,
+        r_tilde: Union[float, NDArray, None] = None,
+    ):
+        """
+        Change one or both rate parameters.
+
+        If only one argument is given, the other rate parameter stays the same.
+
+        Parameters
+        ----------
+        r : float | np.ndarray, optional
+        r_tilde : float | np.ndarray
+        """
+        r = r if r is not None else self.r
+        r_tilde = r_tilde if r_tilde is not None else self.r_tilde
+        (
+            self.r,
+            self.r_tilde,
+            self.r_imit,
+            self.r_noise,
+            self.prob_imit,
+            self.prob_noise,
+        ) = _sanitize_rates_input(self.num_opinions, r, r_tilde, None, None, 1, 1)
+
+
+def _sanitize_network_input(
+    num_agents: Optional[int],
+    network: Optional[nx.Graph],
+    network_generator: Optional[NetworkGenerator],
+) -> tuple[int, Optional[nx.Graph], Optional[NetworkGenerator]]:
+    if network_generator is not None:
+        return (network_generator.num_agents, None, network_generator)
+    if network is not None:
+        return (network.number_of_nodes(), network, None)
+    if num_agents is not None:
+        return (num_agents, None, None)
+    raise ValueError(
+        "Either a network or a NetworkGenerator or num_agents has to be specified."
+    )
+
+
+def _sanitize_rates_input(
+    num_opinions: int,
+    r: Union[float, NDArray, None],
+    r_tilde: Union[float, NDArray, None],
+    r_imit: Optional[float],
+    r_noise: Optional[float],
+    prob_imit: Union[float, NDArray],
+    prob_noise: Union[float, NDArray],
+) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
+    if r is not None and r_tilde is not None:  # style 1
+        r = _to_matrix(num_opinions, r)
+        r_tilde = _to_matrix(num_opinions, r_tilde)
+        if np.min(r) < 0 or np.min(r_tilde) < 0:
+            raise ValueError("Rates have to be non-negative.")
+
+        (
+            r_imit,
+            r_noise,
+            prob_imit,
+            prob_noise,
+        ) = convert_rate_to_cnvm(r, r_tilde)
+
+        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+
+    if r_imit is not None and r_noise is not None:  # style 2
+        prob_imit = _to_matrix(num_opinions, prob_imit)
+        prob_noise = _to_matrix(num_opinions, prob_noise)
+        if r_imit < 0 or r_noise < 0:
+            raise ValueError("Rates have to be non-negative.")
+        if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
+            raise ValueError("Probabilities have to be between 0 and 1.")
+        if np.min(prob_noise) < 0 or np.max(prob_noise) > 1:
+            raise ValueError("Probabilities have to be between 0 and 1.")
+
+        r = r_imit * prob_imit
+        r_tilde = r_noise * prob_noise / num_opinions
+
+        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+
+    raise ValueError("Rate parameters have to be provided.")
+
+
+def _to_matrix(num_opinions: int, r: Union[float, NDArray]) -> NDArray:
+    """
+    If `r` is a already a NDArray, return `r` but with 0 put on the diagonal.
+    If `r` is a float, return a `num_opinions` x `num_opinions` matrix with 0 on the diagonal and `r` everywhere else.
+    """
+    if isinstance(r, (int, float)):
+        r = r * np.ones((num_opinions, num_opinions))
+    np.fill_diagonal(r, 0)
+    return r
+
 
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
     """
@@ -197,8 +235,8 @@ def save_params_as_txt_file(filename: str, params: CNVMParameters):
 
 
 def convert_rate_to_cnvm(
-    r: np.ndarray, r_tilde: np.ndarray
-) -> tuple[float, float, np.ndarray, np.ndarray]:
+    r: NDArray, r_tilde: NDArray
+) -> tuple[float, float, NDArray, NDArray]:
     """
     Convert the rates r and r_tilde to the parameters used in the CNVM, i.e., r_imit, r_noise, prob_imit, prob_noise.
 
@@ -242,7 +280,7 @@ def convert_rate_to_cnvm(
     return r_imit, r_noise, prob_imit, prob_noise
 
 
-def convert_rate_from_cnvm(params: CNVMParameters) -> tuple[np.ndarray, np.ndarray]:
+def convert_rate_from_cnvm(params: CNVMParameters) -> tuple[NDArray, NDArray]:
     """
     Convert the rates used in the CNVM to r and r_tilde.
 
