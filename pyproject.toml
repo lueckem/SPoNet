@@ -1,6 +1,6 @@
 [project]
 name = "sponet"
-version = "2.7.0"
+version = "2.7.1"
 description = "Spreading Processes on Networks"
 license = "GPL-3.0-or-later"
 authors = [{name = "Marvin Lücke"}]
