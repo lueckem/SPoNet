@@ -1,5 +1,6 @@
-import numba
 import numpy as np
+from numba import njit, prange
+
 from ..parameters import CNVMParameters
 
 
@@ -46,7 +47,7 @@ def sample_cle(
     )
 
 
-@numba.njit(parallel=True)
+@njit(parallel=True, cache=True)
 def _numba_sample_cle(
     initial_state: np.ndarray,
     max_time: float,
@@ -62,7 +63,7 @@ def _numba_sample_cle(
     t = t[::saving_offset]
     x_out = np.zeros((num_samples, t.shape[0], dim))
 
-    for i in numba.prange(num_samples):
+    for i in prange(num_samples):
         x = _numba_euler_maruyama(
             initial_state, max_time, num_time_steps, num_agents, r, r_tilde
         )
@@ -71,7 +72,7 @@ def _numba_sample_cle(
     return t, x_out
 
 
-@numba.njit()
+@njit()
 def _numba_euler_maruyama(
     initial_state: np.ndarray,
     max_time: float,
@@ -102,7 +103,7 @@ def _numba_euler_maruyama(
     return x
 
 
-@numba.njit()
+@njit()
 def _drift_and_diffusion(c, r, r_tilde, num_agents):
     num_o = c.shape[0]
     drift = np.zeros(num_o)

@@ -1,9 +1,9 @@
 import numpy as np
-from numpy.random import Generator
 from numba import njit
+from numpy.random import Generator
 
 
-@njit()
+@njit(cache=True)
 def sample_randint(high_excl: int, rng: Generator) -> int:
     """
     Sample uniformly random integer in {0, ..., high_excl - 1}.
@@ -24,7 +24,7 @@ def sample_randint(high_excl: int, rng: Generator) -> int:
     return int(rng.random() * high_excl)
 
 
-@njit()
+@njit(cache=True)
 def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Construct the probability table and alias table for given weights.
@@ -69,7 +69,7 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return table_prob, table_alias
 
 
-@njit()
+@njit(cache=True)
 def sample_from_alias(
     table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator
 ) -> int:
@@ -97,7 +97,7 @@ def sample_from_alias(
     return table_alias[idx]
 
 
-@njit()
+@njit(cache=True)
 def sample_weighted_bisect(prob_cum_sum: np.ndarray, rng: Generator) -> int:
     """
     Sample random index 0 <= i < len(prob_cumsum) according to probability distribution.

@@ -3,7 +3,7 @@ import numpy as np
 from numba import njit
 
 
-@njit
+@njit(cache=True)
 def argmatch(x_ref, x):
     """
     Find indices such that |x[indices] - x_ref| = min!
