@@ -80,7 +80,7 @@ class CNTM:
         return t_traj, x_traj
 
 
-@njit
+@njit(cache=True)
 def _simulate_numba(
     x,
     t_delta,

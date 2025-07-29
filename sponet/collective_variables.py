@@ -1,4 +1,3 @@
-from locale import normalize
 from typing import Protocol, Union
 
 import networkx as nx
@@ -303,7 +302,7 @@ class Propensities:
         return out
 
 
-@njit
+@njit(cache=True)
 def _propensities_numba(x_traj, neighbor_list, degrees_alpha, r, r_tilde):
     out = np.zeros((x_traj.shape[0], 2))
     for j in range(x_traj.shape[1]):
@@ -318,7 +317,7 @@ def _propensities_numba(x_traj, neighbor_list, degrees_alpha, r, r_tilde):
     return out
 
 
-@njit
+@njit(cache=True)
 def _propensities_complete_numba(x_traj, degree_alpha, r, r_tilde):
     out = np.zeros((x_traj.shape[0], 2))
     for j in range(x_traj.shape[1]):
@@ -333,7 +332,7 @@ def _propensities_complete_numba(x_traj, degree_alpha, r, r_tilde):
     return out
 
 
-@njit
+@njit(cache=True)
 def _opinion_shares_numba(x_traj, num_opinions, weights):
     x_agg = np.zeros((x_traj.shape[0], num_opinions))
     for i in range(x_traj.shape[0]):

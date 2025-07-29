@@ -159,7 +159,7 @@ class CNVM:
         return t_traj, x_traj
 
 
-@njit()
+@njit(cache=True)
 def _numba_simulate(
     x: np.ndarray,
     t_delta: float,
@@ -214,7 +214,7 @@ def _numba_simulate(
     return t_traj, x_traj
 
 
-@njit()
+@njit(cache=True)
 def _numba_simulate_complete(
     x: np.ndarray,
     t_delta: float,

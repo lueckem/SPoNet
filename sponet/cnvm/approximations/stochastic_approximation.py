@@ -1,8 +1,8 @@
 import numpy as np
 from numba import njit, prange
 
-from ..parameters import CNVMParameters
 from ...utils import argmatch
+from ..parameters import CNVMParameters
 
 
 def sample_stochastic_approximation(
@@ -48,7 +48,7 @@ def sample_stochastic_approximation(
     )
 
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def _sample_many(
     initial_state: np.ndarray,
     t_max: float,
