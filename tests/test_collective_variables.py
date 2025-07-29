@@ -59,6 +59,16 @@ class TestOpinionShares(TestCase):
         self.assertTrue(np.allclose(shares(x), np.array([[2, 3, 5]])))
 
 
+class TestDegreeWeightedOpinionShares(TestCase):
+    def test_default(self):
+        network = nx.star_graph(9)
+        shares = cv.DegreeWeightedOpinionShares(3, network)
+
+        x = np.array([[0, 1, 0, 1, 2, 2, 1, 1, 1, 0]])
+        c = np.array([[11, 5, 2]])
+        self.assertTrue(np.allclose(shares(x), c))
+
+
 class TestOpinionSharesByDegree(TestCase):
     def setUp(self):
         edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (2, 4)]

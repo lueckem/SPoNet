@@ -26,6 +26,7 @@ class CollectiveVariable(Protocol):
         np.ndarray
             trajectory projected down via the collective variable, shape = (?, self.dimension)
         """
+        ...
 
 
 class OpinionShares:
@@ -88,6 +89,31 @@ class OpinionShares:
             else:
                 x_agg /= np.sum(np.abs(self.weights))
         return x_agg
+
+
+class DegreeWeightedOpinionShares(OpinionShares):
+    def __init__(
+        self,
+        num_opinions,
+        network: nx.Graph,
+        normalize: bool = False,
+        idx_to_return: Union[int, np.ndarray] = None,
+    ):
+        """
+        Calculate the degree-weighted opinion counts/ percentages.
+
+        Parameters
+        ----------
+        num_opinions : int
+        network: nx.Graph
+        normalize : bool, optional
+            If true return percentages, else counts.
+        idx_to_return : Union[int, np.ndarray], optional
+            Shares of which opinions to return. Default: all opinions.
+            Example: idx_to_return=0 means that only the count of opinion 0 is returned.
+        """
+        weights = np.array([d for _, d in network.degree()])
+        super().__init__(num_opinions, normalize, weights, idx_to_return)
 
 
 class OpinionSharesByDegree:
