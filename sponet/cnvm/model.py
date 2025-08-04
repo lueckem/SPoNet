@@ -4,6 +4,7 @@ import numpy as np
 from numba import njit
 from numba.typed import List
 from numpy.random import Generator, default_rng
+from numpy.typing import NDArray
 
 from ..sampling import build_alias_table, sample_from_alias, sample_randint
 from ..utils import argmatch, calculate_neighbor_list, mask_subsequent_duplicates
@@ -20,27 +21,27 @@ class CNVM:
         params : CNVMParameters
         """
         self.params = params
-        # self.neighbor_list[i] = array of neighbors of node i
-        self.neighbor_list = None
-        self.degree_alpha = None  # array containing d(i)^(1 - alpha)
 
+        # set self.degree_alpha, an array containing d(i)^(1 - alpha)
         self._calculate_degree_alpha()
+
+        # set self.neighbor_list, a list with self.neighbor_list[i] = array of neighbors of node i
         self._calculate_neighbor_list()
 
-    def _calculate_neighbor_list(self):
+    def _calculate_neighbor_list(self) -> None:
         """
         Calculate and set self.neighbor_list.
         """
-        self.neighbor_list = List()
+        self.neighbor_list = List()  # type: ignore
         if self.params.network is not None:  # not needed for complete network
-            self.neighbor_list = List(calculate_neighbor_list(self.params.network))
+            self.neighbor_list = List(calculate_neighbor_list(self.params.network))  # type: ignore
 
-    def _calculate_degree_alpha(self):
+    def _calculate_degree_alpha(self) -> None:
         """
         Calculate and set self.degree_alpha.
         """
         if self.params.network is not None:
-            degrees = np.array([d for _, d in self.params.network.degree()])
+            degrees = np.array([d for _, d in self.params.network.degree()])  # type: ignore
             if np.min(degrees) < 1:
                 raise ValueError("Isolated vertices in the network are not allowed.")
             self.degree_alpha = degrees ** (1 - self.params.alpha)
@@ -49,7 +50,7 @@ class CNVM:
                 self.params.num_agents - 1
             ) ** (1 - self.params.alpha)
 
-    def update_network(self):
+    def update_network(self) -> None:
         """
         Update network from NetworkGenerator in params.
         """
@@ -58,8 +59,10 @@ class CNVM:
         self._calculate_neighbor_list()
 
     def update_rates(
-        self, r: float | np.ndarray = None, r_tilde: float | np.ndarray = None
-    ):
+        self,
+        r: float | NDArray | None = None,
+        r_tilde: float | NDArray | None = None,
+    ) -> None:
         """
         Update one or both rate parameters.
 
@@ -67,25 +70,25 @@ class CNVM:
 
         Parameters
         ----------
-        r : float | np.ndarray, optional
-        r_tilde : float | np.ndarray
+        r : float | NDArray, optional
+        r_tilde : float | NDArray, optional
         """
         self.params.change_rates(r, r_tilde)
 
     def simulate(
         self,
         t_max: float,
-        x_init: np.ndarray = None,
-        len_output: int = None,
+        x_init: NDArray | None = None,
+        len_output: int | None = None,
         rng: Generator = default_rng(),
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[NDArray, NDArray]:
         """
         Simulate the model from t=0 to t=t_max.
 
         Parameters
         ----------
         t_max : float
-        x_init : np.ndarray, optional
+        x_init : NDArray, optional
             Initial state, shape=(num_agents,). If no x_init is given, a random one is generated.
         len_output : int, optional
             Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
@@ -95,7 +98,7 @@ class CNVM:
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
+        tuple[NDArray, NDArray]
             t_traj (shape=(?,)), x_traj (shape=(?,num_agents))
         """
         if self.params.network_generator is not None:
@@ -125,7 +128,6 @@ class CNVM:
                 self.degree_alpha,
                 rng,
             )
-
         else:
             t_traj, x_traj = _numba_simulate(
                 x,
@@ -161,18 +163,18 @@ class CNVM:
 
 @njit(cache=True)
 def _numba_simulate(
-    x: np.ndarray,
+    x: NDArray,
     t_delta: float,
     t_max: float,
     num_opinions: int,
     neighbor_list: list,
     r_imit: float,
     r_noise: float,
-    prob_imit: np.ndarray,
-    prob_noise: np.ndarray,
-    degree_alpha: np.ndarray,
+    prob_imit: NDArray,
+    prob_noise: NDArray,
+    degree_alpha: NDArray,
     rng: Generator,
-):
+) -> tuple[list[float], list[NDArray]]:
     """
     CNVM simulation.
     """
@@ -184,8 +186,8 @@ def _numba_simulate(
 
     # initialize
     x_traj = [np.copy(x)]
-    t = 0
-    t_traj = [0]
+    t = 0.0
+    t_traj = [0.0]
 
     # simulation loop
     t_store = t_delta
@@ -216,17 +218,17 @@ def _numba_simulate(
 
 @njit(cache=True)
 def _numba_simulate_complete(
-    x: np.ndarray,
+    x: NDArray,
     t_delta: float,
     t_max: float,
     num_opinions: int,
     r_imit: float,
     r_noise: float,
-    prob_imit: np.ndarray,
-    prob_noise: np.ndarray,
-    degree_alpha: np.ndarray,
+    prob_imit: NDArray,
+    prob_noise: NDArray,
+    degree_alpha: NDArray,
     rng: Generator,
-):
+) -> tuple[list[float], list[NDArray]]:
     """
     CNVM simulation for complete networks.
     """
@@ -238,8 +240,8 @@ def _numba_simulate_complete(
 
     # initialize
     x_traj = [np.copy(x)]
-    t = 0
-    t_traj = [0]
+    t = 0.0
+    t_traj = [0.0]
 
     # simulation loop
     t_store = t_delta
