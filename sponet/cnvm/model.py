@@ -128,8 +128,21 @@ class CNVM:
                 self.degree_alpha,
                 rng,
             )
+        elif len_output is None:
+            t_traj, x_traj = _numba_simulate_all(
+                x,
+                t_max,
+                self.params.num_opinions,
+                self.neighbor_list,
+                self.params.r_imit,
+                self.params.r_noise,
+                self.params.prob_imit,
+                self.params.prob_noise,
+                self.degree_alpha,
+                rng,
+            )
         else:
-            t_traj, x_traj = _numba_simulate_2(
+            t_traj, x_traj = _numba_simulate_linspace(
                 x,
                 t_delta,
                 t_max,
@@ -162,9 +175,8 @@ class CNVM:
 
 
 @njit(cache=True)
-def _numba_simulate(
+def _numba_simulate_all(
     x: NDArray,
-    t_delta: float,
     t_max: float,
     num_opinions: int,
     neighbor_list: list,
@@ -176,7 +188,7 @@ def _numba_simulate(
     rng: Generator,
 ) -> tuple[list[float], list[NDArray]]:
     """
-    CNVM simulation.
+    CNVM simulation, storing all snapshots.
     """
     # pre-calculate some values
     num_agents = x.shape[0]
@@ -190,16 +202,20 @@ def _numba_simulate(
     t_traj = [0.0]
 
     # simulation loop
-    t_store = t_delta
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
         noise = True if rng.random() < noise_probability else False
+
+        # TODO: Because only states with an update are stored,
+        # we do not need to mask the duplicates later anymore!
+        update = False  # whether a state update occured in this step
 
         if noise:
             agent = sample_randint(num_agents, rng)  # agent of next event
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
+                update = True
         else:
             agent = sample_from_alias(prob_table, alias_table, rng)
             neighbors = neighbor_list[agent]
@@ -207,17 +223,17 @@ def _numba_simulate(
             new_opinion = x[rand_neighbor]
             if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
+                update = True
 
-        if t >= t_store:
-            t_store += t_delta
+        if update:  # store every step (but only when the state changed)
             x_traj.append(x.copy())
             t_traj.append(t)
 
     return t_traj, x_traj
 
 
-@njit()
-def _numba_simulate_2(
+@njit(cache=True)
+def _numba_simulate_linspace(
     x: NDArray,
     t_delta: float,
     t_max: float,
@@ -231,7 +247,7 @@ def _numba_simulate_2(
     rng: Generator,
 ) -> tuple[list[float], list[NDArray]]:
     """
-    CNVM simulation.
+    CNVM simulation, storing snapshots equidistantly with `t_delta`.
     """
     # pre-calculate some values
     num_agents = x.shape[0]
@@ -245,7 +261,6 @@ def _numba_simulate_2(
     t_traj = [0.0]
 
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
-    previous_t = 0.0
     previous_agent = 0
     previous_opinion = x[0]
 
@@ -273,10 +288,7 @@ def _numba_simulate_2(
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
 
-        if t_delta == 0:  # store every step
-            x_traj.append(x.copy())
-            t_traj.append(t)
-        elif t >= t_store:  # store only after passing the next `t_store`
+        if t >= t_store:  # store only after passing the next `t_store`
             t_store += t_delta
             x_store = x.copy()
             if t - t_store <= abs(t_store - previous_t):  # t is closer
@@ -287,11 +299,12 @@ def _numba_simulate_2(
                 x_traj.append(x_store)
                 t_traj.append(previous_t)
         # BUG: If t_store is much smaller than t and previous_t, this will always store the previous step.
-        # Not sure if that is what I want. We should definitely make sure that the last step in the simulation is stored.
+        # Not sure if that is what we want. We should definitely make sure that the last step in the simulation is stored.
 
     return t_traj, x_traj
 
 
+# TODO: Rewrite analogously
 @njit(cache=True)
 def _numba_simulate_complete(
     x: NDArray,
