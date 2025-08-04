@@ -129,7 +129,7 @@ class CNVM:
                 rng,
             )
         else:
-            t_traj, x_traj = _numba_simulate(
+            t_traj, x_traj = _numba_simulate_2(
                 x,
                 t_delta,
                 t_max,
@@ -212,6 +212,82 @@ def _numba_simulate(
             t_store += t_delta
             x_traj.append(x.copy())
             t_traj.append(t)
+
+    return t_traj, x_traj
+
+
+@njit()
+def _numba_simulate_2(
+    x: NDArray,
+    t_delta: float,
+    t_max: float,
+    num_opinions: int,
+    neighbor_list: list,
+    r_imit: float,
+    r_noise: float,
+    prob_imit: NDArray,
+    prob_noise: NDArray,
+    degree_alpha: NDArray,
+    rng: Generator,
+) -> tuple[list[float], list[NDArray]]:
+    """
+    CNVM simulation.
+    """
+    # pre-calculate some values
+    num_agents = x.shape[0]
+    next_event_rate = 1 / (r_imit * np.sum(degree_alpha) + r_noise * num_agents)
+    noise_probability = r_noise * num_agents * next_event_rate
+    prob_table, alias_table = build_alias_table(degree_alpha)
+
+    # initialize
+    x_traj = [np.copy(x)]
+    t = 0.0
+    t_traj = [0.0]
+
+    # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
+    previous_t = 0.0
+    previous_agent = 0
+    previous_opinion = x[0]
+
+    # simulation loop
+    t_store = t_delta
+    while t < t_max:
+        previous_t = t
+        t += rng.exponential(next_event_rate)  # time of next event
+        noise = True if rng.random() < noise_probability else False
+
+        if noise:
+            agent = sample_randint(num_agents, rng)  # agent of next event
+            new_opinion = sample_randint(num_opinions, rng)
+            if rng.random() < prob_noise[x[agent], new_opinion]:
+                previous_agent = agent
+                previous_opinion = x[agent]
+                x[agent] = new_opinion
+        else:
+            agent = sample_from_alias(prob_table, alias_table, rng)
+            neighbors = neighbor_list[agent]
+            rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
+            new_opinion = x[rand_neighbor]
+            if rng.random() < prob_imit[x[agent], new_opinion]:
+                previous_agent = agent
+                previous_opinion = x[agent]
+                x[agent] = new_opinion
+
+        if t_delta == 0:  # store every step
+            x_traj.append(x.copy())
+            t_traj.append(t)
+        elif t >= t_store:  # store only after passing the next `t_store`
+            t_store += t_delta
+            x_store = x.copy()
+            if t - t_store <= abs(t_store - previous_t):  # t is closer
+                x_traj.append(x_store)
+                t_traj.append(t)
+            else:  # previous_t is closer
+                x_store[previous_agent] = previous_opinion  # revert to previous state
+                x_traj.append(x_store)
+                t_traj.append(previous_t)
+        # BUG: If t_store is much smaller than t and previous_t, this will always store the previous step.
+        # Not sure if that is what I want. We should definitely make sure that the last step in the simulation is stored.
 
     return t_traj, x_traj
 
