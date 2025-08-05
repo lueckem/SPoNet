@@ -5,19 +5,19 @@ from numpy.typing import NDArray
 
 
 @njit(cache=True)
-def argmatch(x_ref, x):
+def argmatch(x_ref: NDArray, x: NDArray) -> NDArray:
     """
     Find indices such that |x[indices] - x_ref| = min!
 
     Parameters
     ----------
-    x_ref : np.ndarray
+    x_ref : NDArray
         1D, sorted
-    x : np.ndarray
+    x : NDArray
         1D, sorted
     Returns
     -------
-    np.ndarray
+    NDArray
     """
     size = np.shape(x_ref)[0]
     out = np.zeros(size, dtype=np.int64)
@@ -45,7 +45,7 @@ def argmatch(x_ref, x):
     return out
 
 
-def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
+def mask_subsequent_duplicates(x: NDArray) -> NDArray:
     """
     Calculate mask that removes subsequent duplicates.
 
@@ -55,12 +55,12 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    x : np.ndarray
+    x : NDArray
         1D or 2D array.
 
     Returns
     -------
-    np.ndarray
+    NDArray
     """
     if x.ndim == 1:
         mask = x[:-1] != x[1:]
@@ -73,7 +73,7 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
     return mask
 
 
-def calculate_neighbor_list(network: nx.Graph):
+def calculate_neighbor_list(network: nx.Graph) -> list[NDArray]:
     """
     Calculate list of neighbors.
 
@@ -86,7 +86,7 @@ def calculate_neighbor_list(network: nx.Graph):
 
     Returns
     -------
-    List[np.ndarray]
+    list[NDArray]
     """
     neighbor_list = []
     for i in network.nodes():
