@@ -48,6 +48,7 @@ class TestModel(TestCase):
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
+        # TODO: This test fails now
         self.assertTrue(t[-1] >= t_max)
 
         model = CNVM(self.params_network)
