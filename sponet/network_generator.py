@@ -1,8 +1,9 @@
+import time
 from typing import Protocol
+
 import networkx as nx
 import numpy as np
 from numpy.random import Generator, default_rng
-import time
 
 
 class NetworkGenerator(Protocol):
@@ -423,8 +424,7 @@ def _unisolate_vertices(network: nx.Graph) -> None:
     network : nx.Graph
     """
     for i in nx.isolates(network):
-        j = i
-        while j == i:
+        while (j := i) == i:
             j = np.random.randint(0, network.number_of_nodes())
 
         network.add_edge(i, j)

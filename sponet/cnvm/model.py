@@ -7,12 +7,7 @@ from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 
 from ..sampling import build_alias_table, sample_from_alias, sample_randint
-from ..utils import (
-    argmatch,
-    calculate_neighbor_list,
-    mask_subsequent_duplicates,
-    store_snapshot_linspace,
-)
+from ..utils import argmatch, calculate_neighbor_list, store_snapshot_linspace
 from .parameters import CNVMParameters
 
 

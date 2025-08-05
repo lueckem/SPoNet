@@ -2,6 +2,7 @@ import numpy as np
 from numba import njit
 from numba.typed import List
 from numpy.random import Generator, default_rng
+from numpy.typing import NDArray
 
 from ..sampling import sample_randint
 from ..utils import calculate_neighbor_list, mask_subsequent_duplicates
@@ -30,17 +31,17 @@ class CNTM:
     def simulate(
         self,
         t_max: float,
-        x_init: np.ndarray,
-        len_output: int = None,
+        x_init: NDArray,
+        len_output: int | None = None,
         rng: Generator = default_rng(),
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[NDArray, NDArray]:
         """
         Simulate the model from t=0 to t=t_max.
 
         Parameters
         ----------
         t_max : float
-        x_init : np.ndarray
+        x_init : NDArray
             shape=(num_agents,)
         len_output : int, optional
             number of snapshots to output, as equidistantly spaced as possible between 0 and t_max
@@ -49,7 +50,7 @@ class CNTM:
 
         Returns
         -------
-        tuple[np.ndarray]
+        tuple[NDArray, NDArray]
             t_traj (shape=(?,)), x_traj (shape=(?,num_agents))
         """
         x = np.copy(x_init).astype(float)
@@ -62,7 +63,6 @@ class CNTM:
             self.next_event_rate,
             self.noise_prob,
             t_max,
-            self.params.num_agents,
             self.params.threshold_01,
             self.params.threshold_10,
             self.neighbor_list,
@@ -84,20 +84,20 @@ class CNTM:
 
 @njit(cache=True)
 def _simulate_numba(
-    x,
-    t_delta,
-    next_event_rate,
-    noise_prob,
-    t_max,
-    num_agents,
-    threshold_01,
-    threshold_10,
-    neighbor_list,
-    rng,
-):
+    x: NDArray,
+    t_delta: float,
+    next_event_rate: float,
+    noise_prob: float,
+    t_max: float,
+    threshold_01: float,
+    threshold_10: float,
+    neighbor_list: list,
+    rng: Generator,
+) -> tuple[list[float], list[NDArray]]:
+    num_agents = x.shape[0]
     x_traj = [np.copy(x)]
-    t = 0
-    t_traj = [0]
+    t = 0.0
+    t_traj = [0.0]
 
     t_store = t_delta
     while t < t_max:
