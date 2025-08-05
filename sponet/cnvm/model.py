@@ -7,7 +7,12 @@ from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 
 from ..sampling import build_alias_table, sample_from_alias, sample_randint
-from ..utils import argmatch, calculate_neighbor_list, mask_subsequent_duplicates
+from ..utils import (
+    argmatch,
+    calculate_neighbor_list,
+    mask_subsequent_duplicates,
+    store_snapshot_linspace,
+)
 from .parameters import CNVMParameters
 
 
@@ -129,7 +134,7 @@ class CNVM:
                 rng,
             )
         elif len_output is None:
-            t_traj, x_traj = _numba_simulate_all(
+            t_traj, x_traj = _simulate_all(
                 x,
                 t_max,
                 self.params.num_opinions,
@@ -142,7 +147,7 @@ class CNVM:
                 rng,
             )
         else:
-            t_traj, x_traj = _numba_simulate_linspace(
+            t_traj, x_traj = _simulate_linspace(
                 x,
                 t_delta,
                 t_max,
@@ -175,7 +180,7 @@ class CNVM:
 
 
 @njit(cache=True)
-def _numba_simulate_all(
+def _simulate_all(
     x: NDArray,
     t_max: float,
     num_opinions: int,
@@ -233,7 +238,7 @@ def _numba_simulate_all(
 
 
 @njit(cache=True)
-def _numba_simulate_linspace(
+def _simulate_linspace(
     x: NDArray,
     t_delta: float,
     t_max: float,
@@ -289,17 +294,17 @@ def _numba_simulate_linspace(
                 x[agent] = new_opinion
 
         if t >= t_store:  # store only after passing the next `t_store`
+            store_snapshot_linspace(
+                t,
+                t_store,
+                previous_t,
+                x,
+                previous_agent,
+                previous_opinion,
+                x_traj,
+                t_traj,
+            )
             t_store += t_delta
-            x_store = x.copy()
-            if t - t_store <= abs(t_store - previous_t):  # t is closer
-                x_traj.append(x_store)
-                t_traj.append(t)
-            else:  # previous_t is closer
-                x_store[previous_agent] = previous_opinion  # revert to previous state
-                x_traj.append(x_store)
-                t_traj.append(previous_t)
-        # BUG: If t_store is much smaller than t and previous_t, this will always store the previous step.
-        # Not sure if that is what we want. We should definitely make sure that the last step in the simulation is stored.
 
     return t_traj, x_traj
 
