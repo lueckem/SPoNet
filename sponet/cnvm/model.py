@@ -120,12 +120,7 @@ class CNVM:
         # Call the correct simulation loop
         t_traj, x_traj = self._call_simulation_loop(x, t_max, len_output, rng)
 
-        if len_output is None:
-            # remove duplicate subsequent states
-            mask = mask_subsequent_duplicates(x_traj)
-            x_traj = x_traj[mask]
-            t_traj = t_traj[mask]
-        elif t_traj.shape[0] != len_output:
+        if len_output is not None and t_traj.shape[0] != len_output:
             # there might be less samples than len_output
             # -> fill them with duplicates
             t_ref = np.linspace(0, t_max, len_output)
@@ -233,8 +228,6 @@ def _simulate_all(
         t += rng.exponential(next_event_rate)  # time of next event
         noise = True if rng.random() < noise_probability else False
 
-        # TODO: Because only states with an update are stored,
-        # we do not need to mask the duplicates later anymore!
         update = False  # whether a state update occured in this step
 
         if noise:

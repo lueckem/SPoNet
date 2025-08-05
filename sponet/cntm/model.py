@@ -71,6 +71,8 @@ class CNTM:
 
         t_traj = np.array(t_traj)
         x_traj = np.array(x_traj, dtype=int)
+
+        # TODO: After the changes to simulation loop, this can be removed
         if len_output is None:
             # remove duplicate subsequent states
             mask = mask_subsequent_duplicates(x_traj)
