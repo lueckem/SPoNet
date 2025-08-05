@@ -82,6 +82,7 @@ class CNTM:
         return t_traj, x_traj
 
 
+# TODO: change loop analogously to CNVM
 @njit(cache=True)
 def _simulate_numba(
     x: NDArray,
