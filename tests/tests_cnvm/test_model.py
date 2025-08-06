@@ -38,6 +38,7 @@ class TestModel(TestCase):
         )
 
     def test_output(self):
+        # complete network
         model = CNVM(self.params_complete)
         t_max = 100
         t, x = model.simulate(t_max)
@@ -48,8 +49,8 @@ class TestModel(TestCase):
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
-        self.assertTrue(t[-1] >= t_max)
 
+        # network
         model = CNVM(self.params_network)
         t, x = model.simulate(t_max)
         self.assertEqual(t[0], 0)
@@ -59,8 +60,8 @@ class TestModel(TestCase):
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
-        self.assertTrue(t[-1] >= t_max)
 
+        # network generator
         x_init = np.ones(self.num_agents)
         model = CNVM(self.params_generator)
         t, x = model.simulate(t_max, x_init=x_init)
@@ -72,8 +73,27 @@ class TestModel(TestCase):
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
-        self.assertTrue(t[-1] >= t_max)
         self.assertTrue(np.allclose(x[0], x_init))
+
+    def test_len_output(self):
+        t_max = 100
+        len_output = 11
+        rng = np.random.default_rng(123)
+        target_t = np.linspace(0, t_max, len_output)
+
+        # complete
+        model = CNVM(self.params_complete)
+        t, _ = model.simulate(t_max, len_output=len_output, rng=rng)
+        self.assertEqual(t.shape, (len_output,))
+        max_diff = np.max(np.abs(t - target_t))
+        self.assertGreater(0.01, max_diff)
+
+        # network
+        model = CNVM(self.params_network)
+        t, _ = model.simulate(t_max, len_output=len_output, rng=rng)
+        self.assertEqual(t.shape, (len_output,))
+        max_diff = np.max(np.abs(t - target_t))
+        self.assertGreater(0.01, max_diff)
 
     def test_rng(self):
         t_max = 100
@@ -94,7 +114,7 @@ class TestModel(TestCase):
         # have changed from one snapshot to the next
         model = CNVM(self.params_network)
         t_max = 100
-        t, x = model.simulate(t_max)
+        _, x = model.simulate(t_max)
 
         for i in range(x.shape[0] - 1):
             self.assertFalse(np.allclose(x[i], x[i + 1]))
@@ -113,7 +133,7 @@ class TestModel(TestCase):
             )
             model = CNVM(params)
             t_max = 5
-            t, x = model.simulate(t_max)
+            _, x = model.simulate(t_max)
             self.assertEqual(correct_dtype, x.dtype)
 
             # network
@@ -125,7 +145,7 @@ class TestModel(TestCase):
             )
             model = CNVM(params)
             t_max = 5
-            t, x = model.simulate(t_max)
+            _, x = model.simulate(t_max)
             self.assertEqual(correct_dtype, x.dtype)
 
     def test_output_fill(self):

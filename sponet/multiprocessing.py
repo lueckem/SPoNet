@@ -1,30 +1,30 @@
-import numpy as np
 import multiprocessing as mp
 import time
 from datetime import timedelta
 
+import numpy as np
+from numpy.typing import NDArray
+
+from .cntm.model import CNTM
+from .cntm.parameters import CNTMParameters
+from .cnvm.model import CNVM
+from .cnvm.parameters import CNVMParameters
 from .collective_variables import CollectiveVariable
 from .parameters import Parameters
 from .utils import argmatch
 
-from .cnvm.parameters import CNVMParameters
-from .cnvm.model import CNVM
-
-from .cntm.parameters import CNTMParameters
-from .cntm.model import CNTM
-
 
 def sample_many_runs(
     params: Parameters,
-    initial_states: np.ndarray,
+    initial_states: NDArray,
     t_max: float,
     num_timesteps: int,
     num_runs: int,
-    n_jobs: int = None,
-    collective_variable: CollectiveVariable = None,
-    seed: int = None,
+    n_jobs: int | None = None,
+    collective_variable: CollectiveVariable | None = None,
+    seed: int | None = None,
     verbose: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray, NDArray]:
     """
     Sample multiple runs of the model specified by params.
 
@@ -33,7 +33,7 @@ def sample_many_runs(
     params : Parameters
         Either CNVM or CNTM Parameters.
         If a NetworkGenerator is used, a new network will be sampled for every run.
-    initial_states : np.ndarray
+    initial_states : NDArray
         Array of initial states, shape = (num_initial_states, num_agents).
         Num_runs simulations will be executed for each initial state.
     t_max : float
@@ -57,14 +57,14 @@ def sample_many_runs(
 
     Returns
     -------
-    t_out, x_out : tuple[np.ndarray, np.ndarray]
+    t_out, x_out : tuple[NDArray, NDArray]
         (t_out, x_out), time_out.shape = (num_timesteps,),
         x_out.shape = (num_initial_states, num_runs, num_timesteps, num_agents)
     """
     t_out = np.linspace(0, t_max, num_timesteps)
 
     if seed is None:
-        seed = np.random.default_rng().integers(2**31)
+        seed = int(np.random.default_rng().integers(2**31))
 
     # no multiprocessing
     if n_jobs is None or n_jobs == 1:
@@ -130,13 +130,13 @@ def sample_many_runs(
 
 def _sample_many_runs_subprocess(
     params: Parameters,
-    initial_states: np.ndarray,
+    initial_states: NDArray,
     t_max: float,
     num_timesteps: int,
     num_runs: int,
     seed: int,
     verbose: bool,
-    collective_variable: CollectiveVariable = None,
+    collective_variable: CollectiveVariable | None = None,
 ) -> np.ndarray:
     t_out = np.linspace(0, t_max, num_timesteps)
     num_initial_states = initial_states.shape[0]
@@ -148,7 +148,7 @@ def _sample_many_runs_subprocess(
         model_type = CNTM
     else:
         raise ValueError("Parameters not valid.")
-    model = model_type(params)
+    model = model_type(params)  # type: ignore
 
     if collective_variable is None:
         opinion_dtype = np.min_scalar_type(params.num_opinions - 1)
@@ -173,14 +173,13 @@ def _sample_many_runs_subprocess(
     for j in range(num_initial_states):
         for i in range(num_runs):
             num_iter += 1
-            t, x = model.simulate(
-                t_max, len_output=4 * num_timesteps, x_init=initial_states[j], rng=rng
+            _, x = model.simulate(
+                t_max, len_output=num_timesteps, x_init=initial_states[j], rng=rng
             )
-            t_ind = argmatch(t_out, t)
             if collective_variable is None:
-                x_out[j, i, :, :] = x[t_ind, :]
+                x_out[j, i, :, :] = x
             else:
-                x_out[j, i, :, :] = collective_variable(x[t_ind, :])
+                x_out[j, i, :, :] = collective_variable(x)
 
             if verbose and num_iter >= next_print_iter:
                 elapsed_time = time.time() - start_time

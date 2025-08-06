@@ -1,22 +1,23 @@
 import networkx as nx
 import numpy as np
 from numba import njit
+from numpy.typing import NDArray
 
 
 @njit(cache=True)
-def argmatch(x_ref, x):
+def argmatch(x_ref: NDArray, x: NDArray) -> NDArray:
     """
     Find indices such that |x[indices] - x_ref| = min!
 
     Parameters
     ----------
-    x_ref : np.ndarray
+    x_ref : NDArray
         1D, sorted
-    x : np.ndarray
+    x : NDArray
         1D, sorted
     Returns
     -------
-    np.ndarray
+    NDArray
     """
     size = np.shape(x_ref)[0]
     out = np.zeros(size, dtype=np.int64)
@@ -44,7 +45,7 @@ def argmatch(x_ref, x):
     return out
 
 
-def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
+def mask_subsequent_duplicates(x: NDArray) -> NDArray:
     """
     Calculate mask that removes subsequent duplicates.
 
@@ -54,12 +55,12 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    x : np.ndarray
+    x : NDArray
         1D or 2D array.
 
     Returns
     -------
-    np.ndarray
+    NDArray
     """
     if x.ndim == 1:
         mask = x[:-1] != x[1:]
@@ -72,7 +73,7 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
     return mask
 
 
-def calculate_neighbor_list(network: nx.Graph):
+def calculate_neighbor_list(network: nx.Graph) -> list[NDArray]:
     """
     Calculate list of neighbors.
 
@@ -85,9 +86,51 @@ def calculate_neighbor_list(network: nx.Graph):
 
     Returns
     -------
-    List[np.ndarray]
+    list[NDArray]
     """
     neighbor_list = []
     for i in network.nodes():
         neighbor_list.append(np.array(list(network.neighbors(i)), dtype=int))
     return neighbor_list
+
+
+@njit(cache=True)
+def store_snapshot_linspace(
+    t: float,
+    t_store: float,
+    previous_t: float,
+    x: NDArray,
+    previous_agent: int,
+    previous_opinion: int,
+    x_traj: list[NDArray],
+    t_traj: list[float],
+) -> None:
+    """
+    Store either the current snapshot in `t_traj` and `x_traj` or the previous one,
+    depending on which is closer to `t_store`.
+
+    Parameters
+    ----------
+    t : float
+        Current time.
+    t_store : float
+        Desired time.
+    previous_t : float
+        Time of previous snapshot.
+    x : NDArray
+        System state.
+    previous_agent : int
+        Agent that switched from previous to current snapshot.
+    previous_opinion : int
+        Previous opinion of the agent before the switch.
+    x_traj : list[NDArray]
+    t_traj : list[float]
+    """
+    x_store = x.copy()
+    if t - t_store <= abs(t_store - previous_t):  # t is closer
+        x_traj.append(x_store)
+        t_traj.append(t)
+    else:  # previous_t is closer
+        x_store[previous_agent] = previous_opinion  # revert to previous state
+        x_traj.append(x_store)
+        t_traj.append(previous_t)
