@@ -85,23 +85,18 @@ def sample_many_runs(
         progress_bars[0] = True
 
     if num_runs >= initial_states.shape[0]:  # parallelization along runs
-        chunks = _split_runs(num_runs, n_jobs)
+        states_chunks = [initial_states] * n_jobs
+        runs_chunks = _split_runs(num_runs, n_jobs)
         concat_axis = 1
-        with ProcessPoolExecutor() as executor:
-            x_out = list(
-                executor.map(
-                    worker, [initial_states] * n_jobs, chunks, rngs, progress_bars
-                )
-            )
-
     else:  # parallelization along initial states
-        chunks = np.array_split(initial_states, n_jobs)
+        states_chunks = np.array_split(initial_states, n_jobs)
+        runs_chunks = [num_runs] * n_jobs
         concat_axis = 0
-        with ProcessPoolExecutor() as executor:
-            x_out = list(
-                executor.map(worker, chunks, [num_runs] * n_jobs, rngs, progress_bars)
-            )
 
+    with ProcessPoolExecutor() as executor:
+        x_out = list(
+            executor.map(worker, states_chunks, runs_chunks, rngs, progress_bars)
+        )
     x_out = np.concatenate(x_out, axis=concat_axis)
     return t_out, x_out
 
