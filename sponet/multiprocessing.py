@@ -1,8 +1,11 @@
 import multiprocessing as mp
 import time
+from concurrent.futures import ProcessPoolExecutor
 from datetime import timedelta
+from typing import Callable
 
 import numpy as np
+from numpy.random import Generator
 from numpy.typing import NDArray
 
 from .cntm.model import CNTM
@@ -11,7 +14,6 @@ from .cnvm.model import CNVM
 from .cnvm.parameters import CNVMParameters
 from .collective_variables import CollectiveVariable
 from .parameters import Parameters
-from .utils import argmatch
 
 
 def sample_many_runs(
@@ -22,7 +24,7 @@ def sample_many_runs(
     num_runs: int,
     n_jobs: int | None = None,
     collective_variable: CollectiveVariable | None = None,
-    seed: int | None = None,
+    rng: Generator = np.random.default_rng(),
     verbose: bool = False,
 ) -> tuple[NDArray, NDArray]:
     """
@@ -47,9 +49,8 @@ def sample_many_runs(
     collective_variable : CollectiveVariable, optional
         If collective variable is specified, the projected trajectory will be returned
         instead of the full trajectory.
-    seed : int, optional
-        Seed for random number generation.
-        If multiprocessing is used, the subprocesses receive the seeds {seed, seed + 1, ...}.
+    rng : Generator, optional
+        Random number generator.
     verbose : bool, optional
         Whether to print the progress.
         If multiprocessing is used, only the progress of the first subprocess is printed.
@@ -63,20 +64,14 @@ def sample_many_runs(
     """
     t_out = np.linspace(0, t_max, num_timesteps)
 
-    if seed is None:
-        seed = int(np.random.default_rng().integers(2**31))
+    worker = _create_worker(params, t_max, num_timesteps, collective_variable)
 
     # no multiprocessing
     if n_jobs is None or n_jobs == 1:
-        x_out = _sample_many_runs_subprocess(
-            params,
+        x_out = worker(
             initial_states,
-            t_max,
-            num_timesteps,
             num_runs,
-            seed,
-            verbose,
-            collective_variable,
+            rng,
         )
         return t_out, x_out
 
@@ -84,116 +79,146 @@ def sample_many_runs(
     if n_jobs == -1:
         n_jobs = mp.cpu_count()
 
+    rngs = rng.spawn(n_jobs)
+
     if num_runs >= initial_states.shape[0]:  # parallelization along runs
         chunks = _split_runs(num_runs, n_jobs)
-        processes = [
-            [
-                params,
-                initial_states,
-                t_max,
-                num_timesteps,
-                chunk,
-                seed + i,
-                False,
-                collective_variable,
-            ]
-            for i, chunk in enumerate(chunks)
-        ]
         concat_axis = 1
+        with ProcessPoolExecutor() as executor:
+            x_out = list(executor.map(worker, [initial_states] * n_jobs, chunks, rngs))
 
     else:  # parallelization along initial states
         chunks = np.array_split(initial_states, n_jobs)
-        processes = [
-            [
-                params,
-                chunk,
-                t_max,
-                num_timesteps,
-                num_runs,
-                seed + i,
-                False,
-                collective_variable,
-            ]
-            for i, chunk in enumerate(chunks)
-        ]
         concat_axis = 0
+        with ProcessPoolExecutor() as executor:
+            x_out = list(executor.map(worker, chunks, [num_runs] * n_jobs, rngs))
 
-    if verbose:
-        processes[0][6] = True
-
-    with mp.Pool(n_jobs) as pool:
-        x_out = pool.starmap(_sample_many_runs_subprocess, processes)
     x_out = np.concatenate(x_out, axis=concat_axis)
-
     return t_out, x_out
 
 
-def _sample_many_runs_subprocess(
+def _create_worker(
     params: Parameters,
-    initial_states: NDArray,
     t_max: float,
     num_timesteps: int,
-    num_runs: int,
-    seed: int,
-    verbose: bool,
-    collective_variable: CollectiveVariable | None = None,
-) -> np.ndarray:
-    t_out = np.linspace(0, t_max, num_timesteps)
-    num_initial_states = initial_states.shape[0]
-    rng = np.random.default_rng(seed)
-
+    collective_variable: CollectiveVariable | None,
+) -> Callable:
     if isinstance(params, CNVMParameters):
-        model_type = CNVM
+        model = CNVM(params)
     elif isinstance(params, CNTMParameters):
-        model_type = CNTM
+        model = CNTM(params)
     else:
         raise ValueError("Parameters not valid.")
-    model = model_type(params)  # type: ignore
 
-    if collective_variable is None:
-        opinion_dtype = np.min_scalar_type(params.num_opinions - 1)
+    global _sample_many_runs_worker_func
 
-        x_out = np.zeros(
-            (num_initial_states, num_runs, num_timesteps, model.params.num_agents),
-            dtype=opinion_dtype,
-        )
-    else:
-        x_out = np.zeros(
-            (num_initial_states, num_runs, num_timesteps, collective_variable.dimension)
-        )
+    def _sample_many_runs_worker_func(
+        initial_states: NDArray,
+        num_runs: int,
+        rng: Generator,
+        progress_bar: bool = False,
+    ) -> NDArray:
+        num_initial_states = initial_states.shape[0]
 
-    num_iter = 0
-    total_num_iter = num_initial_states * num_runs
-    iter_delta = round(total_num_iter / 20)
-    next_print_iter = iter_delta
-    start_time = time.time()
-    if verbose:
-        print("t=0:00:00 : 0%.")
-
-    for j in range(num_initial_states):
-        for i in range(num_runs):
-            num_iter += 1
-            _, x = model.simulate(
-                t_max, len_output=num_timesteps, x_init=initial_states[j], rng=rng
+        if collective_variable is None:
+            opinion_dtype = np.min_scalar_type(params.num_opinions - 1)
+            x_out = np.zeros(
+                (num_initial_states, num_runs, num_timesteps, params.num_agents),
+                dtype=opinion_dtype,
             )
-            if collective_variable is None:
-                x_out[j, i, :, :] = x
-            else:
-                x_out[j, i, :, :] = collective_variable(x)
+        else:
+            x_out = np.zeros(
+                (
+                    num_initial_states,
+                    num_runs,
+                    num_timesteps,
+                    collective_variable.dimension,
+                )
+            )
 
-            if verbose and num_iter >= next_print_iter:
-                elapsed_time = time.time() - start_time
-                estimated_duration = elapsed_time / (num_iter / total_num_iter)
-                estimated_time_left = timedelta(
-                    seconds=round(estimated_duration - elapsed_time)
+        for j in range(num_initial_states):
+            for i in range(num_runs):
+                _, x = model.simulate(
+                    t_max,
+                    len_output=num_timesteps,
+                    x_init=initial_states[j],
+                    rng=rng,
                 )
-                elapsed_time = timedelta(seconds=round(elapsed_time))
-                percentage = round(num_iter / total_num_iter * 100)
-                print(
-                    f"t={elapsed_time} : {percentage}%. (Time remaining ~{estimated_time_left})"
-                )
-                next_print_iter += iter_delta
-    return x_out
+                if collective_variable is None:
+                    x_out[j, i, :, :] = x
+                else:
+                    x_out[j, i, :, :] = collective_variable(x)
+        return x_out
+
+    return _sample_many_runs_worker_func
+
+
+# def _sample_many_runs_subprocess(
+#     params: Parameters,
+#     initial_states: NDArray,
+#     t_max: float,
+#     num_timesteps: int,
+#     num_runs: int,
+#     seed: int,
+#     verbose: bool,
+#     collective_variable: CollectiveVariable | None = None,
+# ) -> np.ndarray:
+#     t_out = np.linspace(0, t_max, num_timesteps)
+#     num_initial_states = initial_states.shape[0]
+#     rng = np.random.default_rng(seed)
+#
+#     if isinstance(params, CNVMParameters):
+#         model_type = CNVM
+#     elif isinstance(params, CNTMParameters):
+#         model_type = CNTM
+#     else:
+#         raise ValueError("Parameters not valid.")
+#     model = model_type(params)  # type: ignore
+#
+#     if collective_variable is None:
+#         opinion_dtype = np.min_scalar_type(params.num_opinions - 1)
+#
+#         x_out = np.zeros(
+#             (num_initial_states, num_runs, num_timesteps, model.params.num_agents),
+#             dtype=opinion_dtype,
+#         )
+#     else:
+#         x_out = np.zeros(
+#             (num_initial_states, num_runs, num_timesteps, collective_variable.dimension)
+#         )
+#
+#     num_iter = 0
+#     total_num_iter = num_initial_states * num_runs
+#     iter_delta = round(total_num_iter / 20)
+#     next_print_iter = iter_delta
+#     start_time = time.time()
+#     if verbose:
+#         print("t=0:00:00 : 0%.")
+#
+#     for j in range(num_initial_states):
+#         for i in range(num_runs):
+#             num_iter += 1
+#             _, x = model.simulate(
+#                 t_max, len_output=num_timesteps, x_init=initial_states[j], rng=rng
+#             )
+#             if collective_variable is None:
+#                 x_out[j, i, :, :] = x
+#             else:
+#                 x_out[j, i, :, :] = collective_variable(x)
+#
+#             if verbose and num_iter >= next_print_iter:
+#                 elapsed_time = time.time() - start_time
+#                 estimated_duration = elapsed_time / (num_iter / total_num_iter)
+#                 estimated_time_left = timedelta(
+#                     seconds=round(estimated_duration - elapsed_time)
+#                 )
+#                 elapsed_time = timedelta(seconds=round(elapsed_time))
+#                 percentage = round(num_iter / total_num_iter * 100)
+#                 print(
+#                     f"t={elapsed_time} : {percentage}%. (Time remaining ~{estimated_time_left})"
+#                 )
+#                 next_print_iter += iter_delta
+#     return x_out
 
 
 def _split_runs(num_runs: int, num_chunks: int) -> np.ndarray:
