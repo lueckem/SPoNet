@@ -1,12 +1,11 @@
 import multiprocessing as mp
-import time
 from concurrent.futures import ProcessPoolExecutor
-from datetime import timedelta
 from typing import Callable
 
 import numpy as np
 from numpy.random import Generator
 from numpy.typing import NDArray
+from tqdm import tqdm
 
 from .cntm.model import CNTM
 from .cntm.parameters import CNTMParameters
@@ -25,7 +24,7 @@ def sample_many_runs(
     n_jobs: int | None = None,
     collective_variable: CollectiveVariable | None = None,
     rng: Generator = np.random.default_rng(),
-    verbose: bool = False,
+    progress_bar: bool = False,
 ) -> tuple[NDArray, NDArray]:
     """
     Sample multiple runs of the model specified by params.
@@ -51,10 +50,9 @@ def sample_many_runs(
         instead of the full trajectory.
     rng : Generator, optional
         Random number generator.
-    verbose : bool, optional
+    progress_bar : bool, optional
         Whether to print the progress.
         If multiprocessing is used, only the progress of the first subprocess is printed.
-
 
     Returns
     -------
@@ -72,6 +70,7 @@ def sample_many_runs(
             initial_states,
             num_runs,
             rng,
+            progress_bar,
         )
         return t_out, x_out
 
@@ -81,17 +80,27 @@ def sample_many_runs(
 
     rngs = rng.spawn(n_jobs)
 
+    progress_bars = [False] * n_jobs
+    if progress_bar:
+        progress_bars[0] = True
+
     if num_runs >= initial_states.shape[0]:  # parallelization along runs
         chunks = _split_runs(num_runs, n_jobs)
         concat_axis = 1
         with ProcessPoolExecutor() as executor:
-            x_out = list(executor.map(worker, [initial_states] * n_jobs, chunks, rngs))
+            x_out = list(
+                executor.map(
+                    worker, [initial_states] * n_jobs, chunks, rngs, progress_bars
+                )
+            )
 
     else:  # parallelization along initial states
         chunks = np.array_split(initial_states, n_jobs)
         concat_axis = 0
         with ProcessPoolExecutor() as executor:
-            x_out = list(executor.map(worker, chunks, [num_runs] * n_jobs, rngs))
+            x_out = list(
+                executor.map(worker, chunks, [num_runs] * n_jobs, rngs, progress_bars)
+            )
 
     x_out = np.concatenate(x_out, axis=concat_axis)
     return t_out, x_out
@@ -136,6 +145,8 @@ def _create_worker(
                 )
             )
 
+        pbar = tqdm(total=num_initial_states * num_runs) if progress_bar else None
+
         for j in range(num_initial_states):
             for i in range(num_runs):
                 _, x = model.simulate(
@@ -148,77 +159,13 @@ def _create_worker(
                     x_out[j, i, :, :] = x
                 else:
                     x_out[j, i, :, :] = collective_variable(x)
+
+                if pbar is not None:
+                    pbar.update()
+
         return x_out
 
     return _sample_many_runs_worker_func
-
-
-# def _sample_many_runs_subprocess(
-#     params: Parameters,
-#     initial_states: NDArray,
-#     t_max: float,
-#     num_timesteps: int,
-#     num_runs: int,
-#     seed: int,
-#     verbose: bool,
-#     collective_variable: CollectiveVariable | None = None,
-# ) -> np.ndarray:
-#     t_out = np.linspace(0, t_max, num_timesteps)
-#     num_initial_states = initial_states.shape[0]
-#     rng = np.random.default_rng(seed)
-#
-#     if isinstance(params, CNVMParameters):
-#         model_type = CNVM
-#     elif isinstance(params, CNTMParameters):
-#         model_type = CNTM
-#     else:
-#         raise ValueError("Parameters not valid.")
-#     model = model_type(params)  # type: ignore
-#
-#     if collective_variable is None:
-#         opinion_dtype = np.min_scalar_type(params.num_opinions - 1)
-#
-#         x_out = np.zeros(
-#             (num_initial_states, num_runs, num_timesteps, model.params.num_agents),
-#             dtype=opinion_dtype,
-#         )
-#     else:
-#         x_out = np.zeros(
-#             (num_initial_states, num_runs, num_timesteps, collective_variable.dimension)
-#         )
-#
-#     num_iter = 0
-#     total_num_iter = num_initial_states * num_runs
-#     iter_delta = round(total_num_iter / 20)
-#     next_print_iter = iter_delta
-#     start_time = time.time()
-#     if verbose:
-#         print("t=0:00:00 : 0%.")
-#
-#     for j in range(num_initial_states):
-#         for i in range(num_runs):
-#             num_iter += 1
-#             _, x = model.simulate(
-#                 t_max, len_output=num_timesteps, x_init=initial_states[j], rng=rng
-#             )
-#             if collective_variable is None:
-#                 x_out[j, i, :, :] = x
-#             else:
-#                 x_out[j, i, :, :] = collective_variable(x)
-#
-#             if verbose and num_iter >= next_print_iter:
-#                 elapsed_time = time.time() - start_time
-#                 estimated_duration = elapsed_time / (num_iter / total_num_iter)
-#                 estimated_time_left = timedelta(
-#                     seconds=round(estimated_duration - elapsed_time)
-#                 )
-#                 elapsed_time = timedelta(seconds=round(elapsed_time))
-#                 percentage = round(num_iter / total_num_iter * 100)
-#                 print(
-#                     f"t={elapsed_time} : {percentage}%. (Time remaining ~{estimated_time_left})"
-#                 )
-#                 next_print_iter += iter_delta
-#     return x_out
 
 
 def _split_runs(num_runs: int, num_chunks: int) -> np.ndarray:
