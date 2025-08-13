@@ -1,9 +1,8 @@
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
-from typing import Callable
 
 import numpy as np
-from numpy.random import Generator
+from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 from tqdm import tqdm
 
@@ -23,7 +22,7 @@ def sample_many_runs(
     num_runs: int,
     n_jobs: int | None = None,
     collective_variable: CollectiveVariable | None = None,
-    rng: Generator = np.random.default_rng(),
+    rng: Generator = default_rng(),
     progress_bar: bool = False,
 ) -> tuple[NDArray, NDArray]:
     """
@@ -61,8 +60,7 @@ def sample_many_runs(
         x_out.shape = (num_initial_states, num_runs, num_timesteps, num_agents)
     """
     t_out = np.linspace(0, t_max, num_timesteps)
-
-    worker = _create_worker(params, t_max, num_timesteps, collective_variable)
+    worker = _Worker(params, t_max, num_timesteps, collective_variable)
 
     # no multiprocessing
     if n_jobs is None or n_jobs == 1:
@@ -101,22 +99,23 @@ def sample_many_runs(
     return t_out, x_out
 
 
-def _create_worker(
-    params: Parameters,
-    t_max: float,
-    num_timesteps: int,
-    collective_variable: CollectiveVariable | None,
-) -> Callable:
-    if isinstance(params, CNVMParameters):
-        model = CNVM(params)
-    elif isinstance(params, CNTMParameters):
-        model = CNTM(params)
-    else:
-        raise ValueError("Parameters not valid.")
+class _Worker:
+    def __init__(
+        self,
+        params: Parameters,
+        t_max: float,
+        num_timesteps: int,
+        collective_variable: CollectiveVariable | None,
+    ):
+        self.params = params
+        self.t_max = t_max
+        self.num_timesteps = num_timesteps
+        self.cv = collective_variable
+        self.num_opinions = params.num_opinions
+        self.num_agents = params.num_agents
 
-    global _sample_many_runs_worker_func
-
-    def _sample_many_runs_worker_func(
+    def __call__(
+        self,
         initial_states: NDArray,
         num_runs: int,
         rng: Generator,
@@ -124,10 +123,17 @@ def _create_worker(
     ) -> NDArray:
         num_initial_states = initial_states.shape[0]
 
-        if collective_variable is None:
-            opinion_dtype = np.min_scalar_type(params.num_opinions - 1)
+        if isinstance(self.params, CNVMParameters):
+            model = CNVM(self.params)
+        elif isinstance(self.params, CNTMParameters):
+            model = CNTM(self.params)
+        else:
+            raise ValueError("Parameters not valid.")
+
+        if self.cv is None:
+            opinion_dtype = np.min_scalar_type(self.num_opinions - 1)
             x_out = np.zeros(
-                (num_initial_states, num_runs, num_timesteps, params.num_agents),
+                (num_initial_states, num_runs, self.num_timesteps, self.num_agents),
                 dtype=opinion_dtype,
             )
         else:
@@ -135,8 +141,8 @@ def _create_worker(
                 (
                     num_initial_states,
                     num_runs,
-                    num_timesteps,
-                    collective_variable.dimension,
+                    self.num_timesteps,
+                    self.cv.dimension,
                 )
             )
 
@@ -145,22 +151,20 @@ def _create_worker(
         for j in range(num_initial_states):
             for i in range(num_runs):
                 _, x = model.simulate(
-                    t_max,
-                    len_output=num_timesteps,
+                    self.t_max,
+                    len_output=self.num_timesteps,
                     x_init=initial_states[j],
                     rng=rng,
                 )
-                if collective_variable is None:
+                if self.cv is None:
                     x_out[j, i, :, :] = x
                 else:
-                    x_out[j, i, :, :] = collective_variable(x)
+                    x_out[j, i, :, :] = self.cv(x)
 
                 if pbar is not None:
                     pbar.update()
 
         return x_out
-
-    return _sample_many_runs_worker_func
 
 
 def _split_runs(num_runs: int, num_chunks: int) -> np.ndarray:
