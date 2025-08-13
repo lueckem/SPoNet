@@ -74,7 +74,7 @@ def sample_many_runs(
 
     # multiprocessing
     if n_jobs == -1:  # determine number of CPUs
-        n_jobs = os.process_cpu_count()
+        n_jobs = os.cpu_count()
         if n_jobs is None:
             raise RuntimeError("Could not determine number of available CPUs.")
 
