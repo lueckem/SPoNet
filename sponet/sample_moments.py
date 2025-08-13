@@ -4,6 +4,7 @@ import time
 from typing import Optional
 
 import numpy as np
+from numpy.random import Generator, default_rng
 
 from sponet.multiprocessing import sample_many_runs
 
@@ -20,7 +21,7 @@ def sample_moments(
     rel_tol: float = 0.01,
     n_jobs: Optional[int] = None,
     collective_variable: Optional[CollectiveVariable] = None,
-    seed: Optional[int] = None,
+    rng: Generator = default_rng(),
     filename: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
     verbose: bool = False,
@@ -52,9 +53,8 @@ def sample_moments(
     collective_variable : CollectiveVariable, optional
         If collective variable is specified, the projected trajectory will be returned
         instead of the full trajectory.
-    seed : int, optional
-        Seed for random number generation.
-        If multiprocessing is used, the subprocesses receive the seeds {seed, seed + 1, ...}.
+    rng : Generator, optional
+        Random number generator.
     filename : str, optional
         Save the results afer each batch using numpy.savez.
         The entries are "t", "mean", "variance", "num_samples", "confidence_size", "rel_error", "time_elapsed".
@@ -75,9 +75,6 @@ def sample_moments(
         if collective_variable is None
         else collective_variable.dimension
     )
-
-    if seed is None:
-        seed = np.random.default_rng().integers(2**31)
 
     if n_jobs is None:
         n_jobs = 1
@@ -103,9 +100,8 @@ def sample_moments(
             batch_size,
             n_jobs=n_jobs,
             collective_variable=collective_variable,
-            seed=seed,
+            rng=rng,
         )
-        seed += n_jobs  # each process should get a new seed
         num_samples += batch_size
         sum_x += np.sum(x[0], axis=0)
         sum_xx += np.sum(x[0] ** 2, axis=0)

@@ -1,9 +1,11 @@
 from unittest import TestCase
-import numpy as np
 
+import numpy as np
+from numpy.random import default_rng
+
+import sponet.multiprocessing as smp
 from sponet import CNVMParameters, sample_many_runs
 from sponet.collective_variables import OpinionShares
-import sponet.multiprocessing as smp
 
 
 class TestSampleManyRuns(TestCase):
@@ -127,7 +129,7 @@ class TestSampleManyRuns(TestCase):
                 r_tilde=1,
             )
 
-            t, x = sample_many_runs(
+            _, x = sample_many_runs(
                 params=params,
                 initial_states=self.initial_states,
                 t_max=5,
@@ -138,3 +140,29 @@ class TestSampleManyRuns(TestCase):
             )
 
             self.assertEqual(correct_dtype, x.dtype)
+
+    def test_reproducible(self):
+        rng = default_rng(123)
+        t1, x1 = sample_many_runs(
+            params=self.params,
+            initial_states=self.initial_states,
+            t_max=self.t_max,
+            num_timesteps=self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+            rng=rng,
+        )
+
+        rng = default_rng(123)
+        t2, x2 = sample_many_runs(
+            params=self.params,
+            initial_states=self.initial_states,
+            t_max=self.t_max,
+            num_timesteps=self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+            rng=rng,
+        )
+
+        self.assertTrue((t1 == t2).all())
+        self.assertTrue((x1 == x2).all())
