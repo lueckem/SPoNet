@@ -1,4 +1,4 @@
-import multiprocessing as mp
+import os
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -73,8 +73,10 @@ def sample_many_runs(
         return t_out, x_out
 
     # multiprocessing
-    if n_jobs == -1:
-        n_jobs = mp.cpu_count()
+    if n_jobs == -1:  # determine number of CPUs
+        n_jobs = os.process_cpu_count()
+        if n_jobs is None:
+            raise RuntimeError("Could not determine number of available CPUs.")
 
     rngs = rng.spawn(n_jobs)
 
