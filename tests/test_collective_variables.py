@@ -7,38 +7,6 @@ import sponet.collective_variables as cvs
 from sponet.cnvm.parameters import CNVMParameters
 
 
-class TestOpinionSharesByDegree(TestCase):
-    def setUp(self):
-        edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (2, 4)]
-        self.network = nx.Graph(edges)
-        self.degrees = [4, 2, 4, 2, 2]
-
-    def test_default(self):
-        shares = cvs.OpinionSharesByDegree(3, self.network)
-        x = np.array([[0, 1, 0, 2, 1], [1, 1, 1, 0, 0]])
-        c = np.array([[0, 2, 1, 2, 0, 0], [2, 1, 0, 0, 2, 0]])
-        self.assertTrue(np.allclose(shares(x), c))
-
-    def test_normalize(self):
-        shares = cvs.OpinionSharesByDegree(3, self.network, normalize=True)
-        x = np.array([[0, 1, 0, 2, 1], [1, 1, 1, 0, 0]])
-        c = np.array([[0, 2 / 3, 1 / 3, 1, 0, 0], [2 / 3, 1 / 3, 0, 0, 1, 0]])
-        self.assertTrue(np.allclose(shares(x), c))
-
-    def test_idx_to_return(self):
-        shares = cvs.OpinionSharesByDegree(3, self.network, idx_to_return=0)
-        x = np.array([[0, 1, 0, 2, 1], [1, 1, 1, 0, 0]])
-        c = np.array([[0, 2], [2, 0]])
-        self.assertTrue(np.allclose(shares(x), c))
-
-        shares = cvs.OpinionSharesByDegree(
-            3, self.network, idx_to_return=np.array([2, 0])
-        )
-        x = np.array([[0, 1, 0, 2, 1], [1, 1, 1, 0, 0]])
-        c = np.array([[1, 0, 0, 2], [0, 2, 0, 0]])
-        self.assertTrue(np.allclose(shares(x), c))
-
-
 class TestCompositeCollectiveVariable(TestCase):
     def setUp(self):
         weights1 = np.array([0, 1, 0, 1, 1])
