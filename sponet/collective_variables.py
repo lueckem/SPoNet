@@ -1,4 +1,6 @@
-from typing import Protocol, Union
+from collections.abc import Callable
+from functools import wraps
+from typing import Any, Protocol
 
 import networkx as nx
 import numpy as np
@@ -30,6 +32,31 @@ class CollectiveVariable(Protocol):
             For multiple states output has shape = (num_states, self.dimension).
         """
         ...
+
+
+def handle_1d(
+    func: Callable[[Any, NDArray], NDArray],
+) -> Callable[[Any, NDArray], NDArray]:
+    """
+    This decorator can be used on a method that expects a 2D input
+    of shape (samples, d1) and returns a 2D output of shape (samples, d2).
+    As a result, the method will also work on 1D input of shape (d1,) and
+    return 1D output of shape (d2,).
+    It simply wraps the 1D array in an additional dimension, calls the method,
+    and removes the additional dimension.
+    """
+
+    @wraps(func)
+    def wrapped_f(self, x: NDArray) -> NDArray:
+        is_1d = x.ndim == 1
+        if is_1d:
+            x = np.expand_dims(x, 0)
+        c = func(self, x)
+        if is_1d:
+            c = c[0, :]
+        return c
+
+    return wrapped_f
 
 
 class OpinionShares:
@@ -67,6 +94,7 @@ class OpinionShares:
 
         self.dimension = len(self.idx_to_return)
 
+    @handle_1d
     def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
@@ -82,15 +110,10 @@ class OpinionShares:
             For a single state output has shape = (self.dimension,).
             For multiple states output has shape = (num_states, self.dimension).
         """
-        single = True if x.ndim == 1 else False
-        if single:
-            x = np.expand_dims(x, 0)
-
+        # x has shape (num_states, num_agents), see @handle_1d
         num_agents = x.shape[1]
         x_agg = _opinion_shares_numba(x.astype(int), self.num_opinions, self.weights)
         x_agg = x_agg[:, self.idx_to_return]
-        if single:
-            x_agg = x_agg[0, :]
 
         if self.normalize:
             if self.normalization is None:
@@ -161,6 +184,7 @@ class OpinionSharesByDegree:
 
         self.dimension = len(self.idx_to_return) * self.degrees.shape[0]
 
+    @handle_1d
     def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
@@ -176,10 +200,7 @@ class OpinionSharesByDegree:
             For a single state output has shape = (self.dimension,).
             For multiple states output has shape = (num_states, self.dimension).
         """
-        single = True if x.ndim == 1 else False
-        if single:
-            x = np.expand_dims(x, 0)
-
+        # x has shape (num_states, num_agents), see @handle_1d
         cv = np.zeros((x.shape[0], self.dimension))
         num_agents = x.shape[1]
         x_int = x.astype(int)
@@ -195,10 +216,6 @@ class OpinionSharesByDegree:
             cv[:, i * len(self.idx_to_return) : (i + 1) * len(self.idx_to_return)] = (
                 x_agg
             )
-
-        if single:
-            cv = cv[0, :]
-
         return cv
 
 
