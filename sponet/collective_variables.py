@@ -4,6 +4,7 @@ import networkx as nx
 import numpy as np
 from numba import njit
 from numba.typed import List
+from numpy.typing import ArrayLike, NDArray
 
 from sponet.utils import calculate_neighbor_list
 
@@ -13,17 +14,20 @@ from .cnvm.parameters import CNVMParameters
 class CollectiveVariable(Protocol):
     dimension: int
 
-    def __call__(self, x_traj: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
         ----------
-        x_traj : np.ndarray
-            trajectory of CNVM, shape = (?, num_agents).
+        x : NDArray
+            Single state with shape=(num_agents,)
+            or multiple states with shape=(num_states, num_agents).
 
         Returns
         -------
-        np.ndarray
-            trajectory projected down via the collective variable, shape = (?, self.dimension)
+        NDArray
+            States projected down via the collective variable.
+            For a single state output has shape = (self.dimension,).
+            For multiple states output has shape = (num_states, self.dimension).
         """
         ...
 
@@ -31,10 +35,10 @@ class CollectiveVariable(Protocol):
 class OpinionShares:
     def __init__(
         self,
-        num_opinions,
+        num_opinions: int,
         normalize: bool = False,
-        weights: np.ndarray = None,
-        idx_to_return: Union[int, np.ndarray] = None,
+        weights: ArrayLike | None = None,
+        idx_to_return: ArrayLike | None = None,
     ):
         """
         Calculate the opinion counts/ percentages, i.e., how often each opinion is present in x.
@@ -44,49 +48,55 @@ class OpinionShares:
         num_opinions : int
         normalize : bool, optional
             If true return percentages, else counts.
-        weights : np.ndarray, optional
+        weights : NDArray, optional
             Weight for each agent's opinion, shape=(num_agents,). Default: Each agent has weight 1.
             Negative weights are allowed.
-        idx_to_return : Union[int, np.ndarray], optional
+        idx_to_return : ArrayLike, optional
             Shares of which opinions to return. Default: all opinions.
             Example: idx_to_return=0 means that only the count of opinion 0 is returned.
         """
         self.num_opinions = num_opinions
-        self.normalize = normalize
         self.weights = weights
+        self.normalize = normalize
+        self.normalization = np.sum(np.abs(weights)) if weights is not None else None
 
         if idx_to_return is None:
             self.idx_to_return = np.arange(num_opinions)
-        elif isinstance(idx_to_return, int):
-            self.idx_to_return = np.array([idx_to_return])
         else:
-            self.idx_to_return = idx_to_return
+            self.idx_to_return = np.atleast_1d(np.array(idx_to_return))
 
         self.dimension = len(self.idx_to_return)
 
-    def __call__(self, x_traj: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
         ----------
-        x_traj : np.ndarray
-            trajectory of CNVM, shape = (?, num_agents).
+        x : NDArray
+            Single state with shape=(num_agents,)
+            or multiple states with shape=(num_states, num_agents).
 
         Returns
         -------
-        np.ndarray
-            trajectory projected down via the collective variable, shape = (?, self.dimension)
+        NDArray
+            States projected down via the collective variable.
+            For a single state output has shape = (self.dimension,).
+            For multiple states output has shape = (num_states, self.dimension).
         """
-        num_agents = x_traj.shape[1]
-        x_agg = _opinion_shares_numba(
-            x_traj.astype(int), self.num_opinions, self.weights
-        )
+        single = True if x.ndim == 1 else False
+        if single:
+            x = np.expand_dims(x, 0)
+
+        num_agents = x.shape[1]
+        x_agg = _opinion_shares_numba(x.astype(int), self.num_opinions, self.weights)
         x_agg = x_agg[:, self.idx_to_return]
+        if single:
+            np.squeeze(x_agg)
 
         if self.normalize:
-            if self.weights is None:
+            if self.normalization is None:
                 x_agg /= num_agents
             else:
-                x_agg /= np.sum(np.abs(self.weights))
+                x_agg /= self.normalization
         return x_agg
 
 
