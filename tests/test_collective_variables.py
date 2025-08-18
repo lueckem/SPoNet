@@ -79,14 +79,12 @@ def test_opinion_shares_idx(idx, expected):
     _assert_close(x, cv, expected)
 
 
-class TestDegreeWeightedOpinionShares(TestCase):
-    def test_default(self):
-        network = nx.star_graph(9)
-        shares = cvs.DegreeWeightedOpinionShares(3, network)
-
-        x = np.array([[0, 1, 0, 1, 2, 2, 1, 1, 1, 0]])
-        c = np.array([[11, 5, 2]])
-        self.assertTrue(np.allclose(shares(x), c))
+def test_degree_weighted_opinion_shares():
+    network = nx.star_graph(9)
+    cv = cvs.DegreeWeightedOpinionShares(3, network)
+    x = [0, 1, 0, 1, 2, 2, 1, 1, 1, 0]
+    expected = [11, 5, 2]
+    _assert_close(x, cv, expected)
 
 
 class TestOpinionSharesByDegree(TestCase):

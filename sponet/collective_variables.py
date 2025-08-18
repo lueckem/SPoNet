@@ -103,10 +103,10 @@ class OpinionShares:
 class DegreeWeightedOpinionShares(OpinionShares):
     def __init__(
         self,
-        num_opinions,
+        num_opinions: int,
         network: nx.Graph,
         normalize: bool = False,
-        idx_to_return: Union[int, np.ndarray] = None,
+        idx_to_return: ArrayLike | None = None,
     ):
         """
         Calculate the degree-weighted opinion counts/ percentages.
@@ -117,11 +117,11 @@ class DegreeWeightedOpinionShares(OpinionShares):
         network: nx.Graph
         normalize : bool, optional
             If true return percentages, else counts.
-        idx_to_return : Union[int, np.ndarray], optional
+        idx_to_return : ArrayLike, optional
             Shares of which opinions to return. Default: all opinions.
             Example: idx_to_return=0 means that only the count of opinion 0 is returned.
         """
-        weights = np.array([d for _, d in network.degree()])
+        weights = np.array([d for _, d in network.degree()])  # type: ignore
         super().__init__(num_opinions, normalize, weights, idx_to_return)
 
 
