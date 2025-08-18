@@ -131,7 +131,7 @@ class OpinionSharesByDegree:
         num_opinions: int,
         network: nx.Graph,
         normalize: bool = False,
-        idx_to_return: Union[int, np.ndarray] = None,
+        idx_to_return: ArrayLike | None = None,
     ):
         """
         Calculate the count of each opinion by degree.
@@ -146,49 +146,58 @@ class OpinionSharesByDegree:
         normalize : bool, optional
             If true return percentages, else counts.
             The normalization is done within each group of nodes with the same degree.
-        idx_to_return : Union[int, np.ndarray], optional
+        idx_to_return : ArrayLike, optional
             Shares of which opinions to return. Default: all opinions.
         """
-        self.degrees_of_nodes = np.array([d for _, d in network.degree()])
+        self.degrees_of_nodes = np.array([d for _, d in network.degree()])  # type: ignore
         self.degrees = np.sort(np.unique(self.degrees_of_nodes))
         self.num_opinions = num_opinions
         self.normalize = normalize
 
         if idx_to_return is None:
             self.idx_to_return = np.arange(num_opinions)
-        elif isinstance(idx_to_return, int):
-            self.idx_to_return = np.array([idx_to_return])
         else:
-            self.idx_to_return = idx_to_return
+            self.idx_to_return = np.atleast_1d(np.array(idx_to_return))
 
         self.dimension = len(self.idx_to_return) * self.degrees.shape[0]
 
-    def __call__(self, x_traj: np.ndarray) -> np.ndarray:
+    def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
         ----------
-        x_traj : np.ndarray
-            trajectory of CNVM, shape = (?, num_agents).
+        x : NDArray
+            Single state with shape=(num_agents,)
+            or multiple states with shape=(num_states, num_agents).
 
         Returns
         -------
-        np.ndarray
-            trajectory projected down via the collective variable, shape = (?, self.dimension)
+        NDArray
+            States projected down via the collective variable.
+            For a single state output has shape = (self.dimension,).
+            For multiple states output has shape = (num_states, self.dimension).
         """
-        cv = np.zeros((x_traj.shape[0], self.dimension))
-        num_agents = x_traj.shape[1]
-        x_traj_int = x_traj.astype(int)
+        single = True if x.ndim == 1 else False
+        if single:
+            x = np.expand_dims(x, 0)
 
+        cv = np.zeros((x.shape[0], self.dimension))
+        num_agents = x.shape[1]
+        x_int = x.astype(int)
+
+        weights = np.zeros(num_agents)
         for i, deg in enumerate(self.degrees):
-            weights = np.zeros(num_agents)
+            weights[:] = 0
             weights[np.nonzero(self.degrees_of_nodes == deg)] = 1
-            x_agg = _opinion_shares_numba(x_traj_int, self.num_opinions, weights)
+            x_agg = _opinion_shares_numba(x_int, self.num_opinions, weights)
             x_agg = x_agg[:, self.idx_to_return]
             if self.normalize:
                 x_agg /= np.sum(weights)
             cv[:, i * len(self.idx_to_return) : (i + 1) * len(self.idx_to_return)] = (
-                np.copy(x_agg)
+                x_agg
             )
+
+        if single:
+            cv = cv[0, :]
 
         return cv
 
