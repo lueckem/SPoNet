@@ -56,7 +56,7 @@ class OpinionShares:
             Example: idx_to_return=0 means that only the count of opinion 0 is returned.
         """
         self.num_opinions = num_opinions
-        self.weights = weights
+        self.weights = np.array(weights) if weights is not None else None
         self.normalize = normalize
         self.normalization = np.sum(np.abs(weights)) if weights is not None else None
 
@@ -90,7 +90,7 @@ class OpinionShares:
         x_agg = _opinion_shares_numba(x.astype(int), self.num_opinions, self.weights)
         x_agg = x_agg[:, self.idx_to_return]
         if single:
-            np.squeeze(x_agg)
+            x_agg = x_agg[0, :]
 
         if self.normalize:
             if self.normalization is None:
