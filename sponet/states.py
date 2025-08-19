@@ -3,13 +3,17 @@ import time
 import networkx as nx
 import numpy as np
 from numpy.random import Generator, default_rng
+from numpy.typing import NDArray
 
 from .collective_variables import CollectiveVariable
 
 
 def sample_states_uniform(
-    num_agents: int, num_opinions: int, num_states: int, rng: Generator = default_rng()
-) -> np.ndarray:
+    num_agents: int,
+    num_opinions: int,
+    num_states: int = 1,
+    rng: Generator = default_rng(),
+) -> NDArray:
     """
     Sample uniformly random states.
 
@@ -19,16 +23,17 @@ def sample_states_uniform(
     ----------
     num_agents : int
     num_opinions : int
-    num_states : int
+    num_states : int, optional
+        Default: 1.
     rng : Generator, optional
-        random number generator
+        Random number generator.
 
     Returns
     -------
-    np.ndarray
-        shape = (num_states, num_agents)
+    NDArray
+        shape = (num_states, num_agents) or snape = (num_agents,) if num_states = 1.
     """
-    return rng.integers(num_opinions, size=(num_states, num_agents))
+    return np.squeeze(rng.integers(num_opinions, size=(num_states, num_agents)))
 
 
 def sample_states_uniform_shares(

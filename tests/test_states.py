@@ -2,9 +2,40 @@ from unittest import TestCase
 
 import networkx as nx
 import numpy as np
+import pytest
+from numpy.typing import NDArray
 
 import sponet.collective_variables as cv
 import sponet.states as ss
+
+
+def assert_states_valid(
+    states: NDArray, num_agents: int, num_opinions: int, num_states: int | None
+):
+    if num_states is None or num_states == 1:
+        assert states.shape == (num_agents,)
+    else:
+        assert states.shape == (num_states, num_agents)
+    assert np.issubdtype(states.dtype, np.integer)
+    assert np.all(states >= 0)
+    assert np.all(states < num_opinions)
+
+
+@pytest.mark.parametrize(
+    "num_agents,num_opinions,num_states",
+    [
+        (100, 3, None),
+        (100, 4, 1),
+        (100, 3, 30),
+        (50, 2, 20),
+    ],
+)
+def test_sample_states_uniform(num_agents, num_opinions, num_states):
+    if num_states is None:
+        states = ss.sample_states_uniform(num_agents, num_opinions)
+    else:
+        states = ss.sample_states_uniform(num_agents, num_opinions, num_states)
+    assert_states_valid(states, num_agents, num_opinions, num_states)
 
 
 class TestStateSampling(TestCase):
@@ -15,10 +46,6 @@ class TestStateSampling(TestCase):
         self.assertTrue(np.issubdtype(states.dtype, np.integer))
         self.assertTrue(np.all(states >= 0))
         self.assertTrue(np.all(states < num_opinions))
-
-    def test_sample_states_uniform(self):
-        x = ss.sample_states_uniform(100, 3, 2)
-        self.assert_states_valid(x, 100, 3, 2)
 
     def test_sample_states_uniform_shares(self):
         x = ss.sample_states_uniform_shares(100, 3, 2)
