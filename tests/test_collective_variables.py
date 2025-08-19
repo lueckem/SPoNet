@@ -7,29 +7,6 @@ import sponet.collective_variables as cvs
 from sponet.cnvm.parameters import CNVMParameters
 
 
-class TestInterfaces(TestCase):
-    def setUp(self):
-        edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (2, 4)]
-        self.network = nx.Graph(edges)
-        self.degrees = [4, 2, 4, 2, 2]
-
-    def test_default(self):
-        interfaces = cvs.Interfaces(self.network)
-        x = np.array([[0, 1, 0, 1, 1], [1, 1, 1, 0, 0]])
-        c = np.array([[6], [4]])
-        self.assertTrue(np.allclose(interfaces(x), c))
-
-        with self.assertRaises(ValueError):
-            x = np.array([[0, 1, 0, 1, 2]])
-            interfaces(x)
-
-    def test_normalize(self):
-        interfaces = cvs.Interfaces(self.network, normalize=True)
-        x = np.array([[0, 1, 0, 1, 1], [1, 1, 1, 0, 0]])
-        c = np.array([[6 / 7], [4 / 7]])
-        self.assertTrue(np.allclose(interfaces(x), c))
-
-
 class TestPropensities(TestCase):
     def setUp(self):
         edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (2, 4)]

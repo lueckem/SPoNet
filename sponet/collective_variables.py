@@ -275,25 +275,30 @@ class Interfaces:
         self.normalize = normalize
         self.network = network
 
-    def __call__(self, x_traj: np.ndarray) -> np.ndarray:
+    @handle_1d
+    def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
         ----------
-        x_traj : np.ndarray
-            trajectory of CNVM, shape = (?, num_agents).
+        x : NDArray
+            Single state with shape=(num_agents,)
+            or multiple states with shape=(num_states, num_agents).
 
         Returns
         -------
-        np.ndarray
-            trajectory projected down via the collective variable, shape = (?, self.dimension)
+        NDArray
+            States projected down via the collective variable.
+            For a single state output has shape = (self.dimension,).
+            For multiple states output has shape = (num_states, self.dimension).
         """
-        if np.max(x_traj) > 1:
+        # x has shape (num_states, num_agents), see @handle_1d
+        if np.max(x) > 1:
             raise ValueError("Interfaces can only be used for 2 opinions.")
-        out = np.zeros((x_traj.shape[0], 1))
+        out = np.zeros((x.shape[0], 1))
 
-        for i in range(x_traj.shape[0]):
+        for i in range(x.shape[0]):
             for u, v in self.network.edges:
-                if x_traj[i, u] != x_traj[i, v]:
+                if x[i, u] != x[i, v]:
                     out[i, 0] += 1
 
         if self.normalize:
