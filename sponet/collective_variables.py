@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Protocol
+from typing import Protocol, TypeVar, cast
 
 import networkx as nx
 import numpy as np
@@ -34,9 +34,12 @@ class CollectiveVariable(Protocol):
         ...
 
 
-def handle_1d(
-    func: Callable[[Any, NDArray], NDArray],
-) -> Callable[[Any, NDArray], NDArray]:
+Method = TypeVar("Method", bound=Callable[..., NDArray])
+
+
+# The `Method` ensures to the type checker that the exact signature
+# is preserved.
+def handle_1d(func: Method) -> Method:
     """
     This decorator can be used on a method that expects a 2D input
     of shape (samples, d1) and returns a 2D output of shape (samples, d2).
@@ -56,7 +59,7 @@ def handle_1d(
             c = c[0, :]
         return c
 
-    return wrapped_f
+    return cast(Method, wrapped_f)
 
 
 class OpinionShares:
