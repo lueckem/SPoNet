@@ -166,3 +166,41 @@ class TestSampleManyRuns(TestCase):
 
         self.assertTrue((t1 == t2).all())
         self.assertTrue((x1 == x2).all())
+
+    def test_single_initial_state_no_parallelization(self):
+        t, x = sample_many_runs(
+            params=self.params,
+            initial_states=self.initial_states[0],
+            t_max=self.t_max,
+            num_timesteps=self.num_timesteps,
+            num_runs=3,
+            n_jobs=1,
+        )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(
+            x.shape,
+            (
+                3,
+                self.num_timesteps,
+                self.num_agents,
+            ),
+        )
+
+    def test_single_initial_state(self):
+        t, x = sample_many_runs(
+            params=self.params,
+            initial_states=self.initial_states[0],
+            t_max=self.t_max,
+            num_timesteps=self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+        )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(
+            x.shape,
+            (
+                15,
+                self.num_timesteps,
+                self.num_agents,
+            ),
+        )
