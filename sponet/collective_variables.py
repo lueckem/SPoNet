@@ -238,19 +238,24 @@ class CompositeCollectiveVariable:
         self.collective_variables = collective_variables
         self.dimension = sum([cv.dimension for cv in collective_variables])
 
-    def __call__(self, x_traj: np.ndarray) -> np.ndarray:
+    @handle_1d
+    def __call__(self, x: NDArray) -> NDArray:
         """
         Parameters
         ----------
-        x_traj : np.ndarray
-            trajectory of CNVM, shape = (?, num_agents).
+        x : NDArray
+            Single state with shape=(num_agents,)
+            or multiple states with shape=(num_states, num_agents).
 
         Returns
         -------
-        np.ndarray
-            trajectory projected down via the collective variable, shape = (?, self.dimension)
+        NDArray
+            States projected down via the collective variable.
+            For a single state output has shape = (self.dimension,).
+            For multiple states output has shape = (num_states, self.dimension).
         """
-        return np.concatenate([cv(x_traj) for cv in self.collective_variables], axis=1)
+        # x has shape (num_states, num_agents), see @handle_1d
+        return np.concatenate([cv(x) for cv in self.collective_variables], axis=1)
 
 
 class Interfaces:

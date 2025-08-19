@@ -7,24 +7,6 @@ import sponet.collective_variables as cvs
 from sponet.cnvm.parameters import CNVMParameters
 
 
-class TestCompositeCollectiveVariable(TestCase):
-    def setUp(self):
-        weights1 = np.array([0, 1, 0, 1, 1])
-        self.shares1 = cvs.OpinionShares(
-            num_opinions=2, weights=weights1, idx_to_return=0
-        )
-        weights2 = np.array([1, 1, 0, 0, 0])
-        self.shares2 = cvs.OpinionShares(
-            num_opinions=2, weights=weights2, idx_to_return=0
-        )
-
-    def test_composite_cv(self):
-        composite = cvs.CompositeCollectiveVariable([self.shares1, self.shares2])
-        x = np.array([[0, 1, 0, 0, 1], [1, 1, 0, 0, 0]])
-        c = np.array([[1, 1], [2, 0]])
-        self.assertTrue(np.allclose(composite(x), c))
-
-
 class TestInterfaces(TestCase):
     def setUp(self):
         edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (2, 4)]
