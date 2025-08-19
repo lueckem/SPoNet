@@ -327,20 +327,25 @@ class Propensities:
         self.params = params
         self.normalize = normalize
 
-    def __call__(self, x_traj: np.ndarray) -> np.ndarray:
+    @handle_1d
+    def __call__(self, x: NDArray) -> NDArray:
+        # x has shape (num_states, num_agents), see @handle_1d
+        if np.max(x) > 1:
+            raise ValueError("Propensities can only be used for 2 opinions.")
+
         if self.params.network is None:
             degree_alpha = (self.params.num_agents - 1) ** self.params.alpha
             out = _propensities_complete_numba(
-                x_traj, degree_alpha, self.params.r, self.params.r_tilde
+                x, degree_alpha, self.params.r, self.params.r_tilde
             )
         else:
+            network = self.params.get_network()
             degrees_alpha = (
-                np.array([d for _, d in self.params.network.degree()])
-                ** self.params.alpha
+                np.array([d for _, d in network.degree()]) ** self.params.alpha  # type: ignore
             )
-            neighbors_list = List(calculate_neighbor_list(self.params.network))
+            neighbors_list = List(calculate_neighbor_list(self.params.network))  # type: ignore
             out = _propensities_numba(
-                x_traj,
+                x,
                 neighbors_list,
                 degrees_alpha,
                 self.params.r,
