@@ -1,4 +1,6 @@
 import time
+from collections.abc import Callable
+from warnings import warn
 
 import networkx as nx
 import numpy as np
@@ -8,11 +10,42 @@ from numpy.typing import NDArray
 from .collective_variables import CollectiveVariable
 
 
+def _sample_states(
+    func: Callable[[int], NDArray], num_states: int, unique: bool
+) -> NDArray:
+    """
+    The sampling function `func` should accept a number n
+    and then return an array of samples with shape (n, d).
+    This function calls `func` to generate `num_states` samples.
+    If unique is True, it deletes duplicates and calls `func` again,
+    until the requested `num_states` are reached.
+    Also, if `num_states` = 1, it squeezes the additional dimension.
+    """
+    states = func(num_states)
+    if states.shape[0] == 1:  # squeeze
+        return states[0]
+
+    if not unique:
+        return states
+
+    # make unique
+    states = np.unique(states, axis=0)
+    while states.shape[0] < num_states:
+        num_missing = num_states - states.shape[0]
+        states = np.concatenate([states, func(num_missing)])
+        states = np.unique(states, axis=0)
+        if num_states - states.shape[0] == num_missing:
+            warn("Sampling of unique states might be in an endless loop.")
+
+    return states
+
+
 def sample_states_uniform(
     num_agents: int,
     num_opinions: int,
     num_states: int = 1,
     rng: Generator = default_rng(),
+    unique: bool = True,
 ) -> NDArray:
     """
     Sample uniformly random states.
@@ -27,13 +60,19 @@ def sample_states_uniform(
         Default: 1.
     rng : Generator, optional
         Random number generator.
+    unique: bool, optional
+        Whether states should be unique. Default: True.
 
     Returns
     -------
     NDArray
-        shape = (num_states, num_agents) or snape = (num_agents,) if num_states = 1.
+        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
-    return np.squeeze(rng.integers(num_opinions, size=(num_states, num_agents)))
+
+    def _sample(n: int) -> NDArray:
+        return rng.integers(num_opinions, size=(n, num_agents))
+
+    return _sample_states(_sample, num_states, unique)
 
 
 def sample_states_uniform_shares(
