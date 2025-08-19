@@ -329,6 +329,20 @@ class Propensities:
 
     @handle_1d
     def __call__(self, x: NDArray) -> NDArray:
+        """
+        Parameters
+        ----------
+        x : NDArray
+            Single state with shape=(num_agents,)
+            or multiple states with shape=(num_states, num_agents).
+
+        Returns
+        -------
+        NDArray
+            States projected down via the collective variable.
+            For a single state output has shape = (self.dimension,).
+            For multiple states output has shape = (num_states, self.dimension).
+        """
         # x has shape (num_states, num_agents), see @handle_1d
         if np.max(x) > 1:
             raise ValueError("Propensities can only be used for 2 opinions.")
