@@ -76,8 +76,12 @@ def sample_states_uniform(
 
 
 def sample_states_uniform_shares(
-    num_agents: int, num_opinions: int, num_states: int, rng: Generator = default_rng()
-) -> np.ndarray:
+    num_agents: int,
+    num_opinions: int,
+    num_states: int = 1,
+    rng: Generator = default_rng(),
+    unique: bool = True,
+) -> NDArray:
     """
     Sample random states with uniform opinion shares.
 
@@ -89,43 +93,43 @@ def sample_states_uniform_shares(
     ----------
     num_agents : int
     num_opinions : int
-    num_states : int
+    num_states : int, optional
+       Default: 1.
     rng : Generator, optional
-        random number generator
+       Random number generator.
+    unique: bool, optional
+       Whether states should be unique. Default: True.
 
     Returns
     -------
-    np.ndarray
-        shape = (num_states, num_agents)
+    NDArray
+       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
-    x = np.zeros((num_states, num_agents))
-    alpha = np.ones(num_opinions)
-    for i in range(num_states):
-        shares = rng.dirichlet(alpha=alpha)
-        counts = np.round(shares * num_agents).astype(int)
-        counts[-1] = num_agents - np.sum(counts[:-1])
 
-        this_x = []
-        for m in range(num_opinions):
-            this_x += [m] * counts[m]
-        rng.shuffle(this_x)
-        x[i] = this_x
+    def _sample(n: int) -> NDArray:
+        x = np.zeros((n, num_agents), dtype=int)
+        alpha = np.ones(num_opinions)
+        shares = rng.dirichlet(alpha, n)
+        counts = _counts_from_shares(shares, num_agents)
+        opinion_indices = np.arange(num_opinions)
+        for i in range(n):
+            x[i, :] = np.repeat(opinion_indices, counts[i])
+        rng.shuffle(x, axis=1)
+        return x
 
-    x = np.unique(x.astype(int), axis=0)
+    return _sample_states(_sample, num_states, unique)
 
-    while x.shape[0] != num_states:
-        missing_points = num_states - x.shape[0]
-        x = np.concatenate(
-            [
-                x,
-                sample_states_uniform_shares(
-                    num_agents, num_opinions, missing_points, rng
-                ),
-            ]
-        )
-        x = np.unique(x.astype(int), axis=0)
 
-    return x
+def _counts_from_shares(shares: NDArray, num_agents: int) -> NDArray:
+    """
+    Convert shares of shape (num_states, num_opinions) into
+    counts of shape (num_states, num_opinions).
+    """
+    counts = np.round(shares * num_agents).astype(int)
+    counts[:, -1] = np.full(counts.shape[0], fill_value=num_agents) - np.sum(
+        counts[:, :-1], axis=1
+    )
+    return counts
 
 
 def sample_states_target_shares(
