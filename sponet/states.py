@@ -8,6 +8,7 @@ from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 
 from .collective_variables import CollectiveVariable
+from .utils import counts_from_shares
 
 
 def _sample_states(
@@ -110,7 +111,7 @@ def sample_states_uniform_shares(
         x = np.zeros((n, num_agents), dtype=int)
         alpha = np.ones(num_opinions)
         shares = rng.dirichlet(alpha, n)
-        counts = _counts_from_shares(shares, num_agents)
+        counts = counts_from_shares(shares, num_agents)
         opinion_indices = np.arange(num_opinions)
         for i in range(n):
             x[i, :] = np.repeat(opinion_indices, counts[i])
@@ -118,18 +119,6 @@ def sample_states_uniform_shares(
         return x
 
     return _sample_states(_sample, num_states, unique)
-
-
-def _counts_from_shares(shares: NDArray, num_agents: int) -> NDArray:
-    """
-    Convert shares of shape (num_states, num_opinions) into
-    counts of shape (num_states, num_opinions).
-    """
-    counts = np.round(shares * num_agents).astype(int)
-    counts[:, -1] = np.full(counts.shape[0], fill_value=num_agents) - np.sum(
-        counts[:, :-1], axis=1
-    )
-    return counts
 
 
 def sample_states_target_shares(

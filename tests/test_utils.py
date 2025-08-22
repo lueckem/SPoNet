@@ -2,8 +2,14 @@ from unittest import TestCase
 
 import networkx as nx
 import numpy as np
+import pytest
 
-from sponet.utils import argmatch, calculate_neighbor_list, mask_subsequent_duplicates
+from sponet.utils import (
+    argmatch,
+    calculate_neighbor_list,
+    counts_from_shares,
+    mask_subsequent_duplicates,
+)
 
 
 class TestArgmatch(TestCase):
@@ -63,3 +69,21 @@ class TestNeighborList(TestCase):
         self.assertEqual(len(neighbor_list), 4)
         for i in range(0, 4):
             self.assertCountEqual(neighbor_list[i], expected[i])
+
+
+@pytest.mark.parametrize(
+    "shares,num_agents,counts",
+    [
+        ([[0.2, 0.3, 0.5], [0.209, 0.309, 0.482]], 100, [[20, 30, 50], [21, 31, 48]]),
+        ([[0.206, 0.306, 0.488]], 100, [[21, 30, 49]]),
+        ([0.204, 0.304, 0.492], 100, [21, 30, 49]),
+        ([0.555, 0.445, 0], 100, [56, 44, 0]),
+        ([0.554, 0.446, 0], 100, [55, 45, 0]),
+        ([0.554, 0.446, 0], 10, [6, 4, 0]),
+        ([0.155, 0.155, 0.155, 0.155, 0.380], 100, [16, 16, 15, 15, 38]),
+        ([0.055] * 18 + [0.010], 100, [6] * 9 + [5] * 9 + [1]),
+        ([0.025] * 40 + [0], 100, [3] * 20 + [2] * 20 + [0]),
+    ],
+)
+def test_counts_from_shares(shares, num_agents, counts):
+    assert (counts_from_shares(shares, num_agents) == np.array(counts)).all()
