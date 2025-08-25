@@ -5,7 +5,7 @@ from warnings import warn
 import networkx as nx
 import numpy as np
 from numpy.random import Generator, default_rng
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from .collective_variables import CollectiveVariable
 from .utils import counts_from_shares
@@ -106,13 +106,13 @@ def sample_states_uniform_shares(
     NDArray
        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
+    alpha = np.ones(num_opinions)
+    opinion_indices = np.arange(num_opinions)
 
     def _sample(n: int) -> NDArray:
         x = np.zeros((n, num_agents), dtype=int)
-        alpha = np.ones(num_opinions)
         shares = rng.dirichlet(alpha, n)
         counts = counts_from_shares(shares, num_agents)
-        opinion_indices = np.arange(num_opinions)
         for i in range(n):
             x[i, :] = np.repeat(opinion_indices, counts[i])
         rng.shuffle(x, axis=1)
@@ -123,42 +123,44 @@ def sample_states_uniform_shares(
 
 def sample_states_target_shares(
     num_agents: int,
-    target_shares: np.ndarray,
-    num_states: int,
+    target_shares: ArrayLike,
+    num_states: int = 1,
     rng: Generator = default_rng(),
-) -> np.ndarray:
+    unique: bool = True,
+) -> NDArray:
     """
     Sample random states with target opinion shares.
 
-    Each state respects the given target_shares of each opinion, such that sum(target_shares) = 1.
-    Each state is randomly shuffled.
+    Each state respects the given target_shares of each opinion and is randomly shuffled.
+    The target_shares have to be non-negative with sum(target_shares) = 1.
 
     Parameters
     ----------
     num_agents : int
-    target_share : np.ndarray
+    target_share : ArrayLike
         shape = (num_opinions,)
-    num_states : int
+    num_states : int, optional
+       Default: 1.
     rng : Generator, optional
         random number generator
+    unique: bool, optional
+       Whether states should be unique. Default: True.
 
     Returns
     -------
-    np.ndarray
-        shape = (num_states, num_agents)
+    NDArray
+       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
-    x = np.zeros((num_states, num_agents)).astype(int)
+    target_counts = counts_from_shares(target_shares, num_agents)
+    num_opinions = target_counts.shape[0]
+    x_ordered = np.repeat(np.arange(num_opinions), target_counts)
 
-    target_counts = np.round(target_shares * num_agents)
-    target_counts = target_counts.astype(int)
-    target_counts[-1] = max(0, num_agents - np.sum(target_counts[:-1]))
-    x_ordered = np.repeat(np.arange(len(target_counts)), target_counts)
+    def _sample(n: int) -> NDArray:
+        x = np.tile(x_ordered, (n, 1))
+        rng.shuffle(x, axis=1)
+        return x
 
-    for i in range(num_states):
-        x[i] = x_ordered
-        rng.shuffle(x[i])
-
-    return x
+    return _sample_states(_sample, num_states, unique)
 
 
 def sample_states_local_clusters(
