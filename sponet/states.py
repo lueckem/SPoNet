@@ -8,6 +8,7 @@ from numpy.random import Generator, default_rng
 from numpy.typing import ArrayLike, NDArray
 
 from .collective_variables import CollectiveVariable
+from .sampling import sample_randint_other
 from .utils import counts_from_shares
 
 
@@ -427,8 +428,7 @@ def _sample_state_target_cvs(
             continue
 
         idx_to_change = rng.choice(possible_idxs)
-        while (new_opinion := rng.integers(num_opinions)) == opinion_to_change:
-            new_opinion = rng.integers(num_opinions)
+        new_opinion = sample_randint_other(num_opinions, opinion_to_change, rng)
         x[idx_to_change] = new_opinion
         new_cv_x = cv(x)
         new_diff = np.linalg.norm(new_cv_x - target_cv_value, 1) / norm_target_cv

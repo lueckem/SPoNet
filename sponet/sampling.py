@@ -25,6 +25,32 @@ def sample_randint(high_excl: int, rng: Generator) -> int:
 
 
 @njit(cache=True)
+def sample_randint_other(high_excl: int, this: int, rng: Generator) -> int:
+    """
+    Sample uniformly random integer in `{0, ..., high_excl - 1} \\ {this}`.
+
+    It is faster than numpy.randint for single samples.
+    It has a detectable bias if high_excl is really large. (For high_excl < 10^10 it is fine though.)
+
+    Parameters
+    ----------
+    high_excl : int
+    this: int
+    rng : Generator
+        random number generator
+
+    Returns
+    -------
+    int
+    """
+    i = int(rng.random() * (high_excl - 1))
+    if i < this:
+        return i
+    else:
+        return i + 1
+
+
+@njit(cache=True)
 def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Construct the probability table and alias table for given weights.
