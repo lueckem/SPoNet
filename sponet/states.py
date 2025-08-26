@@ -142,7 +142,7 @@ def sample_states_target_shares(
     num_states : int, optional
        Default: 1.
     rng : Generator, optional
-        random number generator
+        Random number Generator.
     unique: bool, optional
        Whether states should be unique. Default: True.
 
@@ -323,17 +323,22 @@ def sample_state_target_cvs(
     num_agents: int,
     num_opinions: int,
     col_var: CollectiveVariable,
-    target_cv_value: np.ndarray,
+    target_cv_value: NDArray,
+    num_states: int = 1,
     rtol: float = 1e-4,
     rng: Generator = default_rng(),
-    max_sample_time: float = 10,
-) -> np.ndarray:
+    max_sample_time_per_state: float = 10,
+    unique: bool = True,
+) -> NDArray:
     """
-    Sample a state with target collective variable value.
+    Sample states with target collective variable value.
 
     Samples a state x such that approximately
     cv(x) = target_cv_value
     via MCMC.
+
+    Since the relative tolerance rtol is used, this function does not work
+    if ||target_cv_value||=0.
 
     Parameters
     ----------
@@ -341,42 +346,78 @@ def sample_state_target_cvs(
     num_opinions : int
     col_var : CollectiveVariable
     target_cv_value : np.ndarray
-        shape = (cv_dim,)
+        Shape = (cv_dim,).
+    num_states : int, optional
+       Default: 1.
     rtol : float, optional
-        relative tolerance
+        Relative tolerance.
     rng : Generator, optional
-        random number generator
-    max_sample_time : float, optional
-            in seconds
+        Random number generator.
+    max_sample_time_per_state : float, optional
+        In seconds. Raises RuntimeError if no state could be found in that time.
+    unique: bool, optional
+       Whether states should be unique. Default: True.
 
     Returns
     -------
-    np.ndarray
-        shape = (num_agents,)
+    NDArray
+       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
-    # pick the best initial state from some randomly sampled ones
-    x = _initial_states_target_cvs(
-        num_agents, num_opinions, 10, col_var, target_cv_value, rng
-    )
-
-    norm_target_cv = np.linalg.norm(target_cv_value, 1)
-    cv_x = col_var(x[np.newaxis, :])[0]
-    diff = np.linalg.norm(cv_x - target_cv_value, 1) / norm_target_cv
-
     # set temperature in relation to num_agents
     base_temperature = -2.0 / num_agents / np.log(0.5)
     temperature_decay_factor = 0.1 ** (1.0 / num_agents)
-    temperature = base_temperature
     iterations_until_temperature_reset = num_agents
+
+    def _sample(n: int) -> NDArray:
+        x = np.zeros((n, num_agents), dtype=int)
+        for i in range(n):
+            initial_guess = _initial_guess_target_cvs(
+                num_agents, num_opinions, col_var, target_cv_value, rng
+            )
+            x[i] = _sample_state_target_cvs(
+                num_opinions,
+                col_var,
+                target_cv_value,
+                initial_guess,
+                rtol,
+                base_temperature,
+                temperature_decay_factor,
+                iterations_until_temperature_reset,
+                max_sample_time_per_state,
+                rng,
+            )
+        return x
+
+    return _sample_states(_sample, num_states, unique)
+
+
+def _sample_state_target_cvs(
+    num_opinions: int,
+    cv: CollectiveVariable,
+    target_cv_value: NDArray,
+    initial_guess: NDArray,
+    rtol: float,
+    base_temperature: float,
+    temperature_decay_factor: float,
+    iterations_until_temperature_reset: int,
+    max_sample_time: float,
+    rng: Generator,
+) -> NDArray:
+    x = np.copy(initial_guess)
+
+    norm_target_cv = np.linalg.norm(target_cv_value, 1)
+    cv_x = cv(x)
+    diff = np.linalg.norm(cv_x - target_cv_value, 1) / norm_target_cv
 
     num_iterations = 0
     iterations_since_improvement = 0
+    temperature = base_temperature
     start = time.time()
     while diff > rtol:
         num_iterations += 1
         iterations_since_improvement += 1
         temperature *= temperature_decay_factor
-        # if no improvement could be achieved, increase temperature again
+        # if no improvement could be achieved, increase temperature to base again
         if iterations_since_improvement > iterations_until_temperature_reset:
             temperature = base_temperature
 
@@ -386,22 +427,20 @@ def sample_state_target_cvs(
             continue
 
         idx_to_change = rng.choice(possible_idxs)
-        new_opinion = rng.integers(num_opinions)
-        while new_opinion == opinion_to_change:
+        while (new_opinion := rng.integers(num_opinions)) == opinion_to_change:
             new_opinion = rng.integers(num_opinions)
         x[idx_to_change] = new_opinion
-        new_cv_x = col_var(x[np.newaxis, :])[0]
+        new_cv_x = cv(x)
         new_diff = np.linalg.norm(new_cv_x - target_cv_value, 1) / norm_target_cv
         if new_diff < diff:
             iterations_since_improvement = 0
+
         probability_switch = (
             1 if new_diff < diff else np.exp(-(new_diff - diff) / temperature)
         )
-        switch = rng.random() <= probability_switch
-        if switch:
+        if rng.random() <= probability_switch:
             diff = new_diff
-        else:
-            # switch the opinion back
+        else:  # switch the opinion back
             x[idx_to_change] = opinion_to_change
 
         if time.time() - start > max_sample_time:
@@ -412,21 +451,14 @@ def sample_state_target_cvs(
     return x
 
 
-def _initial_states_target_cvs(
+def _initial_guess_target_cvs(
     num_agents: int,
     num_opinions: int,
-    num_initial_samples: int,
     col_var: CollectiveVariable,
-    target_cv_value: np.ndarray,
+    target_cv_value: NDArray,
     rng: Generator,
-):
-    x_initial_choices = sample_states_uniform_shares(
-        num_agents, num_opinions, num_initial_samples, rng
-    )
+) -> NDArray:
+    x_initial_choices = sample_states_uniform_shares(num_agents, num_opinions, 10, rng)
     cv_initial_choices = col_var(x_initial_choices)
-    diffs = [
-        np.linalg.norm(cv_initial_choices[i] - target_cv_value, 1)
-        for i in range(num_initial_samples)
-    ]
-    min_diff_idx = np.argmin(diffs)
-    return x_initial_choices[min_diff_idx]
+    diffs = np.linalg.norm(cv_initial_choices - target_cv_value, 1, axis=1)
+    return x_initial_choices[np.argmin(diffs)]

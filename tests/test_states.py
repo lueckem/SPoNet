@@ -96,6 +96,29 @@ def test_sample_states_local_clusters(num_agents, num_opinions, num_states):
     assert_states_valid(states, num_agents, num_opinions, num_states)
 
 
+@pytest.mark.parametrize(
+    "num_agents,target_shares,num_states",
+    [
+        (100, [0.2, 0.3, 0.5], None),
+        (100, [0.1, 0, 0.8, 0.1], 10),
+        (100, [0.2, 0.3, 0.5], 30),
+        (1000, [1.0, 0], 1),
+    ],
+)
+def test_sample_state_target_cvs(num_agents, target_shares, num_states):
+    num_opinions = len(target_shares)
+    cv = cvs.OpinionShares(num_opinions, normalize=True)
+    target_shares = np.array(target_shares)
+    if num_states is None:
+        states = ss.sample_state_target_cvs(num_agents, num_opinions, cv, target_shares)
+    else:
+        states = ss.sample_state_target_cvs(
+            num_agents, num_opinions, cv, target_shares, num_states
+        )
+    assert_states_valid(states, num_agents, num_opinions, num_states)
+    assert np.allclose(cv(states), target_shares)
+
+
 class TestStateSampling(TestCase):
     def assert_states_valid(
         self, states: np.ndarray, num_agents: int, num_opinions: int, num_states: int
@@ -133,12 +156,3 @@ class TestStateSampling(TestCase):
         opinion_order = np.array([1, 0, 2])
         x = ss.build_state_by_degree(network, opinion_shares, opinion_order)
         self.assertTrue(np.all(x == np.array([1, 1, 0, 0, 2])))
-
-    def test_sample_state_target_cvs(self):
-        num_agents = 100
-        num_opinions = 3
-        col_var = cvs.OpinionShares(num_opinions, normalize=True)
-        target_cvs = np.array([0.1, 0.7, 0.2])
-
-        x = ss.sample_state_target_cvs(num_agents, num_opinions, col_var, target_cvs)
-        self.assertTrue(np.allclose(col_var(x[np.newaxis, :])[0], target_cvs))
