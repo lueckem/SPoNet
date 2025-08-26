@@ -76,6 +76,26 @@ def test_sample_states_target_shares(num_agents, target_shares, num_states):
     assert np.allclose(cv(states), target_shares)
 
 
+@pytest.mark.parametrize(
+    "num_agents,num_opinions,num_states",
+    [
+        (100, 3, None),
+        (100, 4, 1),
+        (100, 3, 30),
+        (50, 2, 20),
+    ],
+)
+def test_sample_states_local_clusters(num_agents, num_opinions, num_states):
+    network = nx.barabasi_albert_graph(num_agents, 3)
+    if num_states is None:
+        states = ss.sample_states_local_clusters(network, num_opinions)
+    else:
+        states = ss.sample_states_local_clusters(
+            network, num_opinions, num_states, 4, 2
+        )
+    assert_states_valid(states, num_agents, num_opinions, num_states)
+
+
 class TestStateSampling(TestCase):
     def assert_states_valid(
         self, states: np.ndarray, num_agents: int, num_opinions: int, num_states: int
@@ -84,14 +104,6 @@ class TestStateSampling(TestCase):
         self.assertTrue(np.issubdtype(states.dtype, np.integer))
         self.assertTrue(np.all(states >= 0))
         self.assertTrue(np.all(states < num_opinions))
-
-    def test_sample_states_local_cluster(self):
-        num_agents = 100
-        network = nx.watts_strogatz_graph(num_agents, 4, 0)
-        x = ss.sample_states_local_clusters(
-            network, 3, 2, min_num_seeds=2, max_num_seeds=5
-        )
-        self.assert_states_valid(x, num_agents, 3, 2)
 
     def test_build_state_by_degree_valid_shape(self):
         num_agents = 100

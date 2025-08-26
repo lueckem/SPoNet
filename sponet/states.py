@@ -248,8 +248,7 @@ def _state_local_clusters(
             # if there are no seeds available, add a random new one
             if len(seeds[m]) == 0:
                 possible_idx = np.nonzero(x == -1)[0]
-                new_seed = rng.choice(possible_idx)
-                seeds[m] = np.array([new_seed])
+                seeds[m] = np.array([rng.choice(possible_idx)])
 
             new_seeds_m = []
             # set opinion of seeds to m
