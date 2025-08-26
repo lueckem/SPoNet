@@ -319,7 +319,7 @@ def build_state_by_degree(
     return x
 
 
-def sample_state_target_cvs(
+def sample_states_target_cvs(
     num_agents: int,
     num_opinions: int,
     col_var: CollectiveVariable,

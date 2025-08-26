@@ -105,14 +105,16 @@ def test_sample_states_local_clusters(num_agents, num_opinions, num_states):
         (1000, [1.0, 0], 1),
     ],
 )
-def test_sample_state_target_cvs(num_agents, target_shares, num_states):
+def test_sample_states_target_cvs(num_agents, target_shares, num_states):
     num_opinions = len(target_shares)
     cv = cvs.OpinionShares(num_opinions, normalize=True)
     target_shares = np.array(target_shares)
     if num_states is None:
-        states = ss.sample_state_target_cvs(num_agents, num_opinions, cv, target_shares)
+        states = ss.sample_states_target_cvs(
+            num_agents, num_opinions, cv, target_shares
+        )
     else:
-        states = ss.sample_state_target_cvs(
+        states = ss.sample_states_target_cvs(
             num_agents, num_opinions, cv, target_shares, num_states
         )
     assert_states_valid(states, num_agents, num_opinions, num_states)
