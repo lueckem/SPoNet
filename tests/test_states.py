@@ -121,40 +121,32 @@ def test_sample_states_target_cvs(num_agents, target_shares, num_states):
     assert np.allclose(cv(states), target_shares)
 
 
-class TestStateSampling(TestCase):
-    def assert_states_valid(
-        self, states: np.ndarray, num_agents: int, num_opinions: int, num_states: int
-    ):
-        self.assertEqual(states.shape, (num_states, num_agents))
-        self.assertTrue(np.issubdtype(states.dtype, np.integer))
-        self.assertTrue(np.all(states >= 0))
-        self.assertTrue(np.all(states < num_opinions))
+def test_build_state_by_degree_valid():
+    num_agents = 100
+    opinion_shares = np.array([0.2, 0.3, 0.5])
+    opinion_order = np.array([1, 0, 2])
+    network = nx.barabasi_albert_graph(num_agents, 3)
+    x = ss.build_state_by_degree(network, opinion_shares, opinion_order)
+    assert x.shape == (num_agents,)
+    assert np.issubdtype(x.dtype, np.integer)
+    assert np.all(x >= 0)
+    assert np.all(x < 3)
 
-    def test_build_state_by_degree_valid_shape(self):
-        num_agents = 100
-        opinion_shares = np.array([0.2, 0.3, 0.5])
-        opinion_order = np.array([1, 0, 2])
-        network = nx.barabasi_albert_graph(num_agents, 3)
-        x = ss.build_state_by_degree(network, opinion_shares, opinion_order)
-        self.assertEqual(x.shape, (num_agents,))
-        self.assertTrue(np.issubdtype(x.dtype, np.integer))
-        self.assertTrue(np.all(x >= 0))
-        self.assertTrue(np.all(x < 3))
 
-    def test_build_state_by_degree_example(self):
-        network = nx.Graph()
-        network.add_edges_from(
-            [
-                (0, 1),
-                (0, 2),
-                (0, 3),
-                (0, 4),
-                (1, 2),
-                (1, 3),
-            ]
-        )  # degrees = [4, 3, 2, 2, 1]
+def test_build_state_by_degree_example():
+    network = nx.Graph()
+    network.add_edges_from(
+        [
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (0, 4),
+            (1, 2),
+            (1, 3),
+        ]
+    )  # degrees = [4, 3, 2, 2, 1]
 
-        opinion_shares = np.array([0.4, 0.4, 0.2])
-        opinion_order = np.array([1, 0, 2])
-        x = ss.build_state_by_degree(network, opinion_shares, opinion_order)
-        self.assertTrue(np.all(x == np.array([1, 1, 0, 0, 2])))
+    opinion_shares = np.array([0.4, 0.4, 0.2])
+    opinion_order = np.array([1, 0, 2])
+    x = ss.build_state_by_degree(network, opinion_shares, opinion_order)
+    assert np.all(x == np.array([1, 1, 0, 0, 2]))
