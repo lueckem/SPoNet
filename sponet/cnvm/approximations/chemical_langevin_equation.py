@@ -1,17 +1,18 @@
 import numpy as np
 from numba import njit, prange
+from numpy.typing import NDArray
 
 from ..parameters import CNVMParameters
 
 
 def sample_cle(
     params: CNVMParameters,
-    initial_state: np.ndarray,
+    initial_states: NDArray,
     max_time: float,
     num_time_steps: int,
     num_samples: int,
     saving_offset: int = 1,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray, NDArray]:
     """
     Sample Chemical Langevin Equation (CLE) approximation for the CNVM.
 
@@ -20,8 +21,8 @@ def sample_cle(
     Parameters
     ----------
     params : CNVMParameters
-    initial_state : np.ndarray
-        Shape = (num_opinions,)
+    initial_states : NDArray
+        Either shape = (num_opinions,) or (num_states, num_opinions)
     max_time : float
     num_time_steps : int
         The step size of the integration is max_time / num_time_steps.
@@ -31,20 +32,46 @@ def sample_cle(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
-        (t, c), t.shape=(num_time_steps + 1), c.shape = (num_samples, num_time_steps + 1, num_opinions).
+    tuple[NDArray, NDArray]
+        (t, c),
+        t.shape=(num_time_steps + 1),
+        c.shape = (num_states, num_samples, num_time_steps + 1, num_opinions), or c.shape = (num_samples, num_time_steps + 1, num_opinions) if a single initial state was given.
         (If saving_offset > 1, the number of time steps will be smaller.)
     """
-    return _numba_sample_cle(
-        initial_state,
-        max_time,
-        num_time_steps,
-        params.num_agents,
-        params.r,
-        params.r_tilde,
-        num_samples,
-        saving_offset,
+    if initial_states.ndim == 1:
+        return _numba_sample_cle(
+            initial_states,
+            max_time,
+            num_time_steps,
+            params.num_agents,
+            params.r,
+            params.r_tilde,
+            num_samples,
+            saving_offset,
+        )
+
+    num_states = initial_states.shape[0]
+    c = np.zeros(
+        (
+            num_states,
+            num_samples,
+            num_time_steps + 1,
+            initial_states.shape[1],
+        )
     )
+    t = np.zeros(num_time_steps + 1)
+    for i in range(num_states):
+        t, c[i] = _numba_sample_cle(
+            initial_states[i],
+            max_time,
+            num_time_steps,
+            params.num_agents,
+            params.r,
+            params.r_tilde,
+            num_samples,
+            saving_offset,
+        )
+    return t, c
 
 
 @njit(parallel=True, cache=True)

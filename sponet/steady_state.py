@@ -49,6 +49,7 @@ def estimate_steady_state(
     delta_t = float(delta_t)
     # transient phase: integrate until steady state
     print("Integrating through transient phase...")
+    # BUG: Make initial_state optional in CNTM
     _, x = model.simulate(1000 * delta_t, len_output=2)
 
     # sampling phase: integrate until tol
