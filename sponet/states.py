@@ -317,6 +317,9 @@ def build_state_by_degree(
     return x
 
 
+# TODO: sample_states_by_degree
+
+
 def sample_states_target_cvs(
     num_agents: int,
     num_opinions: int,
