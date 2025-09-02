@@ -88,6 +88,31 @@ class TestStochasticApprox(TestCase):
         self.assertEqual(c.shape, (num_samples, num_time_steps + 1, num_opinions))
         self.assertTrue(np.allclose(c[0, 0, :], initial_state))
 
+    def test_sample_multiple_initial_states(self):
+        num_opinions = 3
+        num_agents = 100
+        r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
+        r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
+
+        params = CNVMParameters(
+            num_opinions=num_opinions,
+            num_agents=num_agents,
+            r=r,
+            r_tilde=r_tilde,
+        )
+
+        t_max = 100
+        initial_states = np.array([[0.9, 0.1, 0.0], [0.5, 0.2, 0.3]])
+        num_time_steps = 51
+        num_samples = 25
+
+        t, c = sample_stochastic_approximation(
+            params, initial_states, t_max, num_time_steps, num_samples
+        )
+        self.assertTrue(np.allclose(t, np.linspace(0, t_max, num_time_steps + 1)))
+        self.assertEqual(c.shape, (2, num_samples, num_time_steps + 1, num_opinions))
+        self.assertTrue(np.allclose(c[:, 0, 0, :], initial_states))
+
 
 class TestAgreement(TestCase):
     def test_agreement_between_approximations(self):
