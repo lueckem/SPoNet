@@ -13,6 +13,35 @@ from sponet import (
 )
 from sponet.collective_variables import OpinionShares
 
+# TODO: Use pytest fixtures
+
+
+class TestRRE(TestCase):
+    def test_calc_rre(self):
+        num_opinions = 3
+        num_agents = 100
+        r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
+        r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
+
+        params = CNVMParameters(
+            num_opinions=num_opinions,
+            num_agents=num_agents,
+            r=r,
+            r_tilde=r_tilde,
+        )
+        t_max = 100
+        t_eval = np.linspace(0, t_max, 101)
+
+        initial_state = np.array([0.9, 0.1, 0.0])
+        t, c_rre = calc_rre_traj(params, initial_state, t_max, t_eval)
+        self.assertTrue(np.allclose(t, t_eval))
+        self.assertEqual(c_rre.shape, (101, 3))
+
+        initial_state = np.array([[0.9, 0.1, 0.0], [0.2, 0.3, 0.5]])
+        t, c_rre = calc_rre_traj(params, initial_state, t_max, t_eval)
+        self.assertTrue(np.allclose(t, t_eval))
+        self.assertEqual(c_rre.shape, (2, 101, 3))
+
 
 class TestCLE(TestCase):
     def test_sample_cle(self):
