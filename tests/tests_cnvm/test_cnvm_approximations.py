@@ -76,8 +76,14 @@ def test_calc_rre(params, t_max, t_eval, initial_states, c_shape):
 def test_sample_cle(
     params, t_max, num_time_steps, num_samples, t_eval, initial_states, c_shape
 ):
+    delta_t = 1e-3
     t, c = sample_cle(
-        params, np.array(initial_states), t_max, num_time_steps, num_samples
+        params,
+        np.array(initial_states),
+        t_max,
+        num_samples,
+        t_eval=num_time_steps + 1,
+        delta_t=delta_t,
     )
     assert np.allclose(t, t_eval)
     assert c.shape == c_shape
@@ -143,9 +149,9 @@ def test_agreement_of_approximations():
         params,
         initial_c,
         t_max,
-        num_time_steps * 100,
         num_samples,
-        saving_offset=100,
+        t_eval=num_time_steps + 1,
+        delta_t=0.01,
     )
     t_sa, c_sa = sample_stochastic_approximation(
         params, initial_c, t_max, num_time_steps, num_samples
