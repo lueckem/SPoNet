@@ -34,7 +34,8 @@ def sample_many_runs(
         Either CNVM or CNTM Parameters.
         If a NetworkGenerator is used, a new network will be sampled for every run.
     initial_states : NDArray
-        Array of initial states, shape = (num_initial_states, num_agents).
+        Array of initial states, shape = (num_initial_states, num_agents),
+        or single initial state, shape = (num_agents,).
         Num_runs simulations will be executed for each initial state.
     t_max : float
         End time.
@@ -57,8 +58,14 @@ def sample_many_runs(
     -------
     t_out, x_out : tuple[NDArray, NDArray]
         (t_out, x_out), time_out.shape = (num_timesteps,),
-        x_out.shape = (num_initial_states, num_runs, num_timesteps, num_agents)
+        x_out.shape = (num_initial_states, num_runs, num_timesteps, num_agents),
+        or x_out.shape = (num_runs, num_timesteps, num_agents) if only a single initial state was given.
     """
+    # handle 1D initial state
+    is_1d = initial_states.ndim == 1
+    if is_1d:
+        initial_states = np.expand_dims(initial_states, 0)
+
     t_out = np.linspace(0, t_max, num_timesteps)
     worker = _Worker(params, t_max, num_timesteps, collective_variable)
 
@@ -70,34 +77,35 @@ def sample_many_runs(
             rng,
             progress_bar,
         )
-        return t_out, x_out
+    else:  # multiprocessing
+        if n_jobs == -1:  # determine number of CPUs
+            n_jobs = os.cpu_count()
+            if n_jobs is None:
+                raise RuntimeError("Could not determine number of available CPUs.")
 
-    # multiprocessing
-    if n_jobs == -1:  # determine number of CPUs
-        n_jobs = os.cpu_count()
-        if n_jobs is None:
-            raise RuntimeError("Could not determine number of available CPUs.")
+        rngs = rng.spawn(n_jobs)
 
-    rngs = rng.spawn(n_jobs)
+        progress_bars = [False] * n_jobs
+        if progress_bar:
+            progress_bars[0] = True
 
-    progress_bars = [False] * n_jobs
-    if progress_bar:
-        progress_bars[0] = True
+        if num_runs >= initial_states.shape[0]:  # parallelization along runs
+            states_chunks = [initial_states] * n_jobs
+            runs_chunks = _split_runs(num_runs, n_jobs)
+            concat_axis = 1
+        else:  # parallelization along initial states
+            states_chunks = np.array_split(initial_states, n_jobs)
+            runs_chunks = [num_runs] * n_jobs
+            concat_axis = 0
 
-    if num_runs >= initial_states.shape[0]:  # parallelization along runs
-        states_chunks = [initial_states] * n_jobs
-        runs_chunks = _split_runs(num_runs, n_jobs)
-        concat_axis = 1
-    else:  # parallelization along initial states
-        states_chunks = np.array_split(initial_states, n_jobs)
-        runs_chunks = [num_runs] * n_jobs
-        concat_axis = 0
+        with ProcessPoolExecutor() as executor:
+            x_out = list(
+                executor.map(worker, states_chunks, runs_chunks, rngs, progress_bars)
+            )
+        x_out = np.concatenate(x_out, axis=concat_axis)
 
-    with ProcessPoolExecutor() as executor:
-        x_out = list(
-            executor.map(worker, states_chunks, runs_chunks, rngs, progress_bars)
-        )
-    x_out = np.concatenate(x_out, axis=concat_axis)
+    if is_1d:
+        x_out = x_out[0]
     return t_out, x_out
 
 

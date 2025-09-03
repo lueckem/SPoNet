@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 from numba import njit
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 
 @njit(cache=True)
@@ -134,3 +134,38 @@ def store_snapshot_linspace(
         x_store[previous_agent] = previous_opinion  # revert to previous state
         x_traj.append(x_store)
         t_traj.append(previous_t)
+
+
+def counts_from_shares(shares: ArrayLike, num_agents: int) -> NDArray:
+    """
+    Convert shares like [0.2, 0.3, 0.5] into counts like [20, 30, 50].
+
+    Parameters
+    ----------
+    shares : NDArray
+        Shares with shape (num_opinions,) or (num_states, num_opinions).
+    num_agents : int
+
+    Returns
+    -------
+    NDArray
+        Counts with shape (num_opinions,) or (num_states, num_opinions).
+    """
+    shares = np.array(shares) * num_agents
+    if shares.ndim == 1:
+        return _counts_from_shares_1d(shares, num_agents)
+    else:
+        counts = np.zeros_like(shares, dtype=int)
+        for i in range(counts.shape[0]):
+            counts[i] = _counts_from_shares_1d(shares[i], num_agents)
+        return counts
+
+
+def _counts_from_shares_1d(shares: NDArray, num_agents: int) -> NDArray:
+    counts = np.floor(shares)
+    deltas = counts - shares  # <= 0
+    counts = counts.astype(int)
+    num_incr = num_agents - np.sum(counts)
+    idx_incr = np.argpartition(deltas, num_incr)[:num_incr]
+    counts[idx_incr] += 1
+    return counts

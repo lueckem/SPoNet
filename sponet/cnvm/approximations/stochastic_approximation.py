@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit, prange
+from numpy.typing import NDArray
 
 from ...utils import argmatch
 from ..parameters import CNVMParameters
@@ -7,11 +8,11 @@ from ..parameters import CNVMParameters
 
 def sample_stochastic_approximation(
     params: CNVMParameters,
-    initial_state: np.ndarray,
+    initial_states: NDArray,
     max_time: float,
     num_timesteps: int,
     num_samples: int,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[NDArray, NDArray]:
     """
     Simulate the opinion shares directly.
 
@@ -25,8 +26,8 @@ def sample_stochastic_approximation(
     Parameters
     ----------
     params : CNVMParameters
-    initial_state : np.ndarray
-        Initial shares c of shape (num_opinions,).
+    initial_states : NDArray
+        Either shape = (num_opinions,) or (num_states, num_opinions)
     max_time : float
     num_timesteps : int
         Number of states in returned trajectory, at equidistant times.
@@ -34,18 +35,43 @@ def sample_stochastic_approximation(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
-        t with shape (num_timesteps,), c with shape (num_timesteps, num_opinions)
+    tuple[NDArray, NDArray]
+        (t, c),
+        t.shape=(num_timesteps + 1),
+        c.shape = (num_states, num_samples, num_timesteps + 1, num_opinions), or c.shape = (num_samples, num_timesteps + 1, num_opinions) if a single initial state was given.
     """
-    return _sample_many(
-        initial_state,
-        max_time,
-        params.num_agents,
-        params.r,
-        params.r_tilde,
-        num_timesteps,
-        num_samples,
+    if initial_states.ndim == 1:
+        return _sample_many(
+            initial_states,
+            max_time,
+            params.num_agents,
+            params.r,
+            params.r_tilde,
+            num_timesteps,
+            num_samples,
+        )
+
+    num_states = initial_states.shape[0]
+    c = np.zeros(
+        (
+            num_states,
+            num_samples,
+            num_timesteps + 1,
+            initial_states.shape[1],
+        )
     )
+    t = np.zeros(num_timesteps + 1)
+    for i in range(num_states):
+        t, c[i] = _sample_many(
+            initial_states[i],
+            max_time,
+            params.num_agents,
+            params.r,
+            params.r_tilde,
+            num_timesteps,
+            num_samples,
+        )
+    return t, c
 
 
 @njit(parallel=True, cache=True)
@@ -93,7 +119,7 @@ def _simulate(
     c = initial_state.copy()
     num_opinions = c.shape[0]
 
-    t_list = [0]
+    t_list = [0.0]
     c_list = [initial_state.copy()]
     props = np.zeros((num_opinions, num_opinions))
 
