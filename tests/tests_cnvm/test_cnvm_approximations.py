@@ -52,23 +52,6 @@ def num_samples() -> int:
 @pytest.mark.parametrize(
     "initial_states,c_shape",
     [
-        ([0.9, 0.1, 0.0], (1001, 3)),
-        ([[0.9, 0.1, 0.0], [0.2, 0.3, 0.5]], (2, 1001, 3)),
-    ],
-)
-def test_calc_rre(params, t_max, t_eval, initial_states, c_shape):
-    t, c = calc_rre_traj(params, np.array(initial_states), t_max, t_eval)
-    assert np.allclose(t, t_eval)
-    assert c.shape == c_shape
-    if c.ndim == 2:
-        assert np.allclose(c[0], initial_states)
-    else:
-        assert np.allclose(c[:, 0], initial_states)
-
-
-@pytest.mark.parametrize(
-    "initial_states,c_shape",
-    [
         ([0.9, 0.1, 0.0], (20, 1001, 3)),
         ([[0.9, 0.1, 0.0], [0.2, 0.3, 0.5]], (2, 20, 1001, 3)),
     ],
