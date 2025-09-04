@@ -37,34 +37,11 @@ def sample_cle(
     -------
     tuple[NDArray, NDArray]
         (t, c),
-        t.shape=(num_time_steps + 1),
-        c.shape = (num_states, num_samples, num_time_steps + 1, num_opinions), or c.shape = (num_samples, num_time_steps + 1, num_opinions) if a single initial state was given.
+        t.shape=(num_timesteps),
+        c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
         (If saving_offset > 1, the number of time steps will be smaller.)
     """
-    if delta_t is None and t_eval is None:
-        raise ValueError("Either `delta_t` or `t_eval` has to be provided.")
-
-    if t_eval is not None:
-        if isinstance(t_eval, float):
-            raise ValueError("t_eval has to be an array of time points or an int.")
-
-        if isinstance(t_eval, int):
-            t_eval = np.linspace(0, max_time, t_eval)
-
-        if np.min(t_eval) < 0:
-            raise ValueError("The times in t_eval have to be >= 0.")
-
-        diffs = np.diff(t_eval)
-        if np.min(diffs) <= 0:
-            raise ValueError("The times in t_eval have to be increasing.")
-
-        if delta_t is None:
-            delta_t = np.max(np.diff(t_eval))
-
-    if delta_t is not None and t_eval is None:
-        num_steps = int(np.ceil(max_time / delta_t))
-        t_eval = np.linspace(0, delta_t * num_steps, num_steps + 1)
-        t_eval[-1] = max_time
+    delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, max_time)
 
     if initial_states.ndim == 1:
         return _numba_sample_cle(
@@ -99,6 +76,40 @@ def sample_cle(
             num_samples,
         )
     return t, c
+
+
+def _sanitize_delta_t_and_t_eval(
+    delta_t: float | None, t_eval: ArrayLike | None, max_time: float
+) -> tuple[float, NDArray]:
+    if delta_t is None and t_eval is None:
+        raise ValueError("Either `delta_t` or `t_eval` has to be provided.")
+
+    if t_eval is not None:
+        if isinstance(t_eval, float):
+            raise ValueError("t_eval has to be an array of time points or an int.")
+
+        if isinstance(t_eval, int):
+            t_eval = np.linspace(0, max_time, t_eval)
+
+        t_eval = np.array(t_eval)
+        if np.min(t_eval) < 0:
+            raise ValueError("The times in t_eval have to be >= 0.")
+
+        diffs = np.diff(t_eval)
+        if np.min(diffs) <= 0:
+            raise ValueError("The times in t_eval have to be increasing.")
+
+        if delta_t is None:
+            delta_t = np.max(np.diff(t_eval))
+
+    if delta_t is not None and t_eval is None:
+        num_steps = int(np.ceil(max_time / delta_t))
+        t_eval = np.linspace(0, delta_t * num_steps, num_steps + 1)
+        t_eval[-1] = max_time
+
+    assert isinstance(t_eval, np.ndarray)
+    assert isinstance(delta_t, float)
+    return delta_t, t_eval
 
 
 @njit(parallel=True, cache=True)
