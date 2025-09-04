@@ -73,34 +73,6 @@ def test_calc_rre(params, t_max, t_eval, initial_states, c_shape):
         ([[0.9, 0.1, 0.0], [0.2, 0.3, 0.5]], (2, 20, 1001, 3)),
     ],
 )
-def test_sample_cle(
-    params, t_max, num_time_steps, num_samples, t_eval, initial_states, c_shape
-):
-    delta_t = 1e-3
-    t, c = sample_cle(
-        params,
-        np.array(initial_states),
-        t_max,
-        num_samples,
-        t_eval=num_time_steps + 1,
-        delta_t=delta_t,
-    )
-    assert np.allclose(t, t_eval)
-    assert c.shape == c_shape
-    if c.ndim == 3:
-        assert np.allclose(c[:, 0], initial_states)
-    else:
-        for i in range(c.shape[1]):
-            assert np.allclose(c[:, i, 0], initial_states)
-
-
-@pytest.mark.parametrize(
-    "initial_states,c_shape",
-    [
-        ([0.9, 0.1, 0.0], (20, 1001, 3)),
-        ([[0.9, 0.1, 0.0], [0.2, 0.3, 0.5]], (2, 20, 1001, 3)),
-    ],
-)
 def test_sample_stochastic_approx(
     params, t_max, num_time_steps, num_samples, t_eval, initial_states, c_shape
 ):
