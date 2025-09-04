@@ -43,16 +43,9 @@ def sample_cle(
     """
     delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, max_time)
 
-    if initial_states.ndim == 1:
-        return _numba_sample_cle(
-            initial_states,
-            delta_t,
-            t_eval,
-            params.num_agents,
-            params.r,
-            params.r_tilde,
-            num_samples,
-        )
+    is_1d = initial_states.ndim == 1
+    if is_1d:
+        initial_states = np.expand_dims(initial_states, 0)
 
     num_states = initial_states.shape[0]
     num_time_steps = t_eval.shape[0]
@@ -64,7 +57,7 @@ def sample_cle(
             initial_states.shape[1],
         )
     )
-    t = np.zeros(num_time_steps + 1)
+
     for i in range(num_states):
         t, c[i] = _numba_sample_cle(
             initial_states[i],
@@ -75,7 +68,10 @@ def sample_cle(
             params.r_tilde,
             num_samples,
         )
-    return t, c
+
+    if is_1d:
+        c = c[0]
+    return t, c  # type: ignore
 
 
 def _sanitize_delta_t_and_t_eval(
