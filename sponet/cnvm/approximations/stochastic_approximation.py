@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit, prange
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from ...utils import argmatch
 from ..parameters import CNVMParameters
@@ -11,7 +11,7 @@ def sample_stochastic_approximation(
     initial_states: NDArray,
     t_max: float,
     num_samples: int,
-    num_timesteps: int,
+    t_eval: ArrayLike,
 ) -> tuple[NDArray, NDArray]:
     """
     Simulate the opinion shares directly.
@@ -30,24 +30,34 @@ def sample_stochastic_approximation(
         Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
     num_samples: int
-    num_timesteps : int
-        Number of states in returned trajectory, at equidistant times.
+    t_eval : ArrayLike
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
 
     Returns
     -------
     tuple[NDArray, NDArray]
         (t, c),
-        t.shape=(num_timesteps + 1),
-        c.shape = (num_states, num_samples, num_timesteps + 1, num_opinions), or c.shape = (num_samples, num_timesteps + 1, num_opinions) if a single initial state was given.
+        t.shape=(num_timesteps),
+        c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
     """
+    if isinstance(t_eval, float):
+        raise ValueError("t_eval has to be an array of time points or an int.")
+    if isinstance(t_eval, int):
+        t_eval = np.linspace(0, t_max, t_eval)
+    t_eval = np.array(t_eval)
+    if np.min(t_eval) < 0:
+        raise ValueError("The times in t_eval have to be >= 0.")
+    if np.min(np.diff(t_eval)) <= 0:
+        raise ValueError("The times in t_eval have to be increasing.")
+
     if initial_states.ndim == 1:
         return _sample_many(
             initial_states,
-            t_max,
             params.num_agents,
             params.r,
             params.r_tilde,
-            num_timesteps,
+            t_eval,
             num_samples,
         )
 
@@ -76,23 +86,19 @@ def sample_stochastic_approximation(
 
 @njit(parallel=True, cache=True)
 def _sample_many(
-    initial_state: np.ndarray,
-    t_max: float,
+    initial_state: NDArray,
     num_agents: int,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-    num_timesteps: int,
+    r: NDArray,
+    r_tilde: NDArray,
+    t_eval: NDArray,
     num_samples: int,
-):
-    t_delta = t_max / (5 * num_timesteps)
-    t_out = np.linspace(0, t_max, num_timesteps + 1)
-    c_out = np.zeros((num_samples, t_out.shape[0], initial_state.shape[0]))
+) -> tuple[NDArray, NDArray]:
+    c_out = np.zeros((num_samples, t_eval.shape[0], initial_state.shape[0]))
 
     for i in prange(num_samples):
         t, c = _simulate(
             initial_state,
-            t_max,
-            t_delta,
+            t_eval,
             num_agents,
             r,
             r_tilde,
@@ -108,12 +114,11 @@ def _sample_many(
 
 @njit
 def _simulate(
-    initial_state: np.ndarray,
-    t_max: float,
-    t_delta: float,
+    initial_state: NDArray,
+    t_eval: NDArray,
     num_agents: int,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
+    r: NDArray,
+    r_tilde: NDArray,
 ):
     t = 0
     c = initial_state.copy()
