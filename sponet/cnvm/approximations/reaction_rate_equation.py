@@ -1,7 +1,7 @@
 from copy import deepcopy
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from scipy.integrate import solve_ivp
 
 from ..parameters import CNVMParameters
@@ -11,7 +11,7 @@ def calc_rre_traj(
     params: CNVMParameters,
     initial_states: NDArray,
     t_max: float,
-    t_eval: NDArray | None = None,
+    t_eval: ArrayLike | None = None,
 ) -> tuple[NDArray, NDArray]:
     """
     Solve the RRE given by parameters, starting from c_0, up to time t_max.
@@ -25,16 +25,31 @@ def calc_rre_traj(
         Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
         End time.
-    t_eval : NDArray, optional
-        Time points, at which the solution should be evaluated.
+    t_eval : ArrayLike, optional
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
 
     Returns
     -------
     tuple[NDArray, NDArray]
         (t, c),
-        t.shape=(num_time_steps,),
-        c.shape = (num_states, num_time_steps, num_opinions), or c.shape = (num_time_steps, num_opinions) if a single initial state was given.
+        t.shape=(num_timesteps,),
+        c.shape = (num_states, num_timesteps, num_opinions), or c.shape = (num_timesteps, num_opinions) if a single initial state was given.
     """
+    if t_eval is not None:
+        if isinstance(t_eval, float):
+            raise ValueError("t_eval has to be an array of time points or an int.")
+
+        if isinstance(t_eval, int):
+            t_eval = np.linspace(0, t_max, t_eval)
+
+        t_eval = np.array(t_eval)
+        if np.min(t_eval) < 0:
+            raise ValueError("The times in t_eval have to be >= 0.")
+
+        diffs = np.diff(t_eval)
+        if np.min(diffs) <= 0:
+            raise ValueError("The times in t_eval have to be increasing.")
 
     def rhs(_, c):
         out = np.zeros_like(c)
@@ -76,7 +91,7 @@ def calc_modified_rre_traj(
     initial_states: NDArray,
     t_max: float,
     alpha: float = 1.0,
-    t_eval: NDArray | None = None,
+    t_eval: ArrayLike | None = None,
 ) -> tuple[NDArray, NDArray]:
     """
     Solve the RRE with modified parameters, starting from c_0, up to time t_max.
@@ -93,8 +108,10 @@ def calc_modified_rre_traj(
         End time.
     alpha : float
         Factor for modification of imitation rates.
-    t_eval : NDArray, optional
-        Time points, at which the solution should be evaluated.
+    t_eval : ArrayLike, optional
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
+
 
     Returns
     -------
