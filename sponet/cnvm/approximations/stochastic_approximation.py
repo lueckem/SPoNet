@@ -2,7 +2,6 @@ import numpy as np
 from numba import njit, prange
 from numpy.typing import ArrayLike, NDArray
 
-from ...utils import argmatch
 from ..parameters import CNVMParameters
 
 
@@ -52,7 +51,7 @@ def sample_stochastic_approximation(
         raise ValueError("The times in t_eval have to be increasing.")
 
     if initial_states.ndim == 1:
-        return _sample_many(
+        c = _sample_many(
             initial_states,
             params.num_agents,
             params.r,
@@ -60,28 +59,28 @@ def sample_stochastic_approximation(
             t_eval,
             num_samples,
         )
+        return t_eval, c
 
     num_states = initial_states.shape[0]
+    num_timesteps = t_eval.shape[0]
     c = np.zeros(
         (
             num_states,
             num_samples,
-            num_timesteps + 1,
+            num_timesteps,
             initial_states.shape[1],
         )
     )
-    t = np.zeros(num_timesteps + 1)
     for i in range(num_states):
-        t, c[i] = _sample_many(
+        c[i] = _sample_many(
             initial_states[i],
-            t_max,
             params.num_agents,
             params.r,
             params.r_tilde,
-            num_timesteps,
+            t_eval,
             num_samples,
         )
-    return t, c
+    return t_eval, c
 
 
 @njit(parallel=True, cache=True)
@@ -92,24 +91,21 @@ def _sample_many(
     r_tilde: NDArray,
     t_eval: NDArray,
     num_samples: int,
-) -> tuple[NDArray, NDArray]:
+) -> NDArray:
     c_out = np.zeros((num_samples, t_eval.shape[0], initial_state.shape[0]))
 
     for i in prange(num_samples):
-        t, c = _simulate(
+        c = _simulate(
             initial_state,
             t_eval,
             num_agents,
             r,
             r_tilde,
         )
-        t = np.array(t)
-        c = make_2d(c)
 
-        t_ind = argmatch(t_out, t)
-        c_out[i] = c[t_ind, :]
+        c_out[i] = c
 
-    return t_out, c_out
+    return c_out
 
 
 @njit
@@ -119,16 +115,18 @@ def _simulate(
     num_agents: int,
     r: NDArray,
     r_tilde: NDArray,
-):
-    t = 0
+) -> NDArray:
+    t_max = t_eval[-1]
+    t = 0.0
     c = initial_state.copy()
     num_opinions = c.shape[0]
 
-    t_list = [0.0]
-    c_list = [initial_state.copy()]
+    c_store = np.zeros((t_eval.shape[0], c.shape[0]))
+    c_store[0] = c
     props = np.zeros((num_opinions, num_opinions))
 
-    t_store = t_delta
+    i = 1
+    t_store = t_eval[i]
     while t < t_max:
         _update_propensities(props, r, r_tilde, c, num_agents)
 
@@ -141,20 +139,22 @@ def _simulate(
         c[m] -= 1 / num_agents
         c[n] += 1 / num_agents
 
+        # TODO: Match previous t as well? Similar to cnvm model loop
         if t >= t_store:
-            t_store += t_delta
-            t_list.append(t)
-            c_list.append(c.copy())
+            c_store[i] = c
+            i += 1
+            t_store = t_eval[i]
 
-    return t_list, c_list
+    # TODO: c_store may not be filled completely, see cnvm model loop
+    return c_store
 
 
 @njit
 def _update_propensities(
-    props: np.ndarray,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-    c: np.ndarray,
+    props: NDArray,
+    r: NDArray,
+    r_tilde: NDArray,
+    c: NDArray,
     num_agents: int,
 ):
     for m in range(props.shape[0]):
@@ -163,13 +163,3 @@ def _update_propensities(
                 continue
             props[m, n] = c[m] * (r[m, n] * c[n] + r_tilde[m, n])
     props *= num_agents
-
-
-@njit
-def make_2d(arraylist):
-    n = len(arraylist)
-    k = arraylist[0].shape[0]
-    a2d = np.zeros((n, k))
-    for i in range(n):
-        a2d[i] = arraylist[i]
-    return a2d

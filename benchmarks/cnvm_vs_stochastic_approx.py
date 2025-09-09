@@ -39,9 +39,7 @@ def main():
     print(f"CNVM took {end - start} s")
 
     start = time.time()
-    t, c = sample_stochastic_approximation(
-        params, c_init, t_max, len_output - 1, num_runs
-    )
+    t, c = sample_stochastic_approximation(params, c_init, t_max, num_runs, len_output)
     end = time.time()
     print(c.shape)
     print(f"Stoch. Approx. took {end - start} s")
@@ -51,6 +49,6 @@ if __name__ == "__main__":
     main()
 
 # (32, 1001, 3)
-# CNVM took 7.788949489593506 s
+# CNVM took 7.353758335113525 s
 # (32, 1001, 3)
-# Stoch. Approx. took 19.041971445083618 s
+# Stoch. Approx. took 18.849798917770386 s
