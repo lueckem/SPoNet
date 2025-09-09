@@ -8,7 +8,7 @@ from ..parameters import CNVMParameters
 def sample_cle(
     params: CNVMParameters,
     initial_states: NDArray,
-    max_time: float,
+    t_max: float,
     num_samples: int,
     delta_t: float | None = None,
     t_eval: ArrayLike | None = None,
@@ -25,7 +25,7 @@ def sample_cle(
     params : CNVMParameters
     initial_states : NDArray
         Either shape = (num_opinions,) or (num_states, num_opinions)
-    max_time : float
+    t_max : float
     num_samples : int
     delta_t : float, optional
         Step size.
@@ -41,7 +41,7 @@ def sample_cle(
         c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
         (If saving_offset > 1, the number of time steps will be smaller.)
     """
-    delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, max_time)
+    delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
 
     is_1d = initial_states.ndim == 1
     if is_1d:
@@ -156,6 +156,9 @@ def _numba_euler_maruyama(
             this_delta_t = delta_t
             store = False
 
+        # NOTE: possible performance improvement:
+        # Maybe drift, diffusion, wiener_increments allocate at each step.
+        # Make sure that the new ones overwrite the old ones in place.
         drift, diffusion = _drift_and_diffusion(x, r, r_tilde, num_agents)
         wiener_increments = np.random.normal(0, this_delta_t**0.5, dim_diffusion)
         x[:] = x + drift * delta_t + diffusion @ wiener_increments

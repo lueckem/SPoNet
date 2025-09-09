@@ -60,7 +60,7 @@ def test_sample_stochastic_approx(
     params, t_max, num_time_steps, num_samples, t_eval, initial_states, c_shape
 ):
     t, c = sample_stochastic_approximation(
-        params, np.array(initial_states), t_max, num_time_steps, num_samples
+        params, np.array(initial_states), t_max, num_samples, num_time_steps
     )
     assert np.allclose(t, t_eval)
     assert c.shape == c_shape
@@ -109,7 +109,7 @@ def test_agreement_of_approximations():
         delta_t=0.01,
     )
     t_sa, c_sa = sample_stochastic_approximation(
-        params, initial_c, t_max, num_time_steps, num_samples
+        params, initial_c, t_max, num_samples, num_time_steps
     )
     t_rre, c_rre = calc_rre_traj(
         params, initial_c, t_max, np.linspace(0, t_max, num_time_steps + 1)

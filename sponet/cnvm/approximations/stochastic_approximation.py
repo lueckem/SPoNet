@@ -9,9 +9,9 @@ from ..parameters import CNVMParameters
 def sample_stochastic_approximation(
     params: CNVMParameters,
     initial_states: NDArray,
-    max_time: float,
-    num_timesteps: int,
+    t_max: float,
     num_samples: int,
+    num_timesteps: int,
 ) -> tuple[NDArray, NDArray]:
     """
     Simulate the opinion shares directly.
@@ -28,10 +28,10 @@ def sample_stochastic_approximation(
     params : CNVMParameters
     initial_states : NDArray
         Either shape = (num_opinions,) or (num_states, num_opinions)
-    max_time : float
+    t_max : float
+    num_samples: int
     num_timesteps : int
         Number of states in returned trajectory, at equidistant times.
-    num_samples: int
 
     Returns
     -------
@@ -43,7 +43,7 @@ def sample_stochastic_approximation(
     if initial_states.ndim == 1:
         return _sample_many(
             initial_states,
-            max_time,
+            t_max,
             params.num_agents,
             params.r,
             params.r_tilde,
@@ -64,7 +64,7 @@ def sample_stochastic_approximation(
     for i in range(num_states):
         t, c[i] = _sample_many(
             initial_states[i],
-            max_time,
+            t_max,
             params.num_agents,
             params.r,
             params.r_tilde,
