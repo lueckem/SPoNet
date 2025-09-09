@@ -26,7 +26,7 @@ def test_simulate_boundary_jump_process(state_before_breach, state_after_breach)
 	x_store = np.zeros((n_timesteps, n_states))
 	x_store[0] = state_before_breach
 
-	x_store, current_t, current_state, index = bp._simulate_boundary_jump_process(
+	x_store, current_t, current_state, index = bp.simulate_boundary_jump_process(
 		t_eval=t,
 		x_store=x_store,
 		t_before_breach=t[0],
@@ -82,5 +82,23 @@ def test_compute_intersection_with_boundary(
 		state_before_breach + intersection_time * (state_after_breach-state_before_breach),
 		intersection_value
 	)
+
+
+@pytest.mark.parametrize(
+	"x, expected",
+	[
+		([.5, .5], [.5, .5]),
+		([-1, 2], [0, 1]),
+		([-.2, .6, .6], [0, .5, .5]),
+		([-1, .8, 1.2], [0, .3, .7]),
+		([.2, .2, .6], [.2, .2, .6]),
+		([2, -1, -1], [1, 0, 0])
+	]
+)
+def test_project_onto_standard_simplex(x, expected):
+	x = np.array(x)
+	expected = np.array(expected)
+	assert np.allclose(expected, bp._project_onto_standard_simplex(x))
+
 
 

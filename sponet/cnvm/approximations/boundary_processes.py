@@ -21,8 +21,7 @@ def clip_boundary(
 	return x, t, timestep_index
 
 
-@njit(cache=True)
-def _simulate_boundary_jump_process(
+def compute_normal_boundary_reflection(
 		t_eval: NDArray,
 		x_store: NDArray,
 		t_before_breach: float,
@@ -34,6 +33,39 @@ def _simulate_boundary_jump_process(
 		r: NDArray,
 		r_tilde: NDArray,
 ) -> tuple[NDArray, float, NDArray, int]:
+	n_states = x_store.shape[1]
+
+	breached_sides_indices = np.argwhere(state_after_breach <= 0)
+
+	if breached_sides_indices.shape[0] == 1:
+		breached_side_index = breached_sides_indices[0]
+		# check if normal reflection is possible
+		distance = np.abs(state_after_breach[breached_side_index])
+		side_normal = np.full(n_states, 1/(n_states-1))
+		side_normal[breached_side_index] = -1
+		if (res:=state_after_breach - distance * side_normal >=0 ).all():
+			print(res)
+
+
+
+
+
+
+
+@njit(cache=True)
+def simulate_boundary_jump_process(
+		t_eval: NDArray,
+		x_store: NDArray,
+		t_before_breach: float,
+		t_after_breach: float,
+		state_before_breach: NDArray,
+		state_after_breach: NDArray,
+		next_save_index: int,
+		n_nodes: int,
+		r: NDArray,
+		r_tilde: NDArray,
+) -> tuple[NDArray, float, NDArray, int]:
+
 	"""
 	Simulates a jump process in the boundary until it jumps outside the boundary.
 
@@ -102,7 +134,6 @@ def _simulate_boundary_jump_process(
 			return x_store, current_t, current_shares, next_save_index
 
 
-
 @njit(cache=True)
 def _compute_intersection_with_boundary(
 		breached_side_index: int,
@@ -140,3 +171,35 @@ def _update_boundary_propensities(
 				continue
 			props[m, n] = c[m] * (r[m, n] * c[n] + r_tilde[m, n])
 	props *= n_nodes
+
+
+def _project_onto_standard_simplex(x: NDArray) -> NDArray:
+	"""
+	Computes the best approximation of the simplex to a given point.
+
+	Algorithm from https://doi.org/10.48550/arXiv.1101.6081
+
+	Parameters
+	----------
+	x: NDArray
+
+	Returns
+	-------
+	NDArray
+	shape=x.shape
+
+	"""
+	n_states = x.shape[0]
+	y = np.sort(x, axis=0)
+	index = n_states - 1
+	while True:
+		t = (np.sum(y[index:]) - 1) / (n_states - index)
+		if t >= y[index-1]:
+			t_hat = t
+			break
+		index -= 1
+		if index == 0:
+			t_hat = (np.sum(y)-1) / n_states
+			break
+	res = x-t_hat
+	return np.where(res > 0, res, 0)
