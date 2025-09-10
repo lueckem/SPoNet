@@ -26,7 +26,7 @@ def test_simulate_boundary_jump_process(state_before_breach, state_after_breach)
 	x_store = np.zeros((n_timesteps, n_states))
 	x_store[0] = state_before_breach
 
-	x_store, current_t, current_state, index = bp.simulate_boundary_jump_process(
+	x_store, current_t, current_state, index, _ = bp.simulate_boundary_jump_process(
 		t_eval=t,
 		x_store=x_store,
 		t_before_breach=float(t[0]),
@@ -73,7 +73,7 @@ def test_compute_normal_boundary_reflection(state_before_breach, state_after_bre
 	x_store = np.zeros((n_timesteps, n_states))
 	x_store[0] = state_before_breach
 
-	x_store, current_t, current_state, index = bp.compute_normal_boundary_reflection(
+	x_store, current_t, current_state, index, _ = bp.compute_normal_boundary_reflection(
 		t_eval=None,
 		x_store=x_store,
 		t_before_breach=None,

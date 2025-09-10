@@ -3,9 +3,28 @@ from numpy.typing import NDArray
 
 from numba import njit
 
+from collections.abc import Callable
+
+
+type BoundaryProcess = Callable[
+	[
+		NDArray | None,
+		NDArray,
+		float | None,
+		float,
+		NDArray | None,
+		NDArray,
+		int,
+		int | None,
+		NDArray | None,
+		NDArray | None
+	],
+	NDArray, float, NDArray, int, bool
+]
+
 
 @njit(cache=True)
-def clip_boundary(
+def clip_to_boundary(
 		t_eval: None,
 		x_store: NDArray,
 		t_before_breach: None,
@@ -16,11 +35,11 @@ def clip_boundary(
 		n_nodes: None,
 		r: None,
 		r_tilde: None,
-) -> tuple[NDArray, float, NDArray, int]:
+) -> tuple[NDArray, float, NDArray, int, bool]:
 	clipped_state = np.clip(state_after_breach, -1, 1)
 	clipped_state /= np.sum(clipped_state)
 
-	return x_store, t_after_breach, clipped_state, next_save_index
+	return x_store, t_after_breach, clipped_state, next_save_index, False
 
 
 @njit(cache=True)
@@ -35,13 +54,14 @@ def compute_normal_boundary_reflection(
 		n_nodes: int,
 		r: None,
 		r_tilde: None,
-) -> tuple[NDArray, float, NDArray, int]:
+) -> tuple[NDArray, float, NDArray, int, bool]:
 	"""
 	Computes the reflection with respect to the normal of the boundary.
 
 	This function is well-defined for all input values.
 	The best approximation of state_after_breach on the simplex is used as reflection point.
 	The reflection is adapted if the formally correct reflected point is outside the boundary.
+	Does not advance time.
 
 	Parameters
 	----------
@@ -60,27 +80,28 @@ def compute_normal_boundary_reflection(
 
 	Returns
 	-------
-	tuple[NDArray, float, NDArray, int]
-		(x_store, current_t, current_share, save_index)
+	tuple[NDArray, float, NDArray, int, bool]
+		(x_store, current_t, current_share, save_index, advances_time)
+		advances_time=False
 	"""
 	# Use projection onto simplex as reflection point.
 	proj_after_breach = _project_onto_standard_simplex(state_after_breach)
-	reflection = 2*proj_after_breach - state_after_breach
+	reflection = 2 * proj_after_breach - state_after_breach
 
 	# If reflection is outside of boundary again, lower the step size
 	n = 1
 	while (reflection <= 0).any():
-		reflection = proj_after_breach + 1/n * (proj_after_breach - state_after_breach)
+		reflection = proj_after_breach + 1 / n * (proj_after_breach - state_after_breach)
 		n += 1
 
 		if n == 10:
 			# "Reflect" into the direction of the middle of the simplex.
 			# This will push the point outside of corners
 			n_states = state_after_breach.shape[0]
-			reflection = proj_after_breach + 1/n_nodes * (np.full(n_states, 1/n_states) - proj_after_breach)
+			reflection = proj_after_breach + 1 / n_nodes * (np.full(n_states, 1 / n_states) - proj_after_breach)
 			break
 
-	return x_store, t_after_breach, reflection, next_save_index
+	return x_store, t_after_breach, reflection, next_save_index, False
 
 
 @njit(cache=True)
@@ -95,10 +116,11 @@ def simulate_boundary_jump_process(
 		n_nodes: int,
 		r: NDArray,
 		r_tilde: NDArray,
-) -> tuple[NDArray, float, NDArray, int]:
-
+) -> tuple[NDArray, float, NDArray, int, bool]:
 	"""
 	Simulates a jump process in the boundary until it jumps outside the boundary.
+
+	Always advances time.
 
 	Parameters
 	----------
@@ -121,8 +143,9 @@ def simulate_boundary_jump_process(
 
 	Returns
 	-------
-	tuple[NDArray, float, NDArray, int]
-		(x_store, current_t, current_share, save_index)
+	tuple[NDArray, float, NDArray, int, bool]
+		(x_store, current_t, current_share, save_index, advances_time)
+		advances_time = True
 	"""
 
 	n_states = x_store.shape[1]
@@ -155,14 +178,14 @@ def simulate_boundary_jump_process(
 			x_store[next_save_index] = current_shares
 			next_save_index += 1
 			if next_save_index == len(t_eval):
-				return x_store, current_t, current_shares, next_save_index
+				return x_store, current_t, current_shares, next_save_index, True
 
 		current_shares[m] -= 1 / n_nodes
 		current_shares[n] += 1 / n_nodes
 
 		# Check if still in boundary
 		if not (current_shares <= 0).any():
-			return x_store, current_t, current_shares, next_save_index
+			return x_store, current_t, current_shares, next_save_index, True
 
 
 @njit(cache=True)
@@ -174,7 +197,6 @@ def _compute_intersection_with_boundary(
 		t_after_breach: float,
 		n_states: int
 ) -> tuple[float, NDArray]:
-
 	normal_vec = np.ones(n_states)
 	normal_vec[breached_side_index] -= n_states
 	s_star = (1 - normal_vec @ state_before_breach) / (
@@ -226,12 +248,23 @@ def _project_onto_standard_simplex(x: NDArray) -> NDArray:
 	index = n_states - 1
 	while True:
 		t = (np.sum(y[index:]) - 1) / (n_states - index)
-		if t >= y[index-1]:
+		if t >= y[index - 1]:
 			t_hat = t
 			break
 		index -= 1
 		if index == 0:
-			t_hat = (np.sum(y)-1) / n_states
+			t_hat = (np.sum(y) - 1) / n_states
 			break
-	res = x-t_hat
+	res = x - t_hat
 	return np.where(res > 0, res, 0)
+
+
+def get_boundary_process_from_alias(alias: str) -> BoundaryProcess:
+
+	boundary_process_dict = {
+		"clipping": clip_to_boundary,
+		"jump": simulate_boundary_jump_process,
+		"normal-reflection": compute_normal_boundary_reflection,
+	}
+
+	return boundary_process_dict[alias]
