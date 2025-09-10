@@ -29,8 +29,8 @@ def test_simulate_boundary_jump_process(state_before_breach, state_after_breach)
 	x_store, current_t, current_state, index = bp.simulate_boundary_jump_process(
 		t_eval=t,
 		x_store=x_store,
-		t_before_breach=t[0],
-		t_after_breach=t[1],
+		t_before_breach=float(t[0]),
+		t_after_breach=float(t[1]),
 		state_before_breach=x_store[0],
 		state_after_breach=state_after_breach,
 		next_save_index=1,
@@ -49,6 +49,49 @@ def test_simulate_boundary_jump_process(state_before_breach, state_after_breach)
 
 	if index >= n_timesteps:
 		assert current_t > t[-1]
+
+
+@pytest.mark.parametrize(
+	"state_before_breach, state_after_breach",
+	[
+		([.2, .4, .4], [-.2, .6, .6]),
+		([.2, .4, .4], [-1, 0.8, 1.2]),
+		([0.1, 0.8, 0.1], [-0.2, 0.05, 1.15]),
+		([.2, .4, .4], [-.1, -.1, 1.2]),
+		([1 / 3, 1 / 3, 1 / 3], [-.5, -.5, 2])
+	]
+)
+def test_compute_normal_boundary_reflection(state_before_breach, state_after_breach):
+	state_before_breach = np.array(state_before_breach)
+	state_after_breach = np.array(state_after_breach)
+
+	n_states = state_before_breach.shape[0]
+	n_nodes = 10
+	n_timesteps = 10
+	t_max = 10
+	t = np.linspace(0, t_max, n_timesteps)
+	x_store = np.zeros((n_timesteps, n_states))
+	x_store[0] = state_before_breach
+
+	x_store, current_t, current_state, index = bp.compute_normal_boundary_reflection(
+		t_eval=None,
+		x_store=x_store,
+		t_before_breach=None,
+		t_after_breach=float(t[1]),
+		state_before_breach=None,
+		state_after_breach=state_after_breach,
+		next_save_index=1,
+		n_nodes=n_nodes,
+		r=None,
+		r_tilde=None
+	)
+
+	assert np.sum(current_state) == 1
+	assert (current_state >= 0).all()
+
+
+
+	return
 
 
 @pytest.mark.parametrize(
@@ -99,6 +142,3 @@ def test_project_onto_standard_simplex(x, expected):
 	x = np.array(x)
 	expected = np.array(expected)
 	assert np.allclose(expected, bp._project_onto_standard_simplex(x))
-
-
-

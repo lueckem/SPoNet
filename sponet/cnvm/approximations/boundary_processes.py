@@ -6,50 +6,81 @@ from numba import njit
 
 @njit(cache=True)
 def clip_boundary(
-		x: NDArray,
-		t: NDArray,
-		timestep_index: int,
-		_max_time: float,
-		_num_time_steps: int,
-		_num_agents: int,
-		_r: NDArray,
-		_r_tilde: NDArray,
-) -> tuple[NDArray, NDArray, int]:
-	x[timestep_index] = np.clip(x[timestep_index], -1, 1)
-	x[timestep_index] /= np.sum(x[timestep_index])
-
-	return x, t, timestep_index
-
-
-def compute_normal_boundary_reflection(
-		t_eval: NDArray,
+		t_eval: None,
 		x_store: NDArray,
-		t_before_breach: float,
+		t_before_breach: None,
 		t_after_breach: float,
-		state_before_breach: NDArray,
+		state_before_breach: None,
+		state_after_breach: NDArray,
+		next_save_index: int,
+		n_nodes: None,
+		r: None,
+		r_tilde: None,
+) -> tuple[NDArray, float, NDArray, int]:
+	clipped_state = np.clip(state_after_breach, -1, 1)
+	clipped_state /= np.sum(clipped_state)
+
+	return x_store, t_after_breach, clipped_state, next_save_index
+
+
+@njit(cache=True)
+def compute_normal_boundary_reflection(
+		t_eval: None,
+		x_store: NDArray,
+		t_before_breach: None,
+		t_after_breach: float,
+		state_before_breach: None,
 		state_after_breach: NDArray,
 		next_save_index: int,
 		n_nodes: int,
-		r: NDArray,
-		r_tilde: NDArray,
+		r: None,
+		r_tilde: None,
 ) -> tuple[NDArray, float, NDArray, int]:
-	n_states = x_store.shape[1]
+	"""
+	Computes the reflection with respect to the normal of the boundary.
 
-	breached_sides_indices = np.argwhere(state_after_breach <= 0)
+	This function is well-defined for all input values.
+	The best approximation of state_after_breach on the simplex is used as reflection point.
+	The reflection is adapted if the formally correct reflected point is outside the boundary.
 
-	if breached_sides_indices.shape[0] == 1:
-		breached_side_index = breached_sides_indices[0]
-		# check if normal reflection is possible
-		distance = np.abs(state_after_breach[breached_side_index])
-		side_normal = np.full(n_states, 1/(n_states-1))
-		side_normal[breached_side_index] = -1
-		if (res:=state_after_breach - distance * side_normal >=0 ).all():
-			print(res)
+	Parameters
+	----------
+	t_eval: None
+	x_store: NDArray
+		Shape = (num_time_steps, n_states)
+	t_before_breach: None
+	t_after_breach: float
+	state_before_breach: None
+	state_after_breach: NDArray
+		shape = (n_states,)
+	next_save_index: int
+	n_nodes: int
+	r: None
+	r_tilde: None
 
+	Returns
+	-------
+	tuple[NDArray, float, NDArray, int]
+		(x_store, current_t, current_share, save_index)
+	"""
+	# Use projection onto simplex as reflection point.
+	proj_after_breach = _project_onto_standard_simplex(state_after_breach)
+	reflection = 2*proj_after_breach - state_after_breach
 
+	# If reflection is outside of boundary again, lower the step size
+	n = 1
+	while (reflection <= 0).any():
+		reflection = proj_after_breach + 1/n * (proj_after_breach - state_after_breach)
+		n += 1
 
+		if n == 10:
+			# "Reflect" into the direction of the middle of the simplex.
+			# This will push the point outside of corners
+			n_states = state_after_breach.shape[0]
+			reflection = proj_after_breach + 1/n_nodes * (np.full(n_states, 1/n_states) - proj_after_breach)
+			break
 
-
+	return x_store, t_after_breach, reflection, next_save_index
 
 
 @njit(cache=True)
@@ -173,12 +204,13 @@ def _update_boundary_propensities(
 	props *= n_nodes
 
 
+@njit(cache=True)
 def _project_onto_standard_simplex(x: NDArray) -> NDArray:
 	"""
-	Computes the best approximation of the simplex to a given point.
+	Computes the best approximation of the standard d-1 simplex to a given point in R^d.
 
 	Algorithm from https://doi.org/10.48550/arXiv.1101.6081
-
+	Could be further sped up by using constant time median algorithm.
 	Parameters
 	----------
 	x: NDArray
@@ -190,7 +222,7 @@ def _project_onto_standard_simplex(x: NDArray) -> NDArray:
 
 	"""
 	n_states = x.shape[0]
-	y = np.sort(x, axis=0)
+	y = np.sort(x)
 	index = n_states - 1
 	while True:
 		t = (np.sum(y[index:]) - 1) / (n_states - index)
