@@ -5,6 +5,43 @@ from sponet.cnvm.approximations import boundary_processes as bp
 
 
 @pytest.mark.parametrize(
+	"state_after_breach",
+	[
+		([-.2, .6, .6]),
+		([-1, 0.8, 1.2]),
+		([-0.2, 0.05, 1.15]),
+		([-.1, -.1, 1.2]),
+		([-.5, -.5, 2])
+	]
+)
+def test_clip_to_boundary(state_after_breach):
+	state_after_breach = np.array(state_after_breach)
+
+	n_states = state_after_breach.shape[0]
+	n_nodes = 10
+	n_timesteps = 10
+	t_max = 10
+	t = np.linspace(0, t_max, n_timesteps)
+	x_store = np.zeros((n_timesteps, n_states))
+	x_store[0] = np.zeros(n_states)
+
+	x_store, current_t, current_state, index, _ = bp.clip_to_boundary(
+		_t_eval=t,
+		x_store=x_store,
+		_t_before_breach=float(t[0]),
+		t_after_breach=float(t[1]),
+		_state_before_breach=x_store[0],
+		state_after_breach=state_after_breach,
+		next_save_index=1,
+		_n_nodes=n_nodes,
+		_r=np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
+		_r_tilde=np.array([[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]])
+	)
+	#TODO test fertig schreiben
+	return
+
+
+@pytest.mark.parametrize(
 	"state_before_breach, state_after_breach",
 	[
 		([.2, .4, .4], [-.2, .6, .6]),

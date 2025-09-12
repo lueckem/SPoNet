@@ -8,16 +8,16 @@ from collections.abc import Callable
 
 type BoundaryProcess = Callable[
 	[
-		NDArray | None,
-		NDArray,
-		float | None,
-		float,
-		NDArray | None,
-		NDArray,
-		int,
-		int | None,
-		NDArray | None,
-		NDArray | None
+		NDArray,  # t_eval
+		NDArray,  # x_store
+		float,  # t_before_breach
+		float,  # t_after_breach
+		NDArray,  # state_before_breach
+		NDArray,  # state_after_breach
+		int,  # next_save_index
+		int,  # n_nodes
+		NDArray,  # r
+		NDArray  # r_tilde
 	],
 	NDArray, float, NDArray, int, bool
 ]
@@ -25,17 +25,45 @@ type BoundaryProcess = Callable[
 
 @njit(cache=True)
 def clip_to_boundary(
-		t_eval: None,
+		_t_eval: NDArray,
 		x_store: NDArray,
-		t_before_breach: None,
+		_t_before_breach: float,
 		t_after_breach: float,
-		state_before_breach: None,
+		_state_before_breach: NDArray,
 		state_after_breach: NDArray,
 		next_save_index: int,
-		n_nodes: None,
-		r: None,
-		r_tilde: None,
+		_n_nodes: int,
+		_r: NDArray,
+		_r_tilde: NDArray,
 ) -> tuple[NDArray, float, NDArray, int, bool]:
+	"""
+	Cuts of any negative/larger than 1 values and renormalizes the resulting clipped vector.
+
+	This function has no theoretical justification.
+	It is easy and fast.
+	Does not advance time.
+
+	Parameters
+	----------
+	_t_eval: NDArray, unused
+	x_store: NDArray
+		Shape = (num_time_steps, n_states)
+	_t_before_breach: float, unused
+	t_after_breach: float
+	_state_before_breach: NDArray, unused
+	state_after_breach: NDArray
+		Shape = (n_states,)
+	next_save_index: int
+	_n_nodes: int, unused
+	_r: NDArray, unused
+	_r_tilde: NDArray, unused
+
+	Returns
+	-------
+	tuple[NDArray, float, NDArray, int, bool]
+		(x_store, current_t, current_share, save_index, advances_time)
+		advances_time=False
+	"""
 	clipped_state = np.clip(state_after_breach, -1, 1)
 	clipped_state /= np.sum(clipped_state)
 
@@ -44,16 +72,16 @@ def clip_to_boundary(
 
 @njit(cache=True)
 def compute_normal_boundary_reflection(
-		t_eval: None,
+		_t_eval: NDArray,
 		x_store: NDArray,
-		t_before_breach: None,
+		_t_before_breach: float,
 		t_after_breach: float,
-		state_before_breach: None,
+		_state_before_breach: NDArray ,
 		state_after_breach: NDArray,
 		next_save_index: int,
 		n_nodes: int,
-		r: None,
-		r_tilde: None,
+		_r: NDArray,
+		_r_tilde: NDArray,
 ) -> tuple[NDArray, float, NDArray, int, bool]:
 	"""
 	Computes the reflection with respect to the normal of the boundary.
@@ -65,18 +93,18 @@ def compute_normal_boundary_reflection(
 
 	Parameters
 	----------
-	t_eval: None
+	_t_eval: NDArray, unused
 	x_store: NDArray
 		Shape = (num_time_steps, n_states)
-	t_before_breach: None
+	_t_before_breach: float,  unused
 	t_after_breach: float
-	state_before_breach: None
+	_state_before_breach: NDArray, unused
 	state_after_breach: NDArray
-		shape = (n_states,)
+		Shape = (n_states,)
 	next_save_index: int
 	n_nodes: int
-	r: None
-	r_tilde: None
+	_r: NDArray, unused
+	_r_tilde: NDArray, unused
 
 	Returns
 	-------
@@ -233,6 +261,7 @@ def _project_onto_standard_simplex(x: NDArray) -> NDArray:
 
 	Algorithm from https://doi.org/10.48550/arXiv.1101.6081
 	Could be further sped up by using constant time median algorithm.
+
 	Parameters
 	----------
 	x: NDArray
