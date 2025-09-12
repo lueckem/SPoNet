@@ -64,7 +64,7 @@ def clip_to_boundary(
 		(x_store, current_t, current_share, save_index, advances_time)
 		advances_time=False
 	"""
-	clipped_state = np.clip(state_after_breach, -1, 1)
+	clipped_state = np.clip(state_after_breach, 0, 1)
 	clipped_state /= np.sum(clipped_state)
 
 	return x_store, t_after_breach, clipped_state, next_save_index, False
@@ -76,7 +76,7 @@ def compute_normal_boundary_reflection(
 		x_store: NDArray,
 		_t_before_breach: float,
 		t_after_breach: float,
-		_state_before_breach: NDArray ,
+		_state_before_breach: NDArray,
 		state_after_breach: NDArray,
 		next_save_index: int,
 		n_nodes: int,

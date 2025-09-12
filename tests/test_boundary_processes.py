@@ -37,8 +37,9 @@ def test_clip_to_boundary(state_after_breach):
 		_r=np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
 		_r_tilde=np.array([[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]])
 	)
-	#TODO test fertig schreiben
-	return
+
+	assert (current_state >= 0).all()
+	assert np.isclose(np.sum(current_state), 1)
 
 
 @pytest.mark.parametrize(
@@ -111,22 +112,20 @@ def test_compute_normal_boundary_reflection(state_before_breach, state_after_bre
 	x_store[0] = state_before_breach
 
 	x_store, current_t, current_state, index, _ = bp.compute_normal_boundary_reflection(
-		t_eval=None,
+		_t_eval=None,
 		x_store=x_store,
-		t_before_breach=None,
+		_t_before_breach=None,
 		t_after_breach=float(t[1]),
-		state_before_breach=None,
+		_state_before_breach=None,
 		state_after_breach=state_after_breach,
 		next_save_index=1,
 		n_nodes=n_nodes,
-		r=None,
-		r_tilde=None
+		_r=None,
+		_r_tilde=None
 	)
 
 	assert np.sum(current_state) == 1
 	assert (current_state >= 0).all()
-
-
 
 	return
 
