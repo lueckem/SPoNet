@@ -14,7 +14,7 @@ type BoundaryProcess = Callable[
 		float,  # t_after_breach
 		NDArray,  # state_before_breach
 		NDArray,  # state_after_breach
-		int,  # next_save_index
+		int,  # next_store_index
 		int,  # n_nodes
 		NDArray,  # r
 		NDArray  # r_tilde
@@ -31,7 +31,7 @@ def clip_to_boundary(
 		t_after_breach: float,
 		_state_before_breach: NDArray,
 		state_after_breach: NDArray,
-		next_save_index: int,
+		next_store_index: int,
 		_n_nodes: int,
 		_r: NDArray,
 		_r_tilde: NDArray,
@@ -53,7 +53,7 @@ def clip_to_boundary(
 	_state_before_breach: NDArray, unused
 	state_after_breach: NDArray
 		Shape = (n_states,)
-	next_save_index: int
+	next_store_index: int
 	_n_nodes: int, unused
 	_r: NDArray, unused
 	_r_tilde: NDArray, unused
@@ -67,7 +67,7 @@ def clip_to_boundary(
 	clipped_state = np.clip(state_after_breach, 0, 1)
 	clipped_state /= np.sum(clipped_state)
 
-	return x_store, t_after_breach, clipped_state, next_save_index, False
+	return x_store, t_after_breach, clipped_state, next_store_index, False
 
 
 @njit(cache=True)
@@ -78,7 +78,7 @@ def compute_normal_boundary_reflection(
 		t_after_breach: float,
 		_state_before_breach: NDArray,
 		state_after_breach: NDArray,
-		next_save_index: int,
+		next_store_index: int,
 		n_nodes: int,
 		_r: NDArray,
 		_r_tilde: NDArray,
@@ -101,7 +101,7 @@ def compute_normal_boundary_reflection(
 	_state_before_breach: NDArray, unused
 	state_after_breach: NDArray
 		Shape = (n_states,)
-	next_save_index: int
+	next_store_index: int
 	n_nodes: int
 	_r: NDArray, unused
 	_r_tilde: NDArray, unused
@@ -129,7 +129,7 @@ def compute_normal_boundary_reflection(
 			reflection = proj_after_breach + 1 / n_nodes * (np.full(n_states, 1 / n_states) - proj_after_breach)
 			break
 
-	return x_store, t_after_breach, reflection, next_save_index, False
+	return x_store, t_after_breach, reflection, next_store_index, False
 
 
 @njit(cache=True)
@@ -140,7 +140,7 @@ def simulate_boundary_jump_process(
 		t_after_breach: float,
 		state_before_breach: NDArray,
 		state_after_breach: NDArray,
-		next_save_index: int,
+		next_store_index: int,
 		n_nodes: int,
 		r: NDArray,
 		r_tilde: NDArray,
@@ -162,7 +162,7 @@ def simulate_boundary_jump_process(
 		Shape = (n_states,)
 	state_after_breach: NDArray
 		Shape = (n_states,)
-	next_save_index: int
+	next_store_index: int
 	n_nodes: int
 	r: NDArray
 		Shape = (n_states, n_states)
@@ -178,7 +178,10 @@ def simulate_boundary_jump_process(
 
 	n_states = x_store.shape[1]
 
+	# Compute the starting point of the boundary jump process.
 	# If two sides are breached, the line between before_breach and after_breach will a.s. not hit the corner
+	# This choice of starting point has no theoretical justification.
+	# This choice + the design of the CLE algorithm ensures that the starting point is before the next t_eval time.
 	breached_side_index = int(np.argmin(state_after_breach))
 	initial_time, initial_share = _compute_intersection_with_boundary(
 		breached_side_index,
@@ -202,18 +205,18 @@ def simulate_boundary_jump_process(
 		reaction = np.searchsorted(cum_sum, np.random.random(), side="right")
 		m, n = reaction // n_states, reaction % n_states
 
-		while current_t > t_eval[next_save_index]:
-			x_store[next_save_index] = current_shares
-			next_save_index += 1
-			if next_save_index == len(t_eval):
-				return x_store, current_t, current_shares, next_save_index, True
+		while current_t >= t_eval[next_store_index]:
+			x_store[next_store_index] = current_shares
+			next_store_index += 1
+			if next_store_index == len(t_eval):
+				return x_store, current_t, current_shares, next_store_index, True
 
 		current_shares[m] -= 1 / n_nodes
 		current_shares[n] += 1 / n_nodes
 
 		# Check if still in boundary
 		if not (current_shares <= 0).any():
-			return x_store, current_t, current_shares, next_save_index, True
+			return x_store, current_t, current_shares, next_store_index, True
 
 
 @njit(cache=True)

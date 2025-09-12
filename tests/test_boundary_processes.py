@@ -32,7 +32,7 @@ def test_clip_to_boundary(state_after_breach):
 		t_after_breach=float(t[1]),
 		_state_before_breach=x_store[0],
 		state_after_breach=state_after_breach,
-		next_save_index=1,
+		next_store_index=1,
 		_n_nodes=n_nodes,
 		_r=np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
 		_r_tilde=np.array([[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]])
@@ -71,7 +71,7 @@ def test_simulate_boundary_jump_process(state_before_breach, state_after_breach)
 		t_after_breach=float(t[1]),
 		state_before_breach=x_store[0],
 		state_after_breach=state_after_breach,
-		next_save_index=1,
+		next_store_index=1,
 		n_nodes=n_nodes,
 		r=np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
 		r_tilde=np.array([[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]])
@@ -118,7 +118,7 @@ def test_compute_normal_boundary_reflection(state_before_breach, state_after_bre
 		t_after_breach=float(t[1]),
 		_state_before_breach=None,
 		state_after_breach=state_after_breach,
-		next_save_index=1,
+		next_store_index=1,
 		n_nodes=n_nodes,
 		_r=None,
 		_r_tilde=None

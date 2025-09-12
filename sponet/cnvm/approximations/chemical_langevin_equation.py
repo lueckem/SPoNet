@@ -158,8 +158,8 @@ def _numba_euler_maruyama(
 
     x = np.copy(initial_state)
     t = 0.0
-    i = 1
-    next_t_store = t_eval[i]
+    next_store_index = 1
+    next_t_store = t_eval[next_store_index]
     while True:
         if t + delta_t >= next_t_store:
             this_delta_t = next_t_store - t
@@ -177,8 +177,8 @@ def _numba_euler_maruyama(
 
         # Check if trajectory left boundary
         if (x_new <= 0).any():
-            x_store, t, x_new, i, changed_time = boundary_process(
-                t_eval, x_store, t, t+this_delta_t, x, x_new, i, num_agents, r, r_tilde
+            x_store, t, x_new, next_store_index, changed_time = boundary_process(
+                t_eval, x_store, t, t+this_delta_t, x, x_new, next_store_index, num_agents, r, r_tilde
             )
             # If boundary process advanced time, it either advanced past next_t_store or it stopped before it.
             # In both cases a new euler-maruyama step has to be computed.
@@ -190,11 +190,11 @@ def _numba_euler_maruyama(
         x[:] = x_new
 
         if store:
-            x_store[i] = x
-            i += 1
-            if i >= t_eval.shape[0]:
+            x_store[next_store_index] = x
+            next_store_index += 1
+            if next_store_index >= t_eval.shape[0]:
                 break
-            next_t_store = t_eval[i]
+            next_t_store = t_eval[next_store_index]
 
     return x_store
 
