@@ -70,6 +70,25 @@ def clip_to_boundary(
 	return x_store, t_after_breach, clipped_state, next_store_index, False
 
 
+def compute_boundary_reflection(
+		_t_eval: NDArray,
+		x_store: NDArray,
+		_t_before_breach: float,
+		t_after_breach: float,
+		_state_before_breach: NDArray,
+		state_after_breach: NDArray,
+		next_store_index: int,
+		n_nodes: int,
+		r: NDArray,
+		r_tilde: NDArray,
+) -> tuple[NDArray, float, NDArray, int, bool]:
+
+
+	pass
+
+
+
+
 @njit(cache=True)
 def compute_normal_boundary_reflection(
 		_t_eval: NDArray,
@@ -148,6 +167,7 @@ def simulate_boundary_jump_process(
 	"""
 	Simulates a jump process in the boundary until it jumps outside the boundary.
 
+	Uses a slow variant of the Gillespie algorithm. Could be optimized.
 	Always advances time.
 
 	Parameters

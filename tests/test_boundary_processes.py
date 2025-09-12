@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 
+from sponet import CNVMParameters
 from sponet.cnvm.approximations import boundary_processes as bp
 
 
@@ -203,6 +204,20 @@ def test_compute_intersection_with_boundary(
 		state_before_breach + intersection_time * (state_after_breach-state_before_breach),
 		intersection_value
 	)
+
+
+@pytest.mark.skip(reason="not implemented")
+def test_update_boundary_propensities():
+	n_states = 3
+	propensities = np.zeros((n_states, n_states))
+
+	r = np.array([[0., 1., 1.], [1., 0., 1.], [1., 1., 0.]])
+	r_tilde = np.array([[0, .1, .1], [.1, 0, .1], [.1, .1, 0]])
+
+	n_nodes = 10
+
+	#TODO test fertig schreiben
+
 
 
 @pytest.mark.parametrize(
