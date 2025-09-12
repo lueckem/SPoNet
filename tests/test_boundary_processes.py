@@ -89,6 +89,48 @@ def test_simulate_boundary_jump_process(state_before_breach, state_after_breach)
 		assert current_t > t[-1]
 
 
+def test_simulate_boundary_jump_process_storing():
+
+	n_states = 3
+
+	n_timesteps = 10
+	t_max = 10
+	t_eval = np.linspace(0, t_max, n_timesteps)
+
+	x_store = np.zeros((n_timesteps, n_states))
+
+	t_before_breach = t_eval[0] + 0.9 * (t_eval[1]-t_eval[0])
+	t_after_breach = t_eval[1]
+	state_before_breach = np.array([.2, .4, .4])
+	state_after_breach = np.array([-.2, .6, .6])
+	next_store_index = 1
+	n_nodes = 10
+	r = np.array([[0., 1., 1.], [1., 0., 1.], [1., 1., 0.]])
+	r_tilde = np.array([[0, .1, .1], [.1, 0, .1], [.1, .1, 0]])
+
+	current_t = t_eval[0]
+	index = 0
+
+	while current_t < t_eval[1]:
+
+		x_store, current_t, current_state, index, _ = bp.simulate_boundary_jump_process(
+			t_eval=t_eval,
+			x_store=x_store,
+			t_before_breach=float(t_before_breach),
+			t_after_breach=float(t_after_breach),
+			state_before_breach=state_before_breach,
+			state_after_breach=state_after_breach,
+			next_store_index=next_store_index,
+			n_nodes=n_nodes,
+			r=r,
+			r_tilde=r_tilde
+		)
+
+	assert not np.allclose(x_store[next_store_index], np.zeros(n_states))
+	assert index > next_store_index
+	assert current_t < t_eval[index]
+
+
 @pytest.mark.parametrize(
 	"state_before_breach, state_after_breach",
 	[

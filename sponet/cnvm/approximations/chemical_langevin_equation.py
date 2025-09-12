@@ -181,7 +181,7 @@ def _numba_euler_maruyama(
                 t_eval, x_store, t, t+this_delta_t, x, x_new, next_store_index, num_agents, r, r_tilde
             )
             # If boundary process advanced time, it either advanced past next_t_store or it stopped before it.
-            # In both cases a new euler-maruyama step has to be computed.
+            # In both cases a new euler-maruyama step has to be computed before storing any value.
             if changed_time:
                 store = False
         else:
