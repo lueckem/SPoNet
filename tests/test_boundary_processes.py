@@ -206,7 +206,6 @@ def test_compute_intersection_with_boundary(
 	)
 
 
-@pytest.mark.skip(reason="not implemented")
 def test_update_boundary_propensities():
 	n_states = 3
 	propensities = np.zeros((n_states, n_states))
@@ -216,8 +215,19 @@ def test_update_boundary_propensities():
 
 	n_nodes = 10
 
-	#TODO test fertig schreiben
+	for i in range(n_states):
+		shares = np.full(n_states, (1 - 1/(2*n_nodes))/(n_states-1))
+		shares[i] = 1/(2*n_nodes)
 
+
+		bp._update_boundary_propensities(
+			propensities,
+			r,
+			r_tilde,
+			shares,
+			n_nodes
+		)
+		assert np.sum(propensities[i, :]) == 0
 
 
 @pytest.mark.parametrize(
