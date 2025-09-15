@@ -14,7 +14,7 @@ def sample_cle(
     num_samples: int,
     delta_t: float | None = None,
     t_eval: ArrayLike | None = None,
-    boundary_process: str = "clipping"
+    boundary_process: str = "clipping",
 ) -> tuple[NDArray, NDArray]:
     """
     Sample Chemical Langevin Equation (CLE) approximation for the CNVM.
@@ -27,26 +27,26 @@ def sample_cle(
     ----------
     params : CNVMParameters
     initial_states : NDArray
-        Either shape = (num_opinions,) or (num_states, num_opinions)
+            Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
     num_samples : int
     delta_t : float, optional
-        Step size.
+            Step size.
     t_eval : ArrayLike, optional
-        Array of time points where the solution should be saved,
-        or number "n" in which case the solution is stored equidistantly at "n" time points.
+            Array of time points where the solution should be saved,
+            or number "n" in which case the solution is stored equidistantly at "n" time points.
     boundary_process : str
-        Kind of process used to deal with the approximation leaving the simplex boundary.
-        Possible values: "clipping", "jump", "normal-reflection"
-        Defaults to "clipping".
+            Kind of process used to deal with the approximation leaving the simplex boundary.
+            Possible values: "clipping", "jump", "normal-reflection"
+            Defaults to "clipping".
 
     Returns
     -------
     tuple[NDArray, NDArray]
-        (t, c),
-        t.shape=(num_timesteps),
-        c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
-        (If saving_offset > 1, the number of time steps will be smaller.)
+            (t, c),
+            t.shape=(num_timesteps),
+            c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
+            (If saving_offset > 1, the number of time steps will be smaller.)
     """
     delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
 
@@ -127,7 +127,7 @@ def _numba_sample_cle(
     r: NDArray,
     r_tilde: NDArray,
     num_samples: int,
-    boundary_process: BoundaryProcess
+    boundary_process: BoundaryProcess,
 ) -> tuple[NDArray, NDArray]:
     dim = initial_state.shape[0]
     x_out = np.zeros((num_samples, t_eval.shape[0], dim))
@@ -148,7 +148,7 @@ def _numba_euler_maruyama(
     num_agents: int,
     r: NDArray,
     r_tilde: NDArray,
-    boundary_process: BoundaryProcess
+    boundary_process: BoundaryProcess,
 ) -> NDArray:
     dim = initial_state.shape[0]
     dim_diffusion = dim**2 - dim
@@ -178,7 +178,16 @@ def _numba_euler_maruyama(
         # Check if trajectory left boundary
         if (x_new <= 0).any():
             x_store, t, x_new, next_store_index, changed_time = boundary_process(
-                t_eval, x_store, t, t+this_delta_t, x, x_new, next_store_index, num_agents, r, r_tilde
+                t_eval,
+                x_store,
+                t,
+                t + this_delta_t,
+                x,
+                x_new,
+                next_store_index,
+                num_agents,
+                r,
+                r_tilde,
             )
             # If boundary process advanced time, it either advanced past next_t_store or it stopped before it.
             # In both cases a new euler-maruyama step has to be computed before storing any value.
