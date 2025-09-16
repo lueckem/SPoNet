@@ -27,26 +27,26 @@ def sample_cle(
     ----------
     params : CNVMParameters
     initial_states : NDArray
-            Either shape = (num_opinions,) or (num_states, num_opinions)
+        Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
     num_samples : int
     delta_t : float, optional
-            Step size.
+        Step size.
     t_eval : ArrayLike, optional
-            Array of time points where the solution should be saved,
-            or number "n" in which case the solution is stored equidistantly at "n" time points.
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
     boundary_process : str
-            Kind of process used to deal with the approximation leaving the simplex boundary.
-            Possible values: "clipping", "jump", "normal-reflection"
-            Defaults to "clipping".
+        Kind of process used to deal with the approximation leaving the simplex boundary.
+        Possible values: "clipping", "jump", "normal-reflection"
+        Defaults to "clipping".
 
     Returns
     -------
     tuple[NDArray, NDArray]
-            (t, c),
-            t.shape=(num_timesteps),
-            c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
-            (If saving_offset > 1, the number of time steps will be smaller.)
+        (t, c),
+        t.shape=(num_timesteps),
+        c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
+        (If saving_offset > 1, the number of time steps will be smaller.)
     """
     delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
 

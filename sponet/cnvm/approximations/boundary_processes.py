@@ -88,7 +88,7 @@ def compute_boundary_reflection(
     pass
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def compute_normal_boundary_reflection(
     _t_eval: NDArray,
     x_store: NDArray,
@@ -183,7 +183,7 @@ def simulate_boundary_jump_process(
     t_eval: NDArray
         Shape = (num_timesteps,)
     x_store: NDArray
-        Shape = (num_time_steps, n_states)
+        Shape = (num_timesteps, n_states)
     t_before_breach: float
     t_after_breach: float
     state_before_breach: NDArray
