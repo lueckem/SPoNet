@@ -5,16 +5,15 @@ from sponet.cnvm.approximations import boundary_processes as bp
 
 
 @pytest.mark.parametrize(
-    "state_after_breach",
+    "state_after_breach, expected",
     [
-        ([-0.2, 0.6, 0.6]),
-        ([-1, 0.8, 1.2]),
-        ([-0.2, 0.05, 1.15]),
-        ([-0.1, -0.1, 1.2]),
-        ([-0.5, -0.5, 2]),
+        ([-0.2, 0.6, 0.6], [0, 0.5, 0.5]),
+        ([-1, 0.8, 1.2], [0, 4 / 9, 5 / 9]),
+        ([-0.1, -0.1, 1.2], [0, 0, 1]),
+        ([-0.5, -0.5, 2], [0, 0, 1]),
     ],
 )
-def test_clip_to_boundary(state_after_breach):
+def test_clip_to_boundary(state_after_breach, expected):
     state_after_breach = np.array(state_after_breach)
 
     n_states = state_after_breach.shape[0]
@@ -25,7 +24,7 @@ def test_clip_to_boundary(state_after_breach):
     x_store = np.zeros((n_timesteps, n_states))
     x_store[0] = np.zeros(n_states)
 
-    x_store, current_t, current_state, index, _ = bp.clip_to_boundary(
+    new_x_store, current_t, current_state, index, _ = bp.clip_to_boundary(
         _t_eval=t,
         x_store=x_store,
         _t_before_breach=float(t[0]),
@@ -38,8 +37,12 @@ def test_clip_to_boundary(state_after_breach):
         _r_tilde=np.array([[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]]),
     )
 
+    assert np.allclose(x_store, new_x_store)
+
     assert (current_state >= 0).all()
     assert np.isclose(np.sum(current_state), 1)
+
+    assert np.allclose(current_state, expected)
 
 
 @pytest.mark.parametrize(
