@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
 
-from sponet import CNVMParameters
 from sponet.cnvm.approximations import boundary_processes as bp
 
 
@@ -193,10 +192,8 @@ def test_compute_intersection_with_boundary(
     state_before_breach = np.array(state_before_breach)
     state_after_breach = np.array(state_after_breach)
 
-    n_states = 3
-
     intersection_time, intersection_value = bp._compute_intersection_with_boundary(
-        breached_side_index, state_before_breach, state_after_breach, 0, 1, n_states
+        breached_side_index, state_before_breach, state_after_breach, 0, 1
     )
     assert 0 <= intersection_time <= 1
     assert intersection_value[breached_side_index] == 0

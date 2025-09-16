@@ -1,11 +1,12 @@
 import numpy as np
+
 from numpy.typing import NDArray
-
+from typing import TypeAlias
 from numba import njit
-
 from collections.abc import Callable
 
-type BoundaryProcess = Callable[
+
+BoundaryProcess: TypeAlias = Callable[
     [
         NDArray,  # t_eval
         NDArray,  # x_store
@@ -18,11 +19,7 @@ type BoundaryProcess = Callable[
         NDArray,  # r
         NDArray,  # r_tilde
     ],
-    NDArray,
-    float,
-    NDArray,
-    int,
-    bool,
+    tuple[NDArray, float, NDArray, int, bool],
 ]
 
 
@@ -219,7 +216,6 @@ def simulate_boundary_jump_process(
         state_after_breach,
         t_before_breach,
         t_after_breach,
-        n_states,
     )
 
     propensities = np.zeros((n_states, n_states))
@@ -256,10 +252,7 @@ def _compute_intersection_with_boundary(
     state_after_breach: NDArray,
     t_before_breach: float,
     t_after_breach: float,
-    n_states: int,
 ) -> tuple[float, NDArray]:
-    normal_vec = np.ones(n_states)
-    normal_vec[breached_side_index] -= n_states
     s_star = state_before_breach[breached_side_index] / (
         state_before_breach[breached_side_index]
         - state_after_breach[breached_side_index]
