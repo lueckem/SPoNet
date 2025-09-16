@@ -106,7 +106,7 @@ def compute_normal_boundary_reflection(
 
     This function is well-defined for all input values.
     The best approximation of state_after_breach on the simplex is used as reflection point.
-    The reflection is adapted if the formally correct reflected point is outside the boundary.
+    The reflection is adapted if the formally correct reflected point is outside the simplex.
     Does not advance time.
 
     Parameters
