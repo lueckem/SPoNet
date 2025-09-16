@@ -145,10 +145,10 @@ def compute_normal_boundary_reflection(
 
         # Case where only the corner is allowed
         if np.isclose(lower_bound, upper_bound):
-            # drag into the middle of the simplex
+            # Drag outside of corner into the middle of the simplex
             reflection = (
                 proj_after_breach
-                + (np.full(n_states, 1 / n_states) - proj_after_breach) / n_states
+                + (np.full(n_states, 1 / n_states) - proj_after_breach) / n_nodes
             )
         else:
             # Reflect half the allowed distance into the simplex

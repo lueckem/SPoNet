@@ -44,18 +44,17 @@ def test_clip_to_boundary(state_after_breach):
 
 
 @pytest.mark.parametrize(
-    "state_before_breach, state_after_breach, expected",
+    "state_after_breach, expected",
     [
-        ([0.2, 0.4, 0.4], [-0.2, 0.6, 0.6], [0.2, 0.4, 0.4]),
-        ([0.2, 0.4, 0.4], [-1, 0.8, 1.2], [0.3, 0.15, 0.55]),
-        ([0.2, 0.4, 0.4], [-0.1, -0.1, 1.2], [0.1, 0.1, 0.8]),
-        ([1 / 3, 1 / 3, 1 / 3], [-0.5, -0.5, 2], [0.25, 0.25, 0.5]),
+        ([-0.2, 0.6, 0.6], [0.2, 0.4, 0.4]),
+        ([-1, 0.8, 1.2], [0.3, 0.15, 0.55]),
+        ([-0.1, -0.1, 1.2], [0.1, 0.1, 0.8]),
+        ([-0.5, -0.5, 2], [0.25, 0.25, 0.5]),
+        ([2, -2, 1], [0.9 + 1 / 30, 1 / 30, 1 / 30]),
     ],
 )
-def test_compute_normal_boundary_reflection(
-    state_before_breach, state_after_breach, expected
-):
-    state_before_breach = np.array(state_before_breach)
+def test_compute_normal_boundary_reflection(state_after_breach, expected):
+    state_before_breach = np.array([1 / 3, 1 / 3, 1 / 3])
     state_after_breach = np.array(state_after_breach)
     expected = np.array(expected)
 
