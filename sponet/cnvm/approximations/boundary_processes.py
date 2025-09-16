@@ -50,12 +50,12 @@ def clip_to_boundary(
     ----------
     _t_eval: NDArray, unused
     x_store: NDArray
-            Shape = (num_time_steps, n_states)
+        Shape = (num_time_steps, n_states)
     _t_before_breach: float, unused
     t_after_breach: float
     _state_before_breach: NDArray, unused
     state_after_breach: NDArray
-            Shape = (n_states,)
+        Shape = (n_states,)
     next_store_index: int
     _n_nodes: int, unused
     _r: NDArray, unused
@@ -88,7 +88,7 @@ def compute_boundary_reflection(
     pass
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def compute_normal_boundary_reflection(
     _t_eval: NDArray,
     x_store: NDArray,
@@ -113,12 +113,12 @@ def compute_normal_boundary_reflection(
     ----------
     _t_eval: NDArray, unused
     x_store: NDArray
-            Shape = (num_time_steps, n_states)
+        Shape = (num_time_steps, n_states)
     _t_before_breach: float,  unused
     t_after_breach: float
     _state_before_breach: NDArray, unused
     state_after_breach: NDArray
-            Shape = (n_states,)
+        Shape = (n_states,)
     next_store_index: int
     n_nodes: int
     _r: NDArray, unused
@@ -127,29 +127,34 @@ def compute_normal_boundary_reflection(
     Returns
     -------
     tuple[NDArray, float, NDArray, int, bool]
-            (x_store, current_t, current_share, save_index, advances_time)
-            advances_time=False
+        (x_store, current_t, current_share, save_index, advances_time)
+        advances_time=False
     """
     # Use projection onto simplex as reflection point.
     proj_after_breach = _project_onto_standard_simplex(state_after_breach)
     reflection = 2 * proj_after_breach - state_after_breach
 
-    # If reflection is outside of boundary again, lower the step size
-    n = 1
-    while (reflection <= 0).any():
-        reflection = proj_after_breach + 1 / n * (
-            proj_after_breach - state_after_breach
-        )
-        n += 1
+    # Check if reflected value is outside of boundary
+    if (reflection <= 0).any():
+        n_states = state_after_breach.shape[0]
+        tmp = proj_after_breach - state_after_breach
 
-        if n == 10:
-            # "Reflect" into the direction of the middle of the simplex.
-            # This will push the point outside of corners
-            n_states = state_after_breach.shape[0]
-            reflection = proj_after_breach + 1 / n_nodes * (
-                np.full(n_states, 1 / n_states) - proj_after_breach
+        # Compute lower and upper bound for allowed values
+        lower_bound = np.max(np.where(tmp > 0, -state_after_breach / tmp, 0))
+        upper_bound = np.min(np.where(tmp < 0, -state_after_breach / tmp, np.inf))
+
+        # Case where only the corner is allowed
+        if np.isclose(lower_bound, upper_bound):
+            # drag into the middle of the simplex
+            reflection = (
+                proj_after_breach
+                + (np.full(n_states, 1 / n_states) - proj_after_breach) / n_states
             )
-            break
+        else:
+            # Reflect half the allowed distance into the simplex
+            reflection = state_after_breach + 1 / 2 * (lower_bound + upper_bound) * (
+                proj_after_breach - state_after_breach
+            )
 
     return x_store, t_after_breach, reflection, next_store_index, False
 
@@ -176,27 +181,27 @@ def simulate_boundary_jump_process(
     Parameters
     ----------
     t_eval: NDArray
-            Shape = (num_timesteps,)
+        Shape = (num_timesteps,)
     x_store: NDArray
-            Shape = (num_time_steps, n_states)
+        Shape = (num_time_steps, n_states)
     t_before_breach: float
     t_after_breach: float
     state_before_breach: NDArray
-            Shape = (n_states,)
+        Shape = (n_states,)
     state_after_breach: NDArray
-            Shape = (n_states,)
+        Shape = (n_states,)
     next_store_index: int
     n_nodes: int
     r: NDArray
-            Shape = (n_states, n_states)
+        Shape = (n_states, n_states)
     r_tilde: NDArray
-            Shape = (n_states, n_states)
+        Shape = (n_states, n_states)
 
     Returns
     -------
     tuple[NDArray, float, NDArray, int, bool]
-            (x_store, current_t, current_share, save_index, advances_time)
-            advances_time = True
+        (x_store, current_t, current_share, save_index, advances_time)
+        advances_time = True
     """
 
     n_states = x_store.shape[1]
