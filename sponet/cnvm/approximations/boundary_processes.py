@@ -210,7 +210,9 @@ def simulate_boundary_jump_process(
     # If two sides are breached, the line between before_breach and after_breach will a.s. not hit the corner
     # This choice of starting point has no theoretical justification.
     # This choice + the design of the CLE algorithm ensures that the starting point is before the next t_eval time.
+
     breached_side_index = int(np.argmin(state_after_breach))
+
     initial_time, initial_share = _compute_intersection_with_boundary(
         breached_side_index,
         state_before_breach,
@@ -258,8 +260,9 @@ def _compute_intersection_with_boundary(
 ) -> tuple[float, NDArray]:
     normal_vec = np.ones(n_states)
     normal_vec[breached_side_index] -= n_states
-    s_star = (1 - normal_vec @ state_before_breach) / (
-        normal_vec.transpose() @ (state_after_breach - state_before_breach)
+    s_star = state_before_breach[breached_side_index] / (
+        state_before_breach[breached_side_index]
+        - state_after_breach[breached_side_index]
     )
     initial_time = float(t_before_breach + s_star * (t_after_breach - t_before_breach))
     initial_share = state_before_breach + s_star * (
