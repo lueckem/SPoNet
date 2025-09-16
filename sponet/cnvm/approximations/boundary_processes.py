@@ -85,7 +85,7 @@ def compute_boundary_reflection(
     pass
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def compute_normal_boundary_reflection(
     _t_eval: NDArray,
     x_store: NDArray,
@@ -136,12 +136,11 @@ def compute_normal_boundary_reflection(
         n_states = state_after_breach.shape[0]
         tmp = proj_after_breach - state_after_breach
 
-        # Compute lower and upper bound for allowed values
-        lower_bound = np.max(np.where(tmp > 0, -state_after_breach / tmp, 0))
+        # Compute upper bound for allowed values
         upper_bound = np.min(np.where(tmp < 0, -state_after_breach / tmp, np.inf))
 
-        # Case where only the corner is allowed
-        if np.isclose(lower_bound, upper_bound):
+        # Check if close to corner
+        if upper_bound < 1 + 1 / n_nodes:
             # Drag outside of corner into the middle of the simplex
             reflection = (
                 proj_after_breach
@@ -149,7 +148,7 @@ def compute_normal_boundary_reflection(
             )
         else:
             # Reflect half the allowed distance into the simplex
-            reflection = state_after_breach + 1 / 2 * (lower_bound + upper_bound) * (
+            reflection = state_after_breach + 1 / 2 * (1 + upper_bound) * (
                 proj_after_breach - state_after_breach
             )
 
@@ -276,7 +275,7 @@ def _update_boundary_propensities(
         for n in range(props.shape[1]):
             if m == n:
                 continue
-            if c[m] <= 1 / n_nodes:
+            if c[m] < 1 / n_nodes:
                 props[m][n] = 0
                 continue
             props[m, n] = c[m] * (r[m, n] * c[n] + r_tilde[m, n])
