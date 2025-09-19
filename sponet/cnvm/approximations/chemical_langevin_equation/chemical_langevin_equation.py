@@ -2,9 +2,12 @@ import numpy as np
 from numba import njit, prange
 from numpy.typing import ArrayLike, NDArray
 
-from .boundary_processes import BoundaryProcess, get_boundary_process_from_alias
+from sponet.cnvm.approximations.chemical_langevin_equation.boundary_processes import (
+    BoundaryProcess,
+    get_boundary_process_from_alias,
+)
 
-from ..parameters import CNVMParameters
+from sponet.cnvm.parameters import CNVMParameters
 
 
 def sample_cle(

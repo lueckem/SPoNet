@@ -1,7 +1,9 @@
 import pytest
 import numpy as np
 
-from sponet.cnvm.approximations import boundary_processes as bp
+from sponet.cnvm.approximations.chemical_langevin_equation import (
+    boundary_processes as bp,
+)
 
 
 @pytest.mark.parametrize(

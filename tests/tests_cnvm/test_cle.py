@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 
-from sponet.cnvm.approximations.chemical_langevin_equation import sample_cle
+from sponet.cnvm.approximations.chemical_langevin_equation.chemical_langevin_equation import (
+    sample_cle,
+)
 from sponet.cnvm.parameters import CNVMParameters
 
 
