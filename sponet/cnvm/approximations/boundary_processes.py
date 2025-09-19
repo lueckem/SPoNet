@@ -85,7 +85,7 @@ def compute_boundary_reflection(
     pass
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def compute_normal_boundary_reflection(
     _t_eval: NDArray,
     x_store: NDArray,
@@ -134,13 +134,12 @@ def compute_normal_boundary_reflection(
     # Check if reflected value is outside of boundary
     if (reflection <= 0).any():
         n_states = state_after_breach.shape[0]
+
+        # Compute upper bound for allowed length of reflection
         tmp = proj_after_breach - state_after_breach
-
-        # Compute upper bound for allowed values
-        upper_bound = np.min(np.where(tmp < 0, -state_after_breach / tmp, np.inf))
-
+        upper_bound = np.min(np.where(tmp < 0, -proj_after_breach / tmp, np.inf))
         # Check if close to corner
-        if upper_bound < 1 + 1 / n_nodes:
+        if upper_bound < 1 / n_nodes:
             # Drag outside of corner into the middle of the simplex
             reflection = (
                 proj_after_breach
@@ -148,7 +147,7 @@ def compute_normal_boundary_reflection(
             )
         else:
             # Reflect half the allowed distance into the simplex
-            reflection = state_after_breach + 1 / 2 * (1 + upper_bound) * (
+            reflection = proj_after_breach + 1 / 2 * upper_bound * (
                 proj_after_breach - state_after_breach
             )
 
