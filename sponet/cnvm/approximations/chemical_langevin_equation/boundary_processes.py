@@ -138,7 +138,7 @@ def compute_normal_boundary_reflection(
             )
         else:
             # Reflect half the allowed distance into the simplex
-            reflection = proj_after_breach + .99 * upper_bound * (
+            reflection = proj_after_breach + 0.99 * upper_bound * (
                 proj_after_breach - state_after_breach
             )
 
