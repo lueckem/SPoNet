@@ -53,7 +53,7 @@ def test_clip_to_boundary(state_after_breach, expected):
         ([-0.2, 0.6, 0.6], [0.2, 0.4, 0.4]),
         ([-1, 0.8, 1.2], [0.594, 0.003, 0.403]),
         ([-0.1, -0.1, 1.2], [0.1, 0.1, 0.8]),
-        ([2, -2, 1], [0.9 + 1 / 30, 1 / 30, 1 / 30]),
+        ([1 / 3 * 5, -1 / 3, -1 / 3], [1 / 3, 1 / 3, 1 / 3]),
     ],
 )
 def test_compute_normal_boundary_reflection(state_after_breach, expected):
