@@ -70,7 +70,7 @@ def clip_to_boundary(
     return x_store, t_after_breach, clipped_state, next_store_index, False
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def compute_normal_boundary_reflection(
     _t_eval: NDArray,
     x_store: NDArray,
