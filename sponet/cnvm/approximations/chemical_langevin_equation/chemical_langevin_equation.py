@@ -2,7 +2,12 @@ import numpy as np
 from numba import njit, prange
 from numpy.typing import ArrayLike, NDArray
 
-from ..parameters import CNVMParameters
+from sponet.cnvm.approximations.chemical_langevin_equation.boundary_processes import (
+    BoundaryProcess,
+    get_boundary_process_from_alias,
+)
+
+from sponet.cnvm.parameters import CNVMParameters
 
 
 def sample_cle(
@@ -12,6 +17,7 @@ def sample_cle(
     num_samples: int,
     delta_t: float | None = None,
     t_eval: ArrayLike | None = None,
+    boundary_process: str = "clipping",
 ) -> tuple[NDArray, NDArray]:
     """
     Sample Chemical Langevin Equation (CLE) approximation for the CNVM.
@@ -32,6 +38,10 @@ def sample_cle(
     t_eval : ArrayLike, optional
         Array of time points where the solution should be saved,
         or number "n" in which case the solution is stored equidistantly at "n" time points.
+    boundary_process : str
+        Kind of process used to deal with the approximation leaving the simplex boundary.
+        Possible values: "clipping", "jump", "normal-reflection"
+        Defaults to "clipping".
 
     Returns
     -------
@@ -58,6 +68,8 @@ def sample_cle(
         )
     )
 
+    boundary_process = get_boundary_process_from_alias(boundary_process)
+
     for i in range(num_states):
         t, c[i] = _numba_sample_cle(
             initial_states[i],
@@ -67,6 +79,7 @@ def sample_cle(
             params.r,
             params.r_tilde,
             num_samples,
+            boundary_process,
         )
 
     if is_1d:
@@ -117,13 +130,14 @@ def _numba_sample_cle(
     r: NDArray,
     r_tilde: NDArray,
     num_samples: int,
+    boundary_process: BoundaryProcess,
 ) -> tuple[NDArray, NDArray]:
     dim = initial_state.shape[0]
     x_out = np.zeros((num_samples, t_eval.shape[0], dim))
 
     for i in prange(num_samples):
         x_out[i] = _numba_euler_maruyama(
-            initial_state, delta_t, t_eval, num_agents, r, r_tilde
+            initial_state, delta_t, t_eval, num_agents, r, r_tilde, boundary_process
         )
 
     return t_eval, x_out
@@ -137,6 +151,7 @@ def _numba_euler_maruyama(
     num_agents: int,
     r: NDArray,
     r_tilde: NDArray,
+    boundary_process: BoundaryProcess,
 ) -> NDArray:
     dim = initial_state.shape[0]
     dim_diffusion = dim**2 - dim
@@ -146,8 +161,8 @@ def _numba_euler_maruyama(
 
     x = np.copy(initial_state)
     t = 0.0
-    i = 1
-    next_t_store = t_eval[i]
+    next_store_index = 1
+    next_t_store = t_eval[next_store_index]
     while True:
         if t + delta_t >= next_t_store:
             this_delta_t = next_t_store - t
@@ -161,19 +176,37 @@ def _numba_euler_maruyama(
         # Make sure that the new ones overwrite the old ones in place.
         drift, diffusion = _drift_and_diffusion(x, r, r_tilde, num_agents)
         wiener_increments = np.random.normal(0, this_delta_t**0.5, dim_diffusion)
-        x[:] = x + drift * delta_t + diffusion @ wiener_increments
-        t += this_delta_t
+        x_new = x + drift * delta_t + diffusion @ wiener_increments
 
-        # Wiener increments can lead to negative values that cause problems for square root
-        x[:] = np.clip(x, 0, 1)
-        x[:] /= np.sum(x)
+        # Check if trajectory left boundary
+        if (x_new <= 0).any():
+            x_store, t, x_new, next_store_index, changed_time = boundary_process(
+                t_eval,
+                x_store,
+                t,
+                t + this_delta_t,
+                x,
+                x_new,
+                next_store_index,
+                num_agents,
+                r,
+                r_tilde,
+            )
+            # If boundary process advanced time, it either advanced past next_t_store or it stopped before it.
+            # In both cases a new euler-maruyama step has to be computed before storing any value.
+            if changed_time:
+                store = False
+        else:
+            t += this_delta_t
+
+        x[:] = x_new
 
         if store:
-            x_store[i] = x
-            i += 1
-            if i >= t_eval.shape[0]:
+            x_store[next_store_index] = x
+            next_store_index += 1
+            if next_store_index >= t_eval.shape[0]:
                 break
-            next_t_store = t_eval[i]
+            next_t_store = t_eval[next_store_index]
 
     return x_store
 
