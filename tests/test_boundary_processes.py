@@ -54,6 +54,7 @@ def test_clip_to_boundary(state_after_breach, expected):
         ([-1, 0.8, 1.2], [0.594, 0.003, 0.403]),
         ([-0.1, -0.1, 1.2], [0.1, 0.1, 0.8]),
         ([1 / 3 * 5, -1 / 3, -1 / 3], [1 / 3, 1 / 3, 1 / 3]),
+        ([1.1, 0.1, -0.2], [0.8, 0.1, 0.1]),
     ],
 )
 def test_compute_normal_boundary_reflection(state_after_breach, expected):
@@ -83,7 +84,7 @@ def test_compute_normal_boundary_reflection(state_after_breach, expected):
             _r_tilde=None,
         )
     )
-    assert np.sum(current_state) == 1
+    assert np.isclose(np.sum(current_state), 1)
     assert (current_state >= 0).all()
     assert np.allclose(current_state, expected)
 
