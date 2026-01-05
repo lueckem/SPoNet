@@ -108,6 +108,20 @@ def test_rng(params, request):
     assert np.allclose(x1, x2)
 
 
+@pytest.mark.parametrize(
+    "params", ["params_complete", "params_network", "params_generator"]
+)
+def test_output_concise(params, x_init, rng, request):
+    # If len_output is not specified, the output should only contain states that
+    # have changed from one snapshot to the next
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    _, x = model.simulate(100, x_init, rng=rng)
+
+    for i in range(x.shape[0] - 1):
+        assert not np.allclose(x[i], x[i + 1])
+
+
 class TestModel(TestCase):
     def setUp(self):
         self.num_opinions = 3
