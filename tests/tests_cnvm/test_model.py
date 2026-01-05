@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 import networkx as nx
 import numpy as np
 import pytest
@@ -140,108 +138,28 @@ def test_output_fill(params, x_init, rng, request):
         assert False
 
 
-# def test_output_dtype(self):
-#     num_opinions_list = [2, 257]
-#     correct_dtype_list = [np.uint8, np.uint16]
-#
-#     for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
-#         # complete network
-#         params = CNVMParameters(
-#             num_opinions=num_opinions,
-#             num_agents=self.num_agents,
-#             r=1,
-#             r_tilde=1,
-#         )
-#         model = CNVM(params)
-#         t_max = 5
-#         _, x = model.simulate(t_max)
-#         self.assertEqual(correct_dtype, x.dtype)
-#
-#         # network
-#         params = CNVMParameters(
-#             num_opinions=num_opinions,
-#             network=nx.barabasi_albert_graph(self.num_agents, 2),
-#             r=1,
-#             r_tilde=1,
-#         )
-#         model = CNVM(params)
-#         t_max = 5
-#         _, x = model.simulate(t_max)
-#         self.assertEqual(correct_dtype, x.dtype)
-#
+@pytest.mark.parametrize(
+    "num_opinions,expected_dtype", [(2, np.uint8), (10, np.uint8), (257, np.uint16)]
+)
+def test_output_dtype(num_opinions, expected_dtype, r, r_tilde):
+    # complete network
+    params = CNVMParameters(
+        num_opinions=num_opinions,
+        num_agents=100,
+        r=r,
+        r_tilde=r_tilde,
+    )
+    model = CNVM(params)
+    _, x = model.simulate(1)
+    assert x.dtype == expected_dtype
 
-
-class TestModel(TestCase):
-    def setUp(self):
-        self.num_opinions = 3
-        self.num_agents = 100
-        self.r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
-        self.r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
-
-        self.params_complete = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
-            r=self.r,
-            r_tilde=self.r_tilde,
-        )
-
-        self.params_network = CNVMParameters(
-            num_opinions=self.num_opinions,
-            network=nx.barabasi_albert_graph(self.num_agents, 2),
-            r=self.r,
-            r_tilde=self.r_tilde,
-            alpha=0,
-        )
-
-        self.params_generator = CNVMParameters(
-            num_opinions=self.num_opinions,
-            network_generator=ng.BarabasiAlbertGenerator(self.num_agents, 2),
-            r=self.r,
-            r_tilde=self.r_tilde,
-        )
-
-    def test_output_dtype(self):
-        num_opinions_list = [2, 257]
-        correct_dtype_list = [np.uint8, np.uint16]
-
-        for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
-            # complete network
-            params = CNVMParameters(
-                num_opinions=num_opinions,
-                num_agents=self.num_agents,
-                r=1,
-                r_tilde=1,
-            )
-            model = CNVM(params)
-            t_max = 5
-            _, x = model.simulate(t_max)
-            self.assertEqual(correct_dtype, x.dtype)
-
-            # network
-            params = CNVMParameters(
-                num_opinions=num_opinions,
-                network=nx.barabasi_albert_graph(self.num_agents, 2),
-                r=1,
-                r_tilde=1,
-            )
-            model = CNVM(params)
-            t_max = 5
-            _, x = model.simulate(t_max)
-            self.assertEqual(correct_dtype, x.dtype)
-
-    def test_output_fill(self):
-        # If there are less transitions than the requested len_output,
-        # the output should be filled with copies appropriately
-        num_agents = 5
-        num_opinions = 2
-        network = nx.cycle_graph(num_agents)
-        params = CNVMParameters(
-            num_opinions=num_opinions, network=network, r=1, r_tilde=0.01
-        )
-        model = CNVM(params)
-        rng = np.random.default_rng(1)
-        t, x = model.simulate(10, t_eval=1001, rng=rng)
-        print(t[:10])
-        print(x[:10, 0])
-        self.assertEqual(t.shape, (1001,))
-        self.assertEqual(x.shape, (1001, num_agents))
+    # network
+    params = CNVMParameters(
+        num_opinions=num_opinions,
+        network=nx.barabasi_albert_graph(100, 3),
+        r=r,
+        r_tilde=r_tilde,
+    )
+    model = CNVM(params)
+    _, x = model.simulate(1)
+    assert x.dtype == expected_dtype
