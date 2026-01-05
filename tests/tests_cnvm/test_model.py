@@ -86,7 +86,7 @@ def test_simulate_linspace(params, x_init, rng, request):
     t, x = model.simulate(10, x_init, t_eval=11, rng=rng)
     target_t = np.linspace(0, 10, 11)
 
-    assert t.shape[0] == 11
+    assert t.shape == (11,)
     assert np.allclose(t, target_t, atol=0.01)
     assert (x[0] == x_init).all()
     assert ((x == 0) | (x == 1) | (x == 2)).all()
@@ -122,6 +122,55 @@ def test_output_concise(params, x_init, rng, request):
         assert not np.allclose(x[i], x[i + 1])
 
 
+@pytest.mark.parametrize(
+    "params", ["params_complete", "params_network", "params_generator"]
+)
+def test_output_fill(params, x_init, rng, request):
+    # If there are less transitions than the requested len_output,
+    # the output should be filled with copies appropriately
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    t, x = model.simulate(1, x_init, t_eval=101, rng=rng)
+    assert t.shape == (101,)
+    assert x.shape == (101, 100)
+
+    for i in range(x.shape[0] - 1):
+        if (x[i] == x[i + 1]).all():  # there have to be duplicates
+            break
+        assert False
+
+
+# def test_output_dtype(self):
+#     num_opinions_list = [2, 257]
+#     correct_dtype_list = [np.uint8, np.uint16]
+#
+#     for num_opinions, correct_dtype in zip(num_opinions_list, correct_dtype_list):
+#         # complete network
+#         params = CNVMParameters(
+#             num_opinions=num_opinions,
+#             num_agents=self.num_agents,
+#             r=1,
+#             r_tilde=1,
+#         )
+#         model = CNVM(params)
+#         t_max = 5
+#         _, x = model.simulate(t_max)
+#         self.assertEqual(correct_dtype, x.dtype)
+#
+#         # network
+#         params = CNVMParameters(
+#             num_opinions=num_opinions,
+#             network=nx.barabasi_albert_graph(self.num_agents, 2),
+#             r=1,
+#             r_tilde=1,
+#         )
+#         model = CNVM(params)
+#         t_max = 5
+#         _, x = model.simulate(t_max)
+#         self.assertEqual(correct_dtype, x.dtype)
+#
+
+
 class TestModel(TestCase):
     def setUp(self):
         self.num_opinions = 3
@@ -150,88 +199,6 @@ class TestModel(TestCase):
             r=self.r,
             r_tilde=self.r_tilde,
         )
-
-    def test_output(self):
-        # complete network
-        model = CNVM(self.params_complete)
-        t_max = 100
-        t, x = model.simulate(t_max)
-        self.assertEqual(t[0], 0)
-        self.assertEqual(t.shape[0], x.shape[0])
-
-        t, x = model.simulate(t_max, t_eval=10)
-        self.assertEqual(t.shape, (10,))
-        self.assertEqual(x.shape, (10, self.num_agents))
-        self.assertEqual(t[0], 0)
-
-        # network
-        model = CNVM(self.params_network)
-        t, x = model.simulate(t_max)
-        self.assertEqual(t[0], 0)
-        self.assertEqual(t.shape[0], x.shape[0])
-
-        t, x = model.simulate(t_max, t_eval=10)
-        self.assertEqual(t.shape, (10,))
-        self.assertEqual(x.shape, (10, self.num_agents))
-        self.assertEqual(t[0], 0)
-
-        # network generator
-        x_init = np.ones(self.num_agents)
-        model = CNVM(self.params_generator)
-        t, x = model.simulate(t_max, x_init=x_init)
-        self.assertEqual(t[0], 0)
-        self.assertEqual(t.shape[0], x.shape[0])
-        self.assertTrue(np.allclose(x[0], x_init))
-
-        t, x = model.simulate(t_max, x_init, t_eval=10)
-        self.assertEqual(t.shape, (10,))
-        self.assertEqual(x.shape, (10, self.num_agents))
-        self.assertEqual(t[0], 0)
-        self.assertTrue(np.allclose(x[0], x_init))
-
-    def test_len_output(self):
-        t_max = 100
-        len_output = 11
-        rng = np.random.default_rng(123)
-        target_t = np.linspace(0, t_max, len_output)
-
-        # complete
-        model = CNVM(self.params_complete)
-        t, _ = model.simulate(t_max, t_eval=len_output, rng=rng)
-        self.assertEqual(t.shape, (len_output,))
-        max_diff = np.max(np.abs(t - target_t))
-        self.assertGreater(0.01, max_diff)
-
-        # network
-        model = CNVM(self.params_network)
-        t, _ = model.simulate(t_max, t_eval=len_output, rng=rng)
-        self.assertEqual(t.shape, (len_output,))
-        max_diff = np.max(np.abs(t - target_t))
-        self.assertGreater(0.01, max_diff)
-
-    def test_rng(self):
-        t_max = 100
-
-        rng1 = np.random.default_rng(1)
-        model = CNVM(self.params_network)
-        t1, x1 = model.simulate(t_max, rng=rng1)
-
-        rng2 = np.random.default_rng(1)
-        model = CNVM(self.params_network)
-        t2, x2 = model.simulate(t_max, rng=rng2)
-
-        self.assertTrue(np.allclose(t1, t2))
-        self.assertTrue(np.allclose(x1, x2))
-
-    def test_output_concise(self):
-        # If len_output is not specified, the output should only contain states that
-        # have changed from one snapshot to the next
-        model = CNVM(self.params_network)
-        t_max = 100
-        _, x = model.simulate(t_max)
-
-        for i in range(x.shape[0] - 1):
-            self.assertFalse(np.allclose(x[i], x[i + 1]))
 
     def test_output_dtype(self):
         num_opinions_list = [2, 257]
