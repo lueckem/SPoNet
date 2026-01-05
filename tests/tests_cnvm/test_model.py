@@ -91,6 +91,9 @@ def test_simulate_linspace(params, x_init, rng, request):
     assert x.shape == (11, 100)
 
 
+# TODO: test array t_eval
+
+
 @pytest.mark.parametrize("params", ["params_complete", "params_network"])
 def test_rng(params, request):
     params = request.getfixturevalue(params)
