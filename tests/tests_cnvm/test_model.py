@@ -3,11 +3,17 @@ from unittest import TestCase
 import networkx as nx
 import numpy as np
 import pytest
+from numpy.random import Generator
 from numpy.typing import NDArray
 
 import sponet.network_generator as ng
 from sponet.cnvm.model import CNVM
 from sponet.cnvm.parameters import CNVMParameters
+
+
+@pytest.fixture
+def rng() -> Generator:
+    return np.random.default_rng(123)
 
 
 @pytest.fixture
@@ -59,12 +65,12 @@ def params_generator(r, r_tilde) -> CNVMParameters:
 @pytest.mark.parametrize(
     "params", ["params_complete", "params_network", "params_generator"]
 )
-def test_simulate_basic(params, x_init, request):
+def test_simulate_basic(params, x_init, rng, request):
     params = request.getfixturevalue(params)
     model = CNVM(params)
-    t, x = model.simulate(10, x_init)
+    t, x = model.simulate(10, x_init, rng=rng)
     assert t[0] == 0
-    assert 9 < t[-1] < 11
+    assert 9.9 < t[-1] < 10.1
     assert (x[0] == x_init).all()
     assert ((x == 0) | (x == 1) | (x == 2)).all()
     assert x.shape[1] == 100
@@ -74,13 +80,14 @@ def test_simulate_basic(params, x_init, request):
 @pytest.mark.parametrize(
     "params", ["params_complete", "params_network", "params_generator"]
 )
-def test_simulate_linspace(params, x_init, request):
+def test_simulate_linspace(params, x_init, rng, request):
     params = request.getfixturevalue(params)
     model = CNVM(params)
-    t, x = model.simulate(10, x_init, t_eval=11)
-    assert t[0] == 0
+    t, x = model.simulate(10, x_init, t_eval=11, rng=rng)
+    target_t = np.linspace(0, 10, 11)
+
     assert t.shape[0] == 11
-    assert 9 < t[-1] < 11
+    assert np.allclose(t, target_t, atol=0.01)
     assert (x[0] == x_init).all()
     assert ((x == 0) | (x == 1) | (x == 2)).all()
     assert x.shape == (11, 100)
