@@ -93,6 +93,21 @@ def test_simulate_linspace(params, x_init, rng, request):
     assert x.shape == (11, 100)
 
 
+@pytest.mark.parametrize("params", ["params_complete", "params_network"])
+def test_rng(params, request):
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    rng1 = np.random.default_rng(1234)
+    t1, x1 = model.simulate(10, rng=rng1)
+
+    model = CNVM(params)
+    rng2 = np.random.default_rng(1234)
+    t2, x2 = model.simulate(10, rng=rng2)
+
+    assert np.allclose(t1, t2)
+    assert np.allclose(x1, x2)
+
+
 class TestModel(TestCase):
     def setUp(self):
         self.num_opinions = 3
