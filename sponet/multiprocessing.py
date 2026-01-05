@@ -162,7 +162,7 @@ class _Worker:
             for i in range(num_runs):
                 _, x = model.simulate(
                     self.t_max,
-                    len_output=self.num_timesteps,
+                    t_eval=self.num_timesteps,
                     x_init=initial_states[j],
                     rng=rng,
                 )

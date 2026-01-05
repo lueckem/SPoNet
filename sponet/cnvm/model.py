@@ -79,7 +79,7 @@ class CNVM:
         self,
         t_max: float,
         x_init: NDArray | None = None,
-        len_output: int | None = None,
+        t_eval: int | None = None,
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
         """
@@ -113,12 +113,12 @@ class CNVM:
         x = x_init.astype(opinion_dtype)
 
         # Call the correct simulation loop
-        t_traj, x_traj = self._call_simulation_loop(x, t_max, len_output, rng)
+        t_traj, x_traj = self._call_simulation_loop(x, t_max, t_eval, rng)
 
-        if len_output is not None and t_traj.shape[0] != len_output:
+        if t_eval is not None and t_traj.shape[0] != t_eval:
             # there might be less samples than len_output
             # -> fill them with duplicates
-            t_ref = np.linspace(0, t_max, len_output)
+            t_ref = np.linspace(0, t_max, t_eval)
             t_ind = argmatch(t_ref, t_traj)
             t_traj = t_ref
             x_traj = x_traj[t_ind]

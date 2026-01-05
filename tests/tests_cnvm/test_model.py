@@ -71,6 +71,21 @@ def test_simulate_basic(params, x_init, request):
     assert t.shape[0] == x.shape[0]
 
 
+@pytest.mark.parametrize(
+    "params", ["params_complete", "params_network", "params_generator"]
+)
+def test_simulate_linspace(params, x_init, request):
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    t, x = model.simulate(10, x_init, t_eval=11)
+    assert t[0] == 0
+    assert t.shape[0] == 11
+    assert 9 < t[-1] < 11
+    assert (x[0] == x_init).all()
+    assert ((x == 0) | (x == 1) | (x == 2)).all()
+    assert x.shape == (11, 100)
+
+
 class TestModel(TestCase):
     def setUp(self):
         self.num_opinions = 3
@@ -108,7 +123,7 @@ class TestModel(TestCase):
         self.assertEqual(t[0], 0)
         self.assertEqual(t.shape[0], x.shape[0])
 
-        t, x = model.simulate(t_max, len_output=10)
+        t, x = model.simulate(t_max, t_eval=10)
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
@@ -119,7 +134,7 @@ class TestModel(TestCase):
         self.assertEqual(t[0], 0)
         self.assertEqual(t.shape[0], x.shape[0])
 
-        t, x = model.simulate(t_max, len_output=10)
+        t, x = model.simulate(t_max, t_eval=10)
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
@@ -132,7 +147,7 @@ class TestModel(TestCase):
         self.assertEqual(t.shape[0], x.shape[0])
         self.assertTrue(np.allclose(x[0], x_init))
 
-        t, x = model.simulate(t_max, x_init, len_output=10)
+        t, x = model.simulate(t_max, x_init, t_eval=10)
         self.assertEqual(t.shape, (10,))
         self.assertEqual(x.shape, (10, self.num_agents))
         self.assertEqual(t[0], 0)
@@ -146,14 +161,14 @@ class TestModel(TestCase):
 
         # complete
         model = CNVM(self.params_complete)
-        t, _ = model.simulate(t_max, len_output=len_output, rng=rng)
+        t, _ = model.simulate(t_max, t_eval=len_output, rng=rng)
         self.assertEqual(t.shape, (len_output,))
         max_diff = np.max(np.abs(t - target_t))
         self.assertGreater(0.01, max_diff)
 
         # network
         model = CNVM(self.params_network)
-        t, _ = model.simulate(t_max, len_output=len_output, rng=rng)
+        t, _ = model.simulate(t_max, t_eval=len_output, rng=rng)
         self.assertEqual(t.shape, (len_output,))
         max_diff = np.max(np.abs(t - target_t))
         self.assertGreater(0.01, max_diff)
@@ -222,7 +237,7 @@ class TestModel(TestCase):
         )
         model = CNVM(params)
         rng = np.random.default_rng(1)
-        t, x = model.simulate(10, len_output=1001, rng=rng)
+        t, x = model.simulate(10, t_eval=1001, rng=rng)
         print(t[:10])
         print(x[:10, 0])
         self.assertEqual(t.shape, (1001,))

@@ -32,7 +32,7 @@ class CNTM:
         self,
         t_max: float,
         x_init: NDArray,
-        len_output: int | None = None,
+        len_output: int | None = None,  # TODO: t_eval
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
         """

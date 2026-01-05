@@ -1,7 +1,9 @@
-import numpy as np
-from sponet import CNVMParameters, CNVM
-import sponet.network_generator as ng
 import time
+
+import numpy as np
+
+import sponet.network_generator as ng
+from sponet import CNVM, CNVMParameters
 
 
 def main():
@@ -16,13 +18,13 @@ def main():
     bench_mark_time = 10  # in seconds
 
     model = CNVM(params)
-    model.simulate(t_max=1, len_output=2)  # compile
+    model.simulate(t_max=1, t_eval=2)  # compile
 
     run_times = []
     b_start = time.time()
     while time.time() < b_start + bench_mark_time:
         start = time.time()
-        t, x = model.simulate(t_max=t_max, len_output=len_output)
+        t, x = model.simulate(t_max=t_max, t_eval=len_output)
         end = time.time()
         run_times.append(end - start)
 
