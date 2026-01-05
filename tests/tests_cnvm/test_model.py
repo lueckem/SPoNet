@@ -2,10 +2,73 @@ from unittest import TestCase
 
 import networkx as nx
 import numpy as np
+import pytest
+from numpy.typing import NDArray
 
 import sponet.network_generator as ng
 from sponet.cnvm.model import CNVM
 from sponet.cnvm.parameters import CNVMParameters
+
+
+@pytest.fixture
+def x_init() -> NDArray:
+    return np.ones(100)
+
+
+@pytest.fixture
+def r() -> NDArray:
+    return np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
+
+
+@pytest.fixture
+def r_tilde() -> NDArray:
+    return np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
+
+
+@pytest.fixture
+def params_complete(r, r_tilde) -> CNVMParameters:
+    return CNVMParameters(
+        num_opinions=3,
+        num_agents=100,
+        r=r,
+        r_tilde=r_tilde,
+    )
+
+
+@pytest.fixture
+def params_network(r, r_tilde) -> CNVMParameters:
+    return CNVMParameters(
+        num_opinions=3,
+        network=nx.barabasi_albert_graph(100, 3),
+        r=r,
+        r_tilde=r_tilde,
+        alpha=0,
+    )
+
+
+@pytest.fixture
+def params_generator(r, r_tilde) -> CNVMParameters:
+    return CNVMParameters(
+        num_opinions=3,
+        network_generator=ng.BarabasiAlbertGenerator(100, 3),
+        r=r,
+        r_tilde=r_tilde,
+    )
+
+
+@pytest.mark.parametrize(
+    "params", ["params_complete", "params_network", "params_generator"]
+)
+def test_simulate_basic(params, x_init, request):
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    t, x = model.simulate(10, x_init)
+    assert t[0] == 0
+    assert 9 < t[-1] < 11
+    assert (x[0] == x_init).all()
+    assert ((x == 0) | (x == 1) | (x == 2)).all()
+    assert x.shape[1] == 100
+    assert t.shape[0] == x.shape[0]
 
 
 class TestModel(TestCase):
