@@ -4,10 +4,15 @@ import numpy as np
 from numba import njit
 from numba.typed import List
 from numpy.random import Generator, default_rng
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from ..sampling import build_alias_table, sample_from_alias, sample_randint
-from ..utils import argmatch, calculate_neighbor_list, store_snapshot_linspace
+from ..utils import (
+    argmatch,
+    calculate_neighbor_list,
+    store_snapshot_linspace,
+    t_eval_to_ndarray,
+)
 from .parameters import CNVMParameters
 
 
@@ -79,7 +84,7 @@ class CNVM:
         self,
         t_max: float,
         x_init: NDArray | None = None,
-        len_output: int | None = None,
+        t_eval: ArrayLike | None = None,
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
         """
@@ -90,9 +95,9 @@ class CNVM:
         t_max : float
         x_init : NDArray, optional
             Initial state, shape=(num_agents,). If no x_init is given, a random one is generated.
-        len_output : int, optional
-            Number of snapshots to output, as equidistantly spaced as possible between 0 and t_max.
-            Needs to be at least 2 (for initial value and final value).
+        t_eval : ArrayLike, optional
+            Array of time points where the solution should be saved,
+            or number "n" in which case the solution is stored equidistantly at "n" time points. If None, store every snapshot.
         rng : Generator, optional
             random number generator
 
@@ -112,31 +117,31 @@ class CNVM:
             )
         x = x_init.astype(opinion_dtype)
 
-        # Call the correct simulation loop
-        t_traj, x_traj = self._call_simulation_loop(x, t_max, len_output, rng)
+        if t_eval is not None:
+            t_eval = t_eval_to_ndarray(t_eval, t_max)
 
-        if len_output is not None and t_traj.shape[0] != len_output:
-            # there might be less samples than len_output
-            # -> fill them with duplicates
-            t_ref = np.linspace(0, t_max, len_output)
-            t_ind = argmatch(t_ref, t_traj)
-            t_traj = t_ref
+        # Call the correct simulation loop
+        t_traj, x_traj = self._call_simulation_loop(x, t_max, t_eval, rng)
+
+        if t_eval is not None and t_traj.shape[0] != t_eval.shape[0]:
+            # there might be less samples than len(t_eval)
+            # -> fill with duplicates
+            t_ind = argmatch(t_eval, t_traj)
+            t_traj = t_eval
             x_traj = x_traj[t_ind]
 
         return t_traj, x_traj
 
     def _call_simulation_loop(
-        self, x: NDArray, t_max: float, len_output: int | None, rng: Generator
+        self, x: NDArray, t_max: float, t_eval: NDArray | None, rng: Generator
     ) -> tuple[NDArray, NDArray]:
         """
         Call the correct simulation loop for the provided settings.
         There is an optimized loop for complete networks,
-        and different loops depending on whether all snapshots should be saved (`len_output = None`)
-        or `len_output` equidistantly spaced snapshots should be saved.
+        and different loops depending on whether all snapshots should be saved (`t_eval = None`)
+        or snapshots should be saved at `t_eval`.
         """
-        t_delta = 0 if len_output is None else t_max / (len_output - 1)
-
-        if self.params.network is None and len_output is None:
+        if self.params.network is None and t_eval is None:
             t_traj, x_traj = _simulate_complete_all(
                 x,
                 t_max,
@@ -148,11 +153,10 @@ class CNVM:
                 self.degree_alpha,
                 rng,
             )
-        elif self.params.network is None and len_output is not None:
-            t_traj, x_traj = _simulate_complete_linspace(
+        elif self.params.network is None and t_eval is not None:
+            t_traj, x_traj = _simulate_complete_teval(
                 x,
-                t_delta,
-                t_max,
+                t_eval,
                 self.params.num_opinions,
                 self.params.r_imit,
                 self.params.r_noise,
@@ -161,7 +165,7 @@ class CNVM:
                 self.degree_alpha,
                 rng,
             )
-        elif len_output is None:
+        elif t_eval is None:
             t_traj, x_traj = _simulate_all(
                 x,
                 t_max,
@@ -175,10 +179,9 @@ class CNVM:
                 rng,
             )
         else:
-            t_traj, x_traj = _simulate_linspace(
+            t_traj, x_traj = _simulate_teval(
                 x,
-                t_delta,
-                t_max,
+                t_eval,
                 self.params.num_opinions,
                 self.neighbor_list,
                 self.params.r_imit,
@@ -248,10 +251,9 @@ def _simulate_all(
 
 
 @njit(cache=True)
-def _simulate_linspace(
+def _simulate_teval(
     x: NDArray,
-    t_delta: float,
-    t_max: float,
+    t_eval: NDArray,
     num_opinions: int,
     neighbor_list: list,
     r_imit: float,
@@ -272,16 +274,17 @@ def _simulate_linspace(
 
     # initialize
     x_traj = [np.copy(x)]
-    t = 0.0
-    t_traj = [0.0]
+    t = t_eval[0]
+    t_traj = [t_eval[0]]
 
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
 
     # simulation loop
-    t_store = t_delta
-    while t < t_max:
+    t_store_idx = 1
+    len_t_eval = len(t_eval)
+    while t_store_idx < len_t_eval:
         previous_t = t
         t += rng.exponential(next_event_rate)  # time of next event
         noise = True if rng.random() < noise_probability else False
@@ -303,10 +306,10 @@ def _simulate_linspace(
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
 
-        if t >= t_store:  # store only after passing the next `t_store`
+        if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
-                t_store,
+                t_eval[t_store_idx],
                 previous_t,
                 x,
                 previous_agent,
@@ -314,7 +317,7 @@ def _simulate_linspace(
                 x_traj,
                 t_traj,
             )
-            t_store += t_delta
+            t_store_idx += 1
 
     return t_traj, x_traj
 
@@ -375,10 +378,9 @@ def _simulate_complete_all(
 
 
 @njit(cache=True)
-def _simulate_complete_linspace(
+def _simulate_complete_teval(
     x: NDArray,
-    t_delta: float,
-    t_max: float,
+    t_eval: NDArray,
     num_opinions: int,
     r_imit: float,
     r_noise: float,
@@ -398,16 +400,17 @@ def _simulate_complete_linspace(
 
     # initialize
     x_traj = [np.copy(x)]
-    t = 0.0
-    t_traj = [0.0]
+    t = t_eval[0]
+    t_traj = [t_eval[0]]
 
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
 
     # simulation loop
-    t_store = t_delta
-    while t < t_max:
+    t_store_idx = 1
+    len_t_eval = len(t_eval)
+    while t_store_idx < len_t_eval:
         previous_t = t
         t += rng.exponential(next_event_rate)  # time of next event
         agent = sample_randint(num_agents, rng)  # agent of next event
@@ -425,10 +428,10 @@ def _simulate_complete_linspace(
             if rng.random() < prob_imit[x[agent], new_opinion]:
                 x[agent] = new_opinion
 
-        if t >= t_store:  # store only after passing the next `t_store`
+        if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
-                t_store,
+                t_eval[t_store_idx],
                 previous_t,
                 x,
                 previous_agent,
@@ -436,6 +439,6 @@ def _simulate_complete_linspace(
                 x_traj,
                 t_traj,
             )
-            t_store += t_delta
+            t_store_idx += 1
 
     return t_traj, x_traj

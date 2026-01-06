@@ -6,8 +6,8 @@ from sponet.cnvm.approximations.chemical_langevin_equation.boundary_processes im
     BoundaryProcess,
     get_boundary_process_from_alias,
 )
-
 from sponet.cnvm.parameters import CNVMParameters
+from sponet.utils import t_eval_to_ndarray
 
 
 def sample_cle(
@@ -94,19 +94,7 @@ def _sanitize_delta_t_and_t_eval(
         raise ValueError("Either `delta_t` or `t_eval` has to be provided.")
 
     if t_eval is not None:
-        if isinstance(t_eval, float):
-            raise ValueError("t_eval has to be an array of time points or an int.")
-
-        if isinstance(t_eval, int):
-            t_eval = np.linspace(0, max_time, t_eval)
-
-        t_eval = np.array(t_eval)
-        if np.min(t_eval) < 0:
-            raise ValueError("The times in t_eval have to be >= 0.")
-
-        diffs = np.diff(t_eval)
-        if np.min(diffs) <= 0:
-            raise ValueError("The times in t_eval have to be increasing.")
+        t_eval = t_eval_to_ndarray(t_eval, max_time)
 
         if delta_t is None:
             delta_t = np.max(np.diff(t_eval))

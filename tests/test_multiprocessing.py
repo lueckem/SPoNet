@@ -38,10 +38,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_parallelization_runs(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
         )
@@ -58,10 +58,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_parallelization_initial_states(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=3,
             n_jobs=2,
         )
@@ -78,10 +78,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_no_parallelization(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=3,
             n_jobs=None,
         )
@@ -98,10 +98,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_parallelization_with_cv(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
             collective_variable=self.cv,
@@ -130,10 +130,10 @@ class TestSampleManyRuns(TestCase):
             )
 
             _, x = sample_many_runs(
-                params=params,
-                initial_states=self.initial_states,
-                t_max=5,
-                num_timesteps=self.num_timesteps,
+                params,
+                self.initial_states,
+                5,
+                self.num_timesteps,
                 num_runs=2,
                 n_jobs=2,
                 collective_variable=None,
@@ -144,10 +144,10 @@ class TestSampleManyRuns(TestCase):
     def test_reproducible(self):
         rng = default_rng(123)
         t1, x1 = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
             rng=rng,
@@ -155,10 +155,10 @@ class TestSampleManyRuns(TestCase):
 
         rng = default_rng(123)
         t2, x2 = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
             rng=rng,
@@ -169,10 +169,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_single_initial_state_no_parallelization(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states[0],
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states[0],
+            self.t_max,
+            self.num_timesteps,
             num_runs=3,
             n_jobs=1,
         )
@@ -188,10 +188,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_single_initial_state(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states[0],
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states[0],
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
         )
@@ -201,6 +201,27 @@ class TestSampleManyRuns(TestCase):
             (
                 15,
                 self.num_timesteps,
+                self.num_agents,
+            ),
+        )
+
+    def test_teval(self):
+        t_eval = [0, 2, 8, 99]
+        t, x = sample_many_runs(
+            self.params,
+            self.initial_states[0],
+            self.t_max,
+            t_eval,
+            num_runs=15,
+            n_jobs=2,
+        )
+        self.assertEqual(t.shape, (4,))
+        self.assertTrue(np.allclose(t, t_eval))
+        self.assertEqual(
+            x.shape,
+            (
+                15,
+                4,
                 self.num_agents,
             ),
         )
