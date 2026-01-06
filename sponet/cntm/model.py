@@ -2,10 +2,15 @@ import numpy as np
 from numba import njit
 from numba.typed import List
 from numpy.random import Generator, default_rng
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from ..sampling import sample_randint
-from ..utils import argmatch, calculate_neighbor_list, store_snapshot_linspace
+from ..utils import (
+    argmatch,
+    calculate_neighbor_list,
+    store_snapshot_linspace,
+    t_eval_to_ndarray,
+)
 from .parameters import CNTMParameters
 
 
@@ -32,7 +37,7 @@ class CNTM:
         self,
         t_max: float,
         x_init: NDArray,
-        len_output: int | None = None,  # TODO: t_eval
+        t_eval: ArrayLike | None = None,
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
         """
@@ -43,8 +48,9 @@ class CNTM:
         t_max : float
         x_init : NDArray
             shape=(num_agents,)
-        len_output : int, optional
-            number of snapshots to output, as equidistantly spaced as possible between 0 and t_max
+        t_eval : ArrayLike, optional
+            Array of time points where the solution should be saved,
+            or number "n" in which case the solution is stored equidistantly at "n" time points. If None, store every snapshot.
         rng : Generator, optional
             random number generator
 
@@ -55,9 +61,10 @@ class CNTM:
         """
         x = np.copy(x_init).astype(float)
 
-        t_delta = 0 if len_output is None else t_max / (len_output - 1)
+        if t_eval is not None:
+            t_eval = t_eval_to_ndarray(t_eval, t_max)
 
-        if len_output is None:
+        if t_eval is None:
             t_traj, x_traj = _simulate_all(
                 x,
                 self.next_event_rate,
@@ -69,12 +76,11 @@ class CNTM:
                 rng,
             )
         else:
-            t_traj, x_traj = _simulate_linspace(
+            t_traj, x_traj = _simulate_teval(
                 x,
-                t_delta,
+                t_eval,
                 self.next_event_rate,
                 self.noise_prob,
-                t_max,
                 self.params.threshold_01,
                 self.params.threshold_10,
                 self.neighbor_list,
@@ -84,12 +90,11 @@ class CNTM:
         t_traj = np.array(t_traj)
         x_traj = np.array(x_traj, dtype=int)
 
-        if len_output is not None and t_traj.shape[0] != len_output:
-            # there might be less samples than len_output
-            # -> fill them with duplicates
-            t_ref = np.linspace(0, t_max, len_output)
-            t_ind = argmatch(t_ref, t_traj)
-            t_traj = t_ref
+        if t_eval is not None and t_traj.shape[0] != t_eval.shape[0]:
+            # there might be less samples than len(t_eval)
+            # -> fill with duplicates
+            t_ind = argmatch(t_eval, t_traj)
+            t_traj = t_eval
             x_traj = x_traj[t_ind]
 
         return t_traj, x_traj
@@ -146,12 +151,11 @@ def _simulate_all(
 
 
 @njit(cache=True)
-def _simulate_linspace(
+def _simulate_teval(
     x: NDArray,
-    t_delta: float,
+    t_eval: NDArray,
     next_event_rate: float,
     noise_prob: float,
-    t_max: float,
     threshold_01: float,
     threshold_10: float,
     neighbor_list: list,
@@ -162,15 +166,16 @@ def _simulate_linspace(
     """
     num_agents = x.shape[0]
     x_traj = [np.copy(x)]
-    t = 0.0
-    t_traj = [0.0]
+    t = t_eval[0]
+    t_traj = [t_eval[0]]
 
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
 
-    t_store = t_delta
-    while t < t_max:
+    t_store_idx = 1
+    len_t_eval = len(t_eval)
+    while t_store_idx < len_t_eval:
         previous_t = t
         t += rng.exponential(next_event_rate)  # time of next event
         agent = sample_randint(num_agents, rng)  # agent of next event
@@ -195,10 +200,10 @@ def _simulate_linspace(
                     previous_opinion = x[agent]
                     x[agent] = other_opinion
 
-        if t >= t_store:
+        if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
-                t_store,
+                t_eval[t_store_idx],
                 previous_t,
                 x,
                 previous_agent,
@@ -206,6 +211,6 @@ def _simulate_linspace(
                 x_traj,
                 t_traj,
             )
-            t_store += t_delta
+            t_store_idx += 1
 
     return t_traj, x_traj
