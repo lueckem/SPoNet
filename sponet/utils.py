@@ -177,7 +177,7 @@ def t_eval_to_ndarray(t_eval: ArrayLike, t_max: float) -> NDArray:
     if isinstance(t_eval, int):
         return np.linspace(0, t_max, t_eval)
 
-    t_eval = np.array(t_eval)
+    t_eval = np.array(t_eval, dtype=float)
     if len(t_eval) == 0:
         raise ValueError("t_eval cannot be empty.")
     # check ascending

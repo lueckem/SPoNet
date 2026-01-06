@@ -91,7 +91,20 @@ def test_simulate_linspace(params, x_init, rng, request):
     assert x.shape == (11, 100)
 
 
-# TODO: test array t_eval
+@pytest.mark.parametrize(
+    "params", ["params_complete", "params_network", "params_generator"]
+)
+def test_simulate_teval(params, x_init, rng, request):
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    t_eval = [0, 3, 7, 9]
+    t, x = model.simulate(10, x_init, t_eval=t_eval, rng=rng)
+
+    assert t.shape == (4,)
+    assert np.allclose(t, t_eval, atol=0.01)
+    assert (x[0] == x_init).all()
+    assert ((x == 0) | (x == 1) | (x == 2)).all()
+    assert x.shape == (4, 100)
 
 
 @pytest.mark.parametrize("params", ["params_complete", "params_network"])
