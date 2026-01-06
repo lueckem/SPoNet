@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from numpy.random import Generator, default_rng
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from tqdm import tqdm
 
 from .cntm.model import CNTM
@@ -12,13 +12,14 @@ from .cnvm.model import CNVM
 from .cnvm.parameters import CNVMParameters
 from .collective_variables import CollectiveVariable
 from .parameters import Parameters
+from .utils import t_eval_to_ndarray
 
 
 def sample_many_runs(
     params: Parameters,
     initial_states: NDArray,
     t_max: float,
-    num_timesteps: int,
+    t_eval: ArrayLike,
     num_runs: int,
     n_jobs: int | None = None,
     collective_variable: CollectiveVariable | None = None,
@@ -39,8 +40,9 @@ def sample_many_runs(
         Num_runs simulations will be executed for each initial state.
     t_max : float
         End time.
-    num_timesteps : int
-        Trajectory will be saved at equidistant time points np.linspace(0, t_max, num_timesteps).
+    t_eval : ArrayLike
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
     num_runs : int
         Number of samples.
     n_jobs : int, optional
@@ -66,8 +68,8 @@ def sample_many_runs(
     if is_1d:
         initial_states = np.expand_dims(initial_states, 0)
 
-    t_out = np.linspace(0, t_max, num_timesteps)
-    worker = _Worker(params, t_max, num_timesteps, collective_variable)
+    worker = _Worker(params, t_max, t_eval, collective_variable)
+    t_out = t_eval_to_ndarray(t_eval, t_max)
 
     # no multiprocessing
     if n_jobs is None or n_jobs == 1:
@@ -114,12 +116,15 @@ class _Worker:
         self,
         params: Parameters,
         t_max: float,
-        num_timesteps: int,
+        t_eval: ArrayLike,
         collective_variable: CollectiveVariable | None,
     ):
+
         self.params = params
         self.t_max = t_max
-        self.num_timesteps = num_timesteps
+        self.t_eval = (
+            t_eval if isinstance(t_eval, int) else t_eval_to_ndarray(t_eval, t_max)
+        )
         self.cv = collective_variable
         self.num_opinions = params.num_opinions
         self.num_agents = params.num_agents
@@ -132,6 +137,9 @@ class _Worker:
         progress_bar: bool = False,
     ) -> NDArray:
         num_initial_states = initial_states.shape[0]
+        num_timesteps = (
+            self.t_eval if isinstance(self.t_eval, int) else len(self.t_eval)
+        )
 
         if isinstance(self.params, CNVMParameters):
             model = CNVM(self.params)
@@ -143,7 +151,7 @@ class _Worker:
         if self.cv is None:
             opinion_dtype = np.min_scalar_type(self.num_opinions - 1)
             x_out = np.zeros(
-                (num_initial_states, num_runs, self.num_timesteps, self.num_agents),
+                (num_initial_states, num_runs, num_timesteps, self.num_agents),
                 dtype=opinion_dtype,
             )
         else:
@@ -151,7 +159,7 @@ class _Worker:
                 (
                     num_initial_states,
                     num_runs,
-                    self.num_timesteps,
+                    num_timesteps,
                     self.cv.dimension,
                 )
             )
@@ -162,7 +170,7 @@ class _Worker:
             for i in range(num_runs):
                 _, x = model.simulate(
                     self.t_max,
-                    t_eval=self.num_timesteps,
+                    t_eval=self.t_eval,
                     x_init=initial_states[j],
                     rng=rng,
                 )
