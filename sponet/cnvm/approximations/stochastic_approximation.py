@@ -2,6 +2,8 @@ import numpy as np
 from numba import njit, prange
 from numpy.typing import ArrayLike, NDArray
 
+from sponet.utils import t_eval_to_ndarray
+
 from ..parameters import CNVMParameters
 
 
@@ -40,15 +42,7 @@ def sample_stochastic_approximation(
         t.shape=(num_timesteps),
         c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
     """
-    if isinstance(t_eval, float):
-        raise ValueError("t_eval has to be an array of time points or an int.")
-    if isinstance(t_eval, int):
-        t_eval = np.linspace(0, t_max, t_eval)
-    t_eval = np.array(t_eval)
-    if np.min(t_eval) < 0:
-        raise ValueError("The times in t_eval have to be >= 0.")
-    if np.min(np.diff(t_eval)) <= 0:
-        raise ValueError("The times in t_eval have to be increasing.")
+    t_eval = t_eval_to_ndarray(t_eval, t_max)
 
     if initial_states.ndim == 1:
         c = _sample_many(

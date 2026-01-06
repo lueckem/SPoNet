@@ -113,7 +113,7 @@ def test_rng(params, request):
     "params", ["params_complete", "params_network", "params_generator"]
 )
 def test_output_concise(params, x_init, rng, request):
-    # If len_output is not specified, the output should only contain states that
+    # If t_eval is not specified, the output should only contain states that
     # have changed from one snapshot to the next
     params = request.getfixturevalue(params)
     model = CNVM(params)
@@ -127,7 +127,7 @@ def test_output_concise(params, x_init, rng, request):
     "params", ["params_complete", "params_network", "params_generator"]
 )
 def test_output_fill(params, x_init, rng, request):
-    # If there are less transitions than the requested len_output,
+    # If there are less transitions than requested,
     # the output should be filled with copies appropriately
     params = request.getfixturevalue(params)
     model = CNVM(params)

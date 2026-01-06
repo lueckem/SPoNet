@@ -4,6 +4,8 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.integrate import solve_ivp
 
+from sponet.utils import t_eval_to_ndarray
+
 from ..parameters import CNVMParameters
 
 
@@ -37,19 +39,7 @@ def calc_rre_traj(
         c.shape = (num_states, num_timesteps, num_opinions), or c.shape = (num_timesteps, num_opinions) if a single initial state was given.
     """
     if t_eval is not None:
-        if isinstance(t_eval, float):
-            raise ValueError("t_eval has to be an array of time points or an int.")
-
-        if isinstance(t_eval, int):
-            t_eval = np.linspace(0, t_max, t_eval)
-
-        t_eval = np.array(t_eval)
-        if np.min(t_eval) < 0:
-            raise ValueError("The times in t_eval have to be >= 0.")
-
-        diffs = np.diff(t_eval)
-        if np.min(diffs) <= 0:
-            raise ValueError("The times in t_eval have to be increasing.")
+        t_eval = t_eval_to_ndarray(t_eval, t_max)
 
     def rhs(_, c):
         out = np.zeros_like(c)

@@ -169,3 +169,23 @@ def _counts_from_shares_1d(shares: NDArray, num_agents: int) -> NDArray:
     idx_incr = np.argpartition(deltas, num_incr)[:num_incr]
     counts[idx_incr] += 1
     return counts
+
+
+def t_eval_to_ndarray(t_eval: ArrayLike, t_max: float) -> NDArray:
+    if isinstance(t_eval, float):
+        raise ValueError("t_eval has to be an array of time points or an int.")
+    if isinstance(t_eval, int):
+        return np.linspace(0, t_max, t_eval)
+
+    t_eval = np.array(t_eval)
+    if len(t_eval) == 0:
+        raise ValueError("t_eval cannot be empty.")
+    # check ascending
+    diffs = np.diff(t_eval)
+    if np.min(diffs) <= 0:
+        raise ValueError("The times in t_eval have to be increasing.")
+    if t_eval[0] < 0:
+        raise ValueError("The times in t_eval have to be >= 0.")
+    if t_eval[-1] > t_max:
+        raise ValueError("The times in t_eval cannot be larger than t_max.")
+    return t_eval
