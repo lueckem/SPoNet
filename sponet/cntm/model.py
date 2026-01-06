@@ -36,7 +36,7 @@ class CNTM:
     def simulate(
         self,
         t_max: float,
-        x_init: NDArray,
+        x_init: NDArray | None = None,
         t_eval: ArrayLike | None = None,
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
@@ -59,7 +59,11 @@ class CNTM:
         tuple[NDArray, NDArray]
             t_traj (shape=(?,)), x_traj (shape=(?,num_agents))
         """
-        x = np.copy(x_init).astype(float)
+        if x_init is None:
+            x_init = rng.choice(
+                np.arange(self.params.num_opinions), size=self.params.num_agents
+            )
+        x = x_init.astype(float)
 
         if t_eval is not None:
             t_eval = t_eval_to_ndarray(t_eval, t_max)
@@ -125,8 +129,10 @@ def _simulate_all(
 
         update = False  # whether a state update occured in this step
 
-        if rng.random() < noise_prob:  # noise
-            x[agent] = sample_randint(2, rng)
+        if rng.random() < 0.5 * noise_prob:  # noise
+            # the 0.5 is because there is a 50% change to randomly get the same opinion,
+            # in which case nothing would happen
+            x[agent] = 1 - x[agent]
             update = True
         else:
             neighbors = neighbor_list[agent]
@@ -162,7 +168,7 @@ def _simulate_teval(
     rng: Generator,
 ) -> tuple[list[float], list[NDArray]]:
     """
-    CNTM simulation, storing snapshots equidistantly with `t_delta`.
+    CNTM simulation, storing snapshots at `t_eval`.
     """
     num_agents = x.shape[0]
     x_traj = [np.copy(x)]
