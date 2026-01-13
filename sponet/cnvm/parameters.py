@@ -1,10 +1,6 @@
-from __future__ import annotations
-
-from typing import Optional, Union
-
 import networkx as nx
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from ..network_generator import NetworkGenerator
 
@@ -33,18 +29,18 @@ class CNVMParameters:
     def __init__(
         self,
         num_opinions: int,
-        num_agents: Optional[int] = None,
-        network: Optional[nx.Graph] = None,
-        network_generator: Optional[NetworkGenerator] = None,
+        num_agents: int | None = None,
+        network: nx.Graph | None = None,
+        network_generator: NetworkGenerator | None = None,
         alpha: float = 1.0,
         # rate parameters in style 1
-        r: Union[float, NDArray, None] = None,
-        r_tilde: Union[float, NDArray, None] = None,
+        r: ArrayLike | None = None,
+        r_tilde: ArrayLike | None = None,
         # rate parameters in style 2
-        r_imit: Optional[float] = None,
-        r_noise: Optional[float] = None,
-        prob_imit: Union[float, NDArray] = 1,
-        prob_noise: Union[float, NDArray] = 1,
+        r_imit: float | None = None,
+        r_noise: float | None = None,
+        prob_imit: ArrayLike = 1,
+        prob_noise: ArrayLike = 1,
     ):
         self.num_opinions = num_opinions
         self.alpha = alpha
@@ -109,8 +105,8 @@ class CNVMParameters:
 
     def change_rates(
         self,
-        r: Union[float, NDArray, None] = None,
-        r_tilde: Union[float, NDArray, None] = None,
+        r: ArrayLike | None = None,
+        r_tilde: ArrayLike | None = None,
     ):
         """
         Change one or both rate parameters.
@@ -135,10 +131,10 @@ class CNVMParameters:
 
 
 def _sanitize_network_input(
-    num_agents: Optional[int],
-    network: Optional[nx.Graph],
-    network_generator: Optional[NetworkGenerator],
-) -> tuple[int, Optional[nx.Graph], Optional[NetworkGenerator]]:
+    num_agents: int | None,
+    network: nx.Graph | None,
+    network_generator: NetworkGenerator | None,
+) -> tuple[int, nx.Graph | None, NetworkGenerator | None]:
     if network_generator is not None:
         return (network_generator.num_agents, None, network_generator)
     if network is not None:
@@ -152,12 +148,12 @@ def _sanitize_network_input(
 
 def _sanitize_rates_input(
     num_opinions: int,
-    r: Union[float, NDArray, None],
-    r_tilde: Union[float, NDArray, None],
-    r_imit: Optional[float],
-    r_noise: Optional[float],
-    prob_imit: Union[float, NDArray],
-    prob_noise: Union[float, NDArray],
+    r: ArrayLike | None,
+    r_tilde: ArrayLike | None,
+    r_imit: float | None,
+    r_noise: float | None,
+    prob_imit: ArrayLike,
+    prob_noise: ArrayLike,
 ) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
     if r is not None and r_tilde is not None:  # style 1
         r = _to_matrix(num_opinions, r)
@@ -192,13 +188,16 @@ def _sanitize_rates_input(
     raise ValueError("Rate parameters have to be provided.")
 
 
-def _to_matrix(num_opinions: int, r: Union[float, NDArray]) -> NDArray:
+def _to_matrix(num_opinions: int, r: ArrayLike) -> NDArray:
     """
     If `r` is a already a NDArray, return `r` but with 0 put on the diagonal.
     If `r` is a float, return a `num_opinions` x `num_opinions` matrix with 0 on the diagonal and `r` everywhere else.
     """
     if isinstance(r, (int, float)):
         r = r * np.ones((num_opinions, num_opinions))
+    r = np.array(r, ndmin=2)
+    if r.ndim != 2 or r.shape[0] != r.shape[1]:
+        raise ValueError("Expected square matrix.")
     np.fill_diagonal(r, 0)
     return r
 

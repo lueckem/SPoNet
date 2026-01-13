@@ -1,13 +1,14 @@
 from unittest import TestCase
-import numpy as np
-import networkx as nx
 
+import networkx as nx
+import numpy as np
+
+import sponet.network_generator as ng
 from sponet.cnvm.parameters import (
     CNVMParameters,
-    convert_rate_to_cnvm,
     convert_rate_from_cnvm,
+    convert_rate_to_cnvm,
 )
-import sponet.network_generator as ng
 
 
 class TestParametersNetworks(TestCase):
@@ -101,8 +102,8 @@ class TestParametersRates(TestCase):
         self.assertTrue(np.allclose(params.prob_noise, prob_ones))
 
     def test_rates_style1_array(self):
-        r = np.array([[0, 2], [4, 1000]])  # diagonal should be ignored
-        r_tilde = np.array([[1000, 0.2], [0.1, 0]])
+        r = [[0, 2], [4, 1000]]  # diagonal should be ignored
+        r_tilde = [[1000, 0.2], [0.1, 0]]
 
         params = CNVMParameters(
             num_opinions=self.num_opinions,
@@ -136,6 +137,22 @@ class TestParametersRates(TestCase):
                 r_tilde=r_tilde,
             )
 
+        with self.assertRaises(ValueError):
+            CNVMParameters(
+                num_opinions=self.num_opinions,
+                num_agents=self.num_agents,
+                r=[1, 2, 3],
+                r_tilde=r_tilde,
+            )
+
+        with self.assertRaises(ValueError):
+            CNVMParameters(
+                num_opinions=self.num_opinions,
+                num_agents=self.num_agents,
+                r=[[1, 2, 3], [1, 2]],
+                r_tilde=r_tilde,
+            )
+
     def test_rates_style2_float(self):
         r_imit = 1
         r_noise = 0.2
@@ -161,8 +178,8 @@ class TestParametersRates(TestCase):
     def test_rates_style2_array(self):
         r_imit = 1
         r_noise = 0.2
-        prob_imit = np.array([[0, 0.2], [1, 1000]])  # diagonal should be ignored
-        prob_noise = np.array([[-10, 0.9], [1, 0]])
+        prob_imit = [[0, 0.2], [1, 1000]]  # diagonal should be ignored
+        prob_noise = [[-10, 0.9], [1, 0]]
 
         params = CNVMParameters(
             num_opinions=self.num_opinions,
@@ -220,6 +237,15 @@ class TestParametersRates(TestCase):
                 r_imit=1,
                 r_noise=0.1,
                 prob_noise=prob_noise,
+            )
+
+        with self.assertRaises(ValueError):
+            CNVMParameters(
+                num_opinions=self.num_opinions,
+                num_agents=self.num_agents,
+                r_imit=1,
+                r_noise=0.1,
+                prob_noise=[0.2, 0.3],
             )
 
         with self.assertRaises(ValueError):
