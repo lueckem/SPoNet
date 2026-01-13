@@ -36,7 +36,7 @@ class CNTM:
     def simulate(
         self,
         t_max: float,
-        x_init: NDArray | None = None,
+        x_init: ArrayLike | None = None,
         t_eval: ArrayLike | None = None,
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
@@ -46,7 +46,7 @@ class CNTM:
         Parameters
         ----------
         t_max : float
-        x_init : NDArray
+        x_init : ArrayLike
             shape=(num_agents,)
         t_eval : ArrayLike, optional
             Array of time points where the solution should be saved,
@@ -63,6 +63,8 @@ class CNTM:
             x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
+        else:
+            x_init = np.array(x_init)
         x = x_init.astype(float)
 
         if t_eval is not None:
