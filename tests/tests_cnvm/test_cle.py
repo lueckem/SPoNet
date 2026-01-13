@@ -34,9 +34,7 @@ def test_shape(params, initial_state, c_shape):
     num_samples = 25
     delta_t = 0.1
     t_eval = 101
-    t, c = sample_cle(
-        params, np.array(initial_state), max_time, num_samples, delta_t, t_eval
-    )
+    t, c = sample_cle(params, initial_state, max_time, num_samples, delta_t, t_eval)
     assert c.shape == c_shape
     assert t.shape == (101,)
 
@@ -52,8 +50,8 @@ def test_shape(params, initial_state, c_shape):
         (None, 101, np.linspace(0, 100, 101)),
     ],
 )
-def test_t_eval_deta_t(params, delta_t, t_eval, expected_t):
-    initial_state = np.array([0.1, 0.7, 0.2])
+def test_t_eval_delta_t(params, delta_t, t_eval, expected_t):
+    initial_state = [0.1, 0.7, 0.2]
     t, c = sample_cle(params, initial_state, 100, 25, delta_t, t_eval)
     assert np.allclose(t, expected_t)
     assert c.shape[1] == t.shape[0]

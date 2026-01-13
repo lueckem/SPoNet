@@ -65,8 +65,8 @@ class CNVM:
 
     def update_rates(
         self,
-        r: float | NDArray | None = None,
-        r_tilde: float | NDArray | None = None,
+        r: ArrayLike | None = None,
+        r_tilde: ArrayLike | None = None,
     ) -> None:
         """
         Update one or both rate parameters.
@@ -75,15 +75,15 @@ class CNVM:
 
         Parameters
         ----------
-        r : float | NDArray, optional
-        r_tilde : float | NDArray, optional
+        r : float | ArrayLike, optional
+        r_tilde : float | ArrayLike, optional
         """
         self.params.change_rates(r, r_tilde)
 
     def simulate(
         self,
         t_max: float,
-        x_init: NDArray | None = None,
+        x_init: ArrayLike | None = None,
         t_eval: ArrayLike | None = None,
         rng: Generator = default_rng(),
     ) -> tuple[NDArray, NDArray]:
@@ -93,7 +93,7 @@ class CNVM:
         Parameters
         ----------
         t_max : float
-        x_init : NDArray, optional
+        x_init : ArrayLike, optional
             Initial state, shape=(num_agents,). If no x_init is given, a random one is generated.
         t_eval : ArrayLike, optional
             Array of time points where the solution should be saved,
@@ -115,6 +115,8 @@ class CNVM:
             x_init = rng.choice(
                 np.arange(self.params.num_opinions), size=self.params.num_agents
             )
+        else:
+            x_init = np.array(x_init)
         x = x_init.astype(opinion_dtype)
 
         if t_eval is not None:

@@ -9,7 +9,7 @@ from ..parameters import CNVMParameters
 
 def sample_stochastic_approximation(
     params: CNVMParameters,
-    initial_states: NDArray,
+    initial_states: ArrayLike,
     t_max: float,
     num_samples: int,
     t_eval: ArrayLike,
@@ -44,6 +44,7 @@ def sample_stochastic_approximation(
     """
     t_eval = t_eval_to_ndarray(t_eval, t_max)
 
+    initial_states = np.array(initial_states, ndmin=1)
     if initial_states.ndim == 1:
         c = _sample_many(
             initial_states,

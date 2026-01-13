@@ -34,7 +34,7 @@ def test_shape(params, initial_state, c_shape):
     num_samples = 25
     t_eval = 101
     t, c = sample_stochastic_approximation(
-        params, np.array(initial_state), max_time, num_samples, t_eval
+        params, initial_state, max_time, num_samples, t_eval
     )
     assert c.shape == c_shape
     assert t.shape == (101,)
@@ -49,7 +49,7 @@ def test_shape(params, initial_state, c_shape):
     ],
 )
 def test_t_eval_deta_t(params, t_eval, expected_t):
-    initial_state = np.array([0.1, 0.7, 0.2])
+    initial_state = [0.1, 0.7, 0.2]
     t, c = sample_stochastic_approximation(params, initial_state, 100, 25, t_eval)
     assert np.allclose(t, expected_t)
     assert c.shape[1] == t.shape[0]

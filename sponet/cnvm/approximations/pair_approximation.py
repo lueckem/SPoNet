@@ -1,5 +1,8 @@
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy.integrate import solve_ivp
+
+from sponet.utils import t_eval_to_ndarray
 
 from ..parameters import CNVMParameters
 
@@ -10,7 +13,7 @@ def calc_pair_approximation_traj(
     s_0: float,
     d: float,
     t_max: float,
-    t_eval=None,
+    t_eval: ArrayLike | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     For a CNVM with 2 opinions, calculate the pair approximation.
@@ -31,8 +34,9 @@ def calc_pair_approximation_traj(
         Initial state of s.
     t_max : float
         End time.
-    t_eval : np.ndarray, optional
-        Time points, at which the solution should be evaluated.
+    t_eval : ArrayLike, optional
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
 
     Returns
     -------
@@ -42,6 +46,9 @@ def calc_pair_approximation_traj(
     """
 
     assert params.num_opinions == 2
+
+    if t_eval is not None:
+        t_eval = t_eval_to_ndarray(t_eval, t_max)
 
     def rhs(_, c_pa):
         # assert isinstance(params.r, np.ndarray)

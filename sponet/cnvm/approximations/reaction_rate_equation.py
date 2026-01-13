@@ -11,7 +11,7 @@ from ..parameters import CNVMParameters
 
 def calc_rre_traj(
     params: CNVMParameters,
-    initial_states: NDArray,
+    initial_states: ArrayLike,
     t_max: float,
     t_eval: ArrayLike | None = None,
 ) -> tuple[NDArray, NDArray]:
@@ -23,7 +23,7 @@ def calc_rre_traj(
     Parameters
     ----------
     params : CNVMParameters
-    initial_states : NDArray
+    initial_states : ArrayLike
         Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
         End time.
@@ -60,6 +60,7 @@ def calc_rre_traj(
                 out += prop * state_change
         return out
 
+    initial_states = np.array(initial_states, ndmin=1)
     if initial_states.ndim == 1:
         sol = solve_ivp(
             rhs, (0, t_max), initial_states, rtol=1e-8, atol=1e-8, t_eval=t_eval
@@ -78,7 +79,7 @@ def calc_rre_traj(
 
 def calc_modified_rre_traj(
     params: CNVMParameters,
-    initial_states: NDArray,
+    initial_states: ArrayLike,
     t_max: float,
     alpha: float = 1.0,
     t_eval: ArrayLike | None = None,
@@ -92,7 +93,7 @@ def calc_modified_rre_traj(
     Parameters
     ----------
     params : CNVMParameters
-    initial_states : NDArray
+    initial_states : ArrayLike
         Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
         End time.
