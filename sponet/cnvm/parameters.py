@@ -17,7 +17,7 @@ class CNVMParameters:
     or num_agents, in which case a complete network is used.
     If multiple are given, NetworkGenerator overrules network, and network overrules num_agents.
 
-    The rate parameters r and r_tilde can be given as numpy arrays of shape (num_opinions, num_opinions),
+    The rate parameters r and r_tilde can be given as arrays of shape (num_opinions, num_opinions),
     or as floats, in which case all rates are set to this value.
 
     (Internally, the CNVM uses an equivalent set of rate parameters: r_imit, r_noise, prob_imit and prob_noise.
@@ -28,7 +28,7 @@ class CNVMParameters:
 
     def __init__(
         self,
-        num_opinions: int,
+        num_opinions: int | None = None,
         num_agents: int | None = None,
         network: nx.Graph | None = None,
         network_generator: NetworkGenerator | None = None,
@@ -42,7 +42,6 @@ class CNVMParameters:
         prob_imit: ArrayLike = 1,
         prob_noise: ArrayLike = 1,
     ):
-        self.num_opinions = num_opinions
         self.alpha = alpha
 
         # network
@@ -51,6 +50,7 @@ class CNVMParameters:
         )
 
         (
+            self.num_opinions,
             self.r,
             self.r_tilde,
             self.r_imit,
@@ -121,6 +121,7 @@ class CNVMParameters:
         r = r if r is not None else self.r
         r_tilde = r_tilde if r_tilde is not None else self.r_tilde
         (
+            self.num_opinions,
             self.r,
             self.r_tilde,
             self.r_imit,
@@ -147,19 +148,21 @@ def _sanitize_network_input(
 
 
 def _sanitize_rates_input(
-    num_opinions: int,
+    num_opinions: int | None,
     r: ArrayLike | None,
     r_tilde: ArrayLike | None,
     r_imit: float | None,
     r_noise: float | None,
     prob_imit: ArrayLike,
     prob_noise: ArrayLike,
-) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
+) -> tuple[int, NDArray, NDArray, float, float, NDArray, NDArray]:
     if r is not None and r_tilde is not None:  # style 1
-        r = _to_matrix(num_opinions, r)
-        r_tilde = _to_matrix(num_opinions, r_tilde)
+        r, num_o_1 = _to_matrix(num_opinions, r)
+        r_tilde, num_o_2 = _to_matrix(num_opinions, r_tilde)
         if np.min(r) < 0 or np.min(r_tilde) < 0:
             raise ValueError("Rates have to be non-negative.")
+        if num_o_1 != num_o_2:
+            raise ValueError("Shapes of rates do not match.")
 
         (
             r_imit,
@@ -168,38 +171,48 @@ def _sanitize_rates_input(
             prob_noise,
         ) = convert_rate_to_cnvm(r, r_tilde)
 
-        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+        return (num_o_1, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     if r_imit is not None and r_noise is not None:  # style 2
-        prob_imit = _to_matrix(num_opinions, prob_imit)
-        prob_noise = _to_matrix(num_opinions, prob_noise)
+        prob_imit, num_o_1 = _to_matrix(num_opinions, prob_imit)
+        prob_noise, num_o_2 = _to_matrix(num_opinions, prob_noise)
         if r_imit < 0 or r_noise < 0:
             raise ValueError("Rates have to be non-negative.")
         if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
             raise ValueError("Probabilities have to be between 0 and 1.")
         if np.min(prob_noise) < 0 or np.max(prob_noise) > 1:
             raise ValueError("Probabilities have to be between 0 and 1.")
+        if num_o_1 != num_o_2:
+            raise ValueError("Shapes of probabilities do not match.")
 
         r = r_imit * prob_imit
-        r_tilde = r_noise * prob_noise / num_opinions
+        r_tilde = r_noise * prob_noise / num_o_1
 
-        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+        return (num_o_1, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     raise ValueError("Rate parameters have to be provided.")
 
 
-def _to_matrix(num_opinions: int, r: ArrayLike) -> NDArray:
+def _to_matrix(num_opinions: int | None, r: ArrayLike) -> tuple[NDArray, int]:
     """
     If `r` is a already a NDArray, return `r` but with 0 put on the diagonal.
     If `r` is a float, return a `num_opinions` x `num_opinions` matrix with 0 on the diagonal and `r` everywhere else.
+    Also returns the determined `num_opinions`.
     """
     if isinstance(r, (int, float)):
+        if num_opinions is None:
+            raise ValueError("`num_opinions` has to be provided.")
         r = r * np.ones((num_opinions, num_opinions))
+        np.fill_diagonal(r, 0)
+        return r, num_opinions
+
     r = np.array(r, ndmin=2)
     if r.ndim != 2 or r.shape[0] != r.shape[1]:
         raise ValueError("Expected square matrix.")
+    if num_opinions is not None and r.shape[0] != num_opinions:
+        raise ValueError("Shape of matrix does not match `num_opinions`")
     np.fill_diagonal(r, 0)
-    return r
+    return r, int(r.shape[0])
 
 
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
@@ -234,7 +247,7 @@ def save_params_as_txt_file(filename: str, params: CNVMParameters):
 
 
 def convert_rate_to_cnvm(
-    r: NDArray, r_tilde: NDArray
+    r: ArrayLike, r_tilde: ArrayLike
 ) -> tuple[float, float, NDArray, NDArray]:
     """
     Convert the rates r and r_tilde to the parameters used in the CNVM, i.e., r_imit, r_noise, prob_imit, prob_noise.
@@ -246,16 +259,18 @@ def convert_rate_to_cnvm(
 
     Parameters
     ----------
-    r : np.ndarray
+    r : ArrayLike
         shape = (num_opinions, num_opinions)
-    r_tilde : np.ndarray
+    r_tilde : ArrayLike
         shape = (num_opinions, num_opinions)
 
     Returns
     -------
-    tuple[float, float, np.ndarray, np.ndarray]
+    tuple[float, float, NDArray, NDArray]
         r_imit, r_noise, prob_imit, prob_noise
     """
+    r = np.array(r)
+    r_tilde = np.array(r_tilde)
     num_opinions = r.shape[0]
 
     # r[m,n] = r_imit * prob_imit[m,n]
