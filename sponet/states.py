@@ -324,7 +324,7 @@ def sample_states_target_cvs(
     num_agents: int,
     num_opinions: int,
     col_var: CollectiveVariable,
-    target_cv_value: NDArray,
+    target_cv_value: ArrayLike,
     num_states: int = 1,
     rtol: float = 1e-4,
     rng: Generator = default_rng(),
@@ -346,7 +346,7 @@ def sample_states_target_cvs(
     num_agents : int
     num_opinions : int
     col_var : CollectiveVariable
-    target_cv_value : np.ndarray
+    target_cv_value : ArrayLike
         Shape = (cv_dim,).
     num_states : int, optional
        Default: 1.
@@ -364,6 +364,8 @@ def sample_states_target_cvs(
     NDArray
        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
+    target_cv_value = np.array(target_cv_value, ndmin=1)
+
     # set temperature in relation to num_agents
     base_temperature = -2.0 / num_agents / np.log(0.5)
     temperature_decay_factor = 0.1 ** (1.0 / num_agents)
