@@ -157,12 +157,9 @@ def _sanitize_rates_input(
     prob_noise: ArrayLike,
 ) -> tuple[int, NDArray, NDArray, float, float, NDArray, NDArray]:
     if r is not None and r_tilde is not None:  # style 1
-        r, num_o_1 = _to_matrix(num_opinions, r)
-        r_tilde, num_o_2 = _to_matrix(num_opinions, r_tilde)
+        r, r_tilde, num_opinions = _to_matrix(num_opinions, r, r_tilde)
         if np.min(r) < 0 or np.min(r_tilde) < 0:
             raise ValueError("Rates have to be non-negative.")
-        if num_o_1 != num_o_2:
-            raise ValueError("Shapes of rates do not match.")
 
         (
             r_imit,
@@ -171,48 +168,72 @@ def _sanitize_rates_input(
             prob_noise,
         ) = convert_rate_to_cnvm(r, r_tilde)
 
-        return (num_o_1, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+        return (num_opinions, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     if r_imit is not None and r_noise is not None:  # style 2
-        prob_imit, num_o_1 = _to_matrix(num_opinions, prob_imit)
-        prob_noise, num_o_2 = _to_matrix(num_opinions, prob_noise)
+        prob_imit, prob_noise, num_opinions = _to_matrix(
+            num_opinions, prob_imit, prob_noise
+        )
         if r_imit < 0 or r_noise < 0:
             raise ValueError("Rates have to be non-negative.")
         if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
             raise ValueError("Probabilities have to be between 0 and 1.")
         if np.min(prob_noise) < 0 or np.max(prob_noise) > 1:
             raise ValueError("Probabilities have to be between 0 and 1.")
-        if num_o_1 != num_o_2:
-            raise ValueError("Shapes of probabilities do not match.")
 
         r = r_imit * prob_imit
-        r_tilde = r_noise * prob_noise / num_o_1
+        r_tilde = r_noise * prob_noise / num_opinions
 
-        return (num_o_1, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+        return (num_opinions, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     raise ValueError("Rate parameters have to be provided.")
 
 
-def _to_matrix(num_opinions: int | None, r: ArrayLike) -> tuple[NDArray, int]:
+def _to_matrix(
+    num_opinions: int | None, r1: ArrayLike, r2: ArrayLike
+) -> tuple[NDArray, NDArray, int]:
     """
+    Convert `r1` and `r2` to matrices.
+
     If `r` is a already a NDArray, return `r` but with 0 put on the diagonal.
     If `r` is a float, return a `num_opinions` x `num_opinions` matrix with 0 on the diagonal and `r` everywhere else.
     Also returns the determined `num_opinions`.
     """
-    if isinstance(r, (int, float)):
+    # num_opinions + float + float
+    if isinstance(r1, (int, float)) and isinstance(r2, (int, float)):
         if num_opinions is None:
             raise ValueError("`num_opinions` has to be provided.")
-        r = r * np.ones((num_opinions, num_opinions))
-        np.fill_diagonal(r, 0)
-        return r, num_opinions
+        r1 = r1 * np.ones((num_opinions, num_opinions))
+        np.fill_diagonal(r1, 0)
+        r2 = r2 * np.ones((num_opinions, num_opinions))
+        np.fill_diagonal(r2, 0)
+        return r1, r2, num_opinions
 
-    r = np.array(r, ndmin=2)
-    if r.ndim != 2 or r.shape[0] != r.shape[1]:
+    if isinstance(r1, (int, float)):  # float + matrix
+        r2 = np.array(r2, ndmin=2)
+        r1 = r1 * np.ones_like(r2)
+    elif isinstance(r2, (int, float)):  # matrix + float
+        r1 = np.array(r1, ndmin=2)
+        r2 = r2 * np.ones_like(r1)
+    else:  # matrix + matrix
+        r1 = np.array(r1, ndmin=2)
+        r2 = np.array(r2, ndmin=2)
+    np.fill_diagonal(r1, 0)
+    np.fill_diagonal(r2, 0)
+
+    if (
+        r1.ndim != 2
+        or r2.ndim != 2
+        or r1.shape[0] != r1.shape[1]
+        or r2.shape[0] != r2.shape[1]
+    ):
         raise ValueError("Expected square matrix.")
-    if num_opinions is not None and r.shape[0] != num_opinions:
-        raise ValueError("Shape of matrix does not match `num_opinions`")
-    np.fill_diagonal(r, 0)
-    return r, int(r.shape[0])
+    if r1.shape[0] != r2.shape[0]:
+        raise ValueError("Shapes do not match.")
+    if num_opinions is not None:
+        if r1.shape[0] != num_opinions or r2.shape[0] != num_opinions:
+            raise ValueError("Shape of matrix does not match `num_opinions`")
+    return r1, r2, int(r1.shape[0])
 
 
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
