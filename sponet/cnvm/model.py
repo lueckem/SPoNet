@@ -75,8 +75,8 @@ class CNVM:
 
         Parameters
         ----------
-        r : float | ArrayLike, optional
-        r_tilde : float | ArrayLike, optional
+        r : ArrayLike, optional
+        r_tilde : ArrayLike, optional
         """
         self.params.change_rates(r, r_tilde)
 
