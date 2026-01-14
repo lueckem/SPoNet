@@ -1,7 +1,7 @@
-from __future__ import annotations
-from typing import Protocol
-import networkx as nx
 import pickle
+from typing import Protocol
+
+import networkx as nx
 
 
 class Parameters(Protocol):
