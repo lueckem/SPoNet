@@ -1,6 +1,7 @@
 import numpy as np
 from numba import njit
 from numpy.random import Generator
+from numpy.typing import NDArray
 
 
 @njit(cache=True)
@@ -51,7 +52,7 @@ def sample_randint_other(high_excl: int, this: int, rng: Generator) -> int:
 
 
 @njit(cache=True)
-def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def build_alias_table(weights: NDArray) -> tuple[NDArray, NDArray]:
     """
     Construct the probability table and alias table for given weights.
 
@@ -60,11 +61,11 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
     Parameters
     ----------
-    weights : np.ndarray
+    weights : NDArray
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
+    tuple[NDArray, NDArray]
         probability table, alias table
     """
     table_prob = weights / np.sum(weights) * weights.shape[0]
@@ -96,9 +97,7 @@ def build_alias_table(weights: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 @njit(cache=True)
-def sample_from_alias(
-    table_prob: np.ndarray, table_alias: np.ndarray, rng: Generator
-) -> int:
+def sample_from_alias(table_prob: NDArray, table_alias: NDArray, rng: Generator) -> int:
     """
     Sample from weighted discrete distribution given by the probability and alias tables.
 
@@ -107,8 +106,8 @@ def sample_from_alias(
 
     Parameters
     ----------
-    table_prob : np.ndarray
-    table_alias : np.ndarray
+    table_prob : NDArray
+    table_alias : NDArray
     rng : Generator
 
     Returns
@@ -124,7 +123,7 @@ def sample_from_alias(
 
 
 @njit(cache=True)
-def sample_weighted_bisect(prob_cum_sum: np.ndarray, rng: Generator) -> int:
+def sample_weighted_bisect(prob_cum_sum: NDArray, rng: Generator) -> int:
     """
     Sample random index 0 <= i < len(prob_cumsum) according to probability distribution.
 
@@ -132,7 +131,7 @@ def sample_weighted_bisect(prob_cum_sum: np.ndarray, rng: Generator) -> int:
 
     Parameters
     ----------
-    prob_cum_sum : np.ndarray
+    prob_cum_sum : NDArray
         1D array containing the cumulative probabilities, i.e.,
         the first entry is the probability of choosing index 0,
         the second entry the probability of choosing index 0 or 1, and so on.

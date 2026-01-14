@@ -205,6 +205,25 @@ class TestSampleManyRuns(TestCase):
             ),
         )
 
+    def test_arraylike_initial_state(self):
+        t, x = sample_many_runs(
+            self.params,
+            [0] * 40 + [1] * 60,
+            self.t_max,
+            self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+        )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(
+            x.shape,
+            (
+                15,
+                self.num_timesteps,
+                self.num_agents,
+            ),
+        )
+
     def test_teval(self):
         t_eval = [0, 2, 8, 99]
         t, x = sample_many_runs(

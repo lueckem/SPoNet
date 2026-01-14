@@ -157,13 +157,13 @@ def test_output_fill(params, x_init, rng, request):
 @pytest.mark.parametrize(
     "num_opinions,expected_dtype", [(2, np.uint8), (10, np.uint8), (257, np.uint16)]
 )
-def test_output_dtype(num_opinions, expected_dtype, r, r_tilde):
+def test_output_dtype(num_opinions, expected_dtype):
     # complete network
     params = CNVMParameters(
         num_opinions=num_opinions,
         num_agents=100,
-        r=r,
-        r_tilde=r_tilde,
+        r=1,
+        r_tilde=0.1,
     )
     model = CNVM(params)
     _, x = model.simulate(1)
@@ -173,8 +173,8 @@ def test_output_dtype(num_opinions, expected_dtype, r, r_tilde):
     params = CNVMParameters(
         num_opinions=num_opinions,
         network=nx.barabasi_albert_graph(100, 3),
-        r=r,
-        r_tilde=r_tilde,
+        r=1,
+        r_tilde=0.1,
     )
     model = CNVM(params)
     _, x = model.simulate(1)

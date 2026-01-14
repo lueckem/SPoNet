@@ -8,12 +8,14 @@ app = marimo.App()
 def _():
     # for running the notebook
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ### The SIS model and epidemic thresholds
 
     In this notebook we examine the *Susceptible-Infectious-Susceptible* (SIS) model of epidemiology.
@@ -30,7 +32,8 @@ def _(mo):
     However, for simplicity we will use the default $\alpha = 1$ in this notebook.
 
     Let us start by doing the necessary imports and defining the model.
-    """)
+    """
+    )
     return
 
 
@@ -43,6 +46,7 @@ def _():
     from sponet import CNVMParameters, CNVM
     from sponet.collective_variables import OpinionShares
     from sponet import sample_many_runs, calc_rre_traj
+
     return (
         CNVM,
         CNVMParameters,
@@ -63,21 +67,27 @@ def _(CNVM, CNVMParameters, OpinionShares, np, nx):
     _r = np.array([[0, _infection_rate], [0, 0]])
     r_tilde = np.array([[0, 0], [1, 0]])
     network = nx.erdos_renyi_graph(num_agents, p=0.1)
-    params = CNVMParameters(num_opinions=num_opinions, network=network, r=_r, r_tilde=r_tilde)
+    params = CNVMParameters(
+        num_opinions=num_opinions, network=network, r=_r, r_tilde=r_tilde
+    )
     model = CNVM(params)
-    cv = OpinionShares(num_opinions, normalize=True)  # for measuring the percentage of infectious nodes
+    cv = OpinionShares(
+        num_opinions, normalize=True
+    )  # for measuring the percentage of infectious nodes
     return cv, model, num_agents, params
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     The behavior of the SIS model heavily depends on the underlying network structure.
     We have chosen a random Erdös-Renyi graph in this example because it is well understood.
 
     Now we define the simulation parameters, let the model run, and plot the results.
     We start with 30% infectious nodes and plot the evolution of the share of infectious nodes.
-    """)
+    """
+    )
     return
 
 
@@ -86,7 +96,7 @@ def _(np, num_agents):
     t_max = 100
     t_eval = 1001
     x_init = np.zeros(num_agents)  # initial state
-    x_init[:int(num_agents * 0.3)] = 1
+    x_init[: int(num_agents * 0.3)] = 1
     np.random.shuffle(x_init)
     return t_eval, t_max, x_init
 
@@ -97,19 +107,21 @@ def _(cv, model, plt, t_eval, t_max, x_init):
     _c = cv(_x)  # calculate the share of infectious nodes
     plt.plot(_t, _c[:, 1])
     plt.grid()
-    plt.xlabel('t')
-    plt.ylabel('percentage infected')
+    plt.xlabel("t")
+    plt.ylabel("percentage infected")
     plt.show()
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     The above plot shows that the disease dies out quickly. After a short time all the nodes have state (S).
     This is because the infection rate was rather small ($\lambda=0.5$).
     Let us investigate the dynamics for a larger infection rate of $\lambda=2$.
-    """)
+    """
+    )
     return
 
 
@@ -122,21 +134,23 @@ def _(cv, model, np, plt, t_eval, t_max, x_init):
     _c = cv(_x)
     plt.plot(_t, _c[:, 1])
     plt.grid()
-    plt.xlabel('t')
-    plt.ylabel('percentage infected')
+    plt.xlabel("t")
+    plt.ylabel("percentage infected")
     plt.show()
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     Now the disease did not die out. After a short transient phase, the percentage of infectious nodes stabilizes at around 50%.
 
     Let us conduct a statistical analysis of this behavior for different infection rates.
     In the following code block we perform many simulations of the SIS model.
     (If this takes too long on your machine, try reducing the number of samples by modifying the `num_runs` parameter.)
-    """)
+    """
+    )
     return
 
 
@@ -147,27 +161,37 @@ def _(cv, np, params, sample_many_runs, t_eval, t_max, x_init):
     for _i_r in infection_rates:
         _r = np.array([[0, _i_r], [0, 0]])
         params.change_rates(r=_r)
-        t, _c = sample_many_runs(params=params, initial_states=x_init, t_max=t_max, t_eval=t_eval, num_runs=100, collective_variable=cv, n_jobs=-1)
+        t, _c = sample_many_runs(
+            params=params,
+            initial_states=x_init,
+            t_max=t_max,
+            t_eval=t_eval,
+            num_runs=100,
+            collective_variable=cv,
+            n_jobs=-1,
+        )
         c_results.append(_c)
     return c_results, infection_rates, t
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     We plot the average share of infectious nodes and the probability that the disease survived up to time $t=100$ (i.e., there is at least one infectious node present).
-    """)
+    """
+    )
     return
 
 
 @app.cell
 def _(c_results, infection_rates, np, plt, t):
     for _i_r, c_r in zip(infection_rates, c_results):
-        plt.plot(t, np.mean(c_r[:, :, 1], axis=0), label=f'rate={_i_r}')
+        plt.plot(t, np.mean(c_r[:, :, 1], axis=0), label=f"rate={_i_r}")
     plt.legend()
     plt.grid()
-    plt.xlabel('t')
-    plt.ylabel('percentage infected')
+    plt.xlabel("t")
+    plt.ylabel("percentage infected")
     plt.show()
     return
 
@@ -188,7 +212,8 @@ def _(c_results, infection_rates, np, plt):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     Apparently, the disease will likely die out if the infection rate is below 1, and will likely persist if the infection rate is above 1.
     This critical value is called the *epidemic threshold*.
 
@@ -199,7 +224,8 @@ def _(mo):
     (See the notebook `mean_field.ipynb` or the paper [[Lücke et al., 2022]](https://arxiv.org/abs/2210.02934) for further information about the RRE.)
 
     The plot below shows that this ODE is already reasonably accurate for our finite size network.
-    """)
+    """
+    )
     return
 
 
@@ -219,14 +245,16 @@ def _(c_results, calc_rre_traj, np, params, plt, t, t_max):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     The dynamics given by the RRE exhibits a so-called *transcritical bifurcation* as the parameter $\lambda$ crosses the critical value $\lambda_c = 1$:
     - For $\lambda < \lambda_c$ the equilibrium $c=0$ is stable and hence the disease always dies out.
     - For $\lambda > \lambda_c$ the equlibrium $c=0$ is unstable, but the equilibirum $c_\infty = (\lambda - 1)/\lambda$ is stable. Thus the disease will prevail and the share of infectious nodes converges to $c_\infty$.
 
     In this notebook we have examined the SIS model on a random network using the CNVM package.
     We have found that in this system an *epidemic threshold* occurs, i.e., there is a critical infection rate that separates the regimes of the disease dying out and surviving.
-    """)
+    """
+    )
     return
 
 

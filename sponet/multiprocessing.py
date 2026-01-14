@@ -17,7 +17,7 @@ from .utils import t_eval_to_ndarray
 
 def sample_many_runs(
     params: Parameters,
-    initial_states: NDArray,
+    initial_states: ArrayLike,
     t_max: float,
     t_eval: ArrayLike,
     num_runs: int,
@@ -34,7 +34,7 @@ def sample_many_runs(
     params : Parameters
         Either CNVM or CNTM Parameters.
         If a NetworkGenerator is used, a new network will be sampled for every run.
-    initial_states : NDArray
+    initial_states : ArrayLike
         Array of initial states, shape = (num_initial_states, num_agents),
         or single initial state, shape = (num_agents,).
         Num_runs simulations will be executed for each initial state.
@@ -63,6 +63,8 @@ def sample_many_runs(
         x_out.shape = (num_initial_states, num_runs, num_timesteps, num_agents),
         or x_out.shape = (num_runs, num_timesteps, num_agents) if only a single initial state was given.
     """
+    initial_states = np.array(initial_states, ndmin=1)
+
     # handle 1D initial state
     is_1d = initial_states.ndim == 1
     if is_1d:

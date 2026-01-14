@@ -5,6 +5,7 @@ from typing import Optional
 
 import numpy as np
 from numpy.random import Generator, default_rng
+from numpy.typing import ArrayLike, NDArray
 
 from sponet.multiprocessing import sample_many_runs
 
@@ -14,7 +15,7 @@ from .parameters import Parameters
 
 def sample_moments(
     params: Parameters,
-    initial_state: np.ndarray,
+    initial_state: ArrayLike,
     t_max: float,
     num_timesteps: int,
     batch_size: int,
@@ -25,11 +26,11 @@ def sample_moments(
     filename: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
     verbose: bool = False,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+) -> tuple[NDArray, NDArray, NDArray, int]:
     """
     Sample in batches and estimate mean and variance.
 
-    Estimates a confidence interval for the mean and
+    Estimates a confidence interval for the mean, and
     samples until the size of the confidence interval relative to the mean is less than a tolerance:
     [4 sigma / sqrt(N)] / mu < rel_tol.
 
@@ -38,7 +39,7 @@ def sample_moments(
     params : Parameters
         Either CNVM or CNTM Parameters.
         If a NetworkGenerator is used, a new network will be sampled for every run.
-    initial_states : np.ndarray
+    initial_state : ArrayLike
         Initial state, shape = (num_agents,).
     t_max : float
         End time.
@@ -65,9 +66,9 @@ def sample_moments(
 
     Returns
     -------
-    t, mean, var, num_samples : tuple[np.ndarray, np.ndarray, np.ndarray, int]
+    t, mean, var, num_samples : tuple[NDArray, NDArray, NDArray, int]
         t.shape = (num_timesteps,),
-        mean.shape = (num_timesteps, num_agents)
+        mean.shape = (num_timesteps, num_agents),
         var.shape = (num_timesteps, num_agents)
     """
     num_a = (
@@ -94,7 +95,7 @@ def sample_moments(
             print(f"Total number of samples: {num_samples}.")
         t, x = sample_many_runs(
             params,
-            np.array([initial_state]),
+            np.array(initial_state, ndmin=1),
             t_max,
             num_timesteps,
             batch_size,
@@ -103,8 +104,8 @@ def sample_moments(
             rng=rng,
         )
         num_samples += batch_size
-        sum_x += np.sum(x[0], axis=0)
-        sum_xx += np.sum(x[0] ** 2, axis=0)
+        sum_x += np.sum(x, axis=0)
+        sum_xx += np.sum(x**2, axis=0)
 
         mean = sum_x / num_samples
         variance = sum_xx / num_samples - mean**2

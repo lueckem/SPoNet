@@ -12,7 +12,7 @@ from sponet.utils import t_eval_to_ndarray
 
 def sample_cle(
     params: CNVMParameters,
-    initial_states: NDArray,
+    initial_states: ArrayLike,
     t_max: float,
     num_samples: int,
     delta_t: float | None = None,
@@ -29,7 +29,7 @@ def sample_cle(
     Parameters
     ----------
     params : CNVMParameters
-    initial_states : NDArray
+    initial_states : ArrayLike
         Either shape = (num_opinions,) or (num_states, num_opinions)
     t_max : float
     num_samples : int
@@ -53,6 +53,7 @@ def sample_cle(
     """
     delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
 
+    initial_states = np.array(initial_states, ndmin=1)
     is_1d = initial_states.ndim == 1
     if is_1d:
         initial_states = np.expand_dims(initial_states, 0)

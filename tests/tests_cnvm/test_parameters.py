@@ -1,234 +1,226 @@
 from unittest import TestCase
-import numpy as np
-import networkx as nx
 
+import networkx as nx
+import numpy as np
+import pytest
+
+import sponet.network_generator as ng
 from sponet.cnvm.parameters import (
     CNVMParameters,
-    convert_rate_to_cnvm,
     convert_rate_from_cnvm,
+    convert_rate_to_cnvm,
 )
-import sponet.network_generator as ng
 
 
-class TestParametersNetworks(TestCase):
-    def setUp(self):
-        self.num_opinions = 3
-        self.num_agents = 100
-        self.r_imit = 1
-        self.r_noise = 0.1
-
-    def test_complete(self):
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
-            r_imit=self.r_imit,
-            r_noise=self.r_noise,
-        )
-
-        self.assertIsNone(params.network)
-        self.assertIsNone(params.network_generator)
-
-        network = params.get_network()
-        self.assertEqual(
-            network.number_of_edges(), self.num_agents * (self.num_agents - 1) / 2
-        )
-
-    def test_network(self):
-        network = nx.star_graph(self.num_agents - 1)
-
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=3,  # should be overwritten by correct number
-            network=network,
-            r_imit=self.r_imit,
-            r_noise=self.r_noise,
-        )
-
-        self.assertEqual(params.num_agents, self.num_agents)
-        self.assertIsNone(params.network_generator)
-        self.assertTrue(nx.utils.graphs_equal(network, params.get_network()))
-
-    def test_graph_generator(self):
-        network = nx.star_graph(self.num_agents - 1)
-        net_gen = ng.ErdosRenyiGenerator(self.num_agents, 0.1)
-
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            network=network,
-            network_generator=net_gen,  # net_gen should overwrite network
-            r_imit=self.r_imit,
-            r_noise=self.r_noise,
-        )
-
-        self.assertEqual(params.num_agents, self.num_agents)
-        self.assertIsNone(params.network)
-        network = params.get_network()
-        self.assertTrue(network.number_of_nodes(), self.num_agents)
-
-    def test_no_network(self):
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions, r_imit=self.r_imit, r_noise=self.r_noise
-            )
+def test_network_complete():
+    params = CNVMParameters(3, num_agents=100, r=1, r_tilde=1)
+    assert params.network is None
+    assert params.network_generator is None
+    network = params.get_network()
+    assert network.number_of_edges() == 100 * (100 - 1) / 2
 
 
-class TestParametersRates(TestCase):
-    def setUp(self):
-        self.num_opinions = 2
-        self.num_agents = 2
+def test_network_network():
+    network = nx.star_graph(99)
+    params = CNVMParameters(3, num_agents=10, network=network, r=1, r_tilde=1)
+    assert params.num_agents == 100  # used the actual network
+    assert params.network_generator is None
+    assert nx.utils.graphs_equal(network, params.get_network())
 
-    def test_rates_style1_float(self):
-        r = 1
-        r_tilde = 0.1
 
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
-            r=r,
-            r_tilde=r_tilde,
-        )
-        r_array = np.array([[0, 1], [1, 0]])
-        r_tilde_array = np.array([[0, 0.1], [0.1, 0]])
-        self.assertTrue(np.allclose(params.r, r_array))
-        self.assertTrue(np.allclose(params.r_tilde, r_tilde_array))
+def test_network_generator():
+    network = nx.star_graph(99)
+    net_gen = ng.ErdosRenyiGenerator(100, 0.1)
+    params = CNVMParameters(
+        3, network=network, network_generator=net_gen, r=1, r_tilde=1
+    )
+    assert params.num_agents == 100
+    assert params.network is None  # generator takes precedence
+    net = params.get_network()
+    assert net.number_of_nodes() == 100
 
-        r_imit = 1
-        r_noise = 0.1 * self.num_opinions
-        prob_ones = np.array([[0, 1], [1, 0]])
-        self.assertTrue(np.allclose(params.r_imit, r_imit))
-        self.assertTrue(np.allclose(params.r_noise, r_noise))
-        self.assertTrue(np.allclose(params.prob_imit, prob_ones))
-        self.assertTrue(np.allclose(params.prob_noise, prob_ones))
 
-    def test_rates_style1_array(self):
-        r = np.array([[0, 2], [4, 1000]])  # diagonal should be ignored
-        r_tilde = np.array([[1000, 0.2], [0.1, 0]])
+def test_error_no_network():
+    with pytest.raises(ValueError):
+        CNVMParameters(3, r=1, r_tilde=1)
 
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
-            r=r,
-            r_tilde=r_tilde,
-        )
-        r_array = np.array([[0, 2], [4, 0]])
-        r_tilde_array = np.array([[0, 0.2], [0.1, 0]])
-        self.assertTrue(np.allclose(params.r, r_array))
-        self.assertTrue(np.allclose(params.r_tilde, r_tilde_array))
 
-        r_imit = 4
-        r_noise = 0.2 * self.num_opinions
-        prob_imit = np.array([[0, 0.5], [1, 0]])
-        prob_noise = np.array([[0, 1], [0.5, 0]])
-        self.assertTrue(np.allclose(params.r_imit, r_imit))
-        self.assertTrue(np.allclose(params.r_noise, r_noise))
-        self.assertTrue(np.allclose(params.prob_imit, prob_imit))
-        self.assertTrue(np.allclose(params.prob_noise, prob_noise))
+@pytest.mark.parametrize(
+    "in_num_opinions,in_r,in_r_tilde,r,r_tilde",
+    [
+        (
+            3,
+            1,
+            0.1,
+            [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
+            [[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]],
+        ),
+        (
+            3,
+            [[1, 1, 1], [1, 2, 3], [4, 5, 6]],
+            [[0, 0.1, 0.2], [0.3, -2, 0.4], [0.5, 0.6, 0]],
+            [[0, 1, 1], [1, 0, 3], [4, 5, 0]],
+            [[0, 0.1, 0.2], [0.3, 0, 0.4], [0.5, 0.6, 0]],
+        ),
+        (
+            None,
+            [[1, 1], [2, 3]],
+            [[0.1, 0], [0.3, -2]],
+            [[0, 1], [2, 0]],
+            [[0, 0], [0.3, 0]],
+        ),
+        (
+            None,
+            [[0, 1], [2, 0]],
+            0.1,
+            [[0, 1], [2, 0]],
+            [[0, 0.1], [0.1, 0]],
+        ),
+        (
+            None,
+            2,
+            [[0, 0.1], [0.2, 0]],
+            [[0, 2], [2, 0]],
+            [[0, 0.1], [0.2, 0]],
+        ),
+    ],
+)
+def test_rates_style1(
+    in_num_opinions,
+    in_r,
+    in_r_tilde,
+    r,
+    r_tilde,
+):
+    params = CNVMParameters(in_num_opinions, r=in_r, r_tilde=in_r_tilde, num_agents=10)
+    assert np.all(params.r == r)
+    assert np.all(params.r_tilde == r_tilde)
+    assert params.num_opinions == np.array(r).shape[0]
 
-    def test_style1_exceptions(self):
-        r = np.array([[0, 2], [4, 0]])
-        r_tilde = np.array([[0, -0.2], [0.1, 0]])
+    (
+        r_imit,
+        r_noise,
+        prob_imit,
+        prob_noise,
+    ) = convert_rate_to_cnvm(r, r_tilde)
+    assert params.r_imit == r_imit
+    assert params.r_noise == r_noise
+    assert np.all(params.prob_imit == prob_imit)
+    assert np.all(params.prob_noise == prob_noise)
 
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions,
-                num_agents=self.num_agents,
-                r=r,
-                r_tilde=r_tilde,
-            )
 
-    def test_rates_style2_float(self):
-        r_imit = 1
-        r_noise = 0.2
+@pytest.mark.parametrize(
+    "num_opinions,r,r_tilde",
+    [
+        (None, 1, 0.1),
+        (2, -1, 0.1),
+        (2, 1, -0.1),
+        (3, [[0, 1], [2, 0]], [[0, 0], [0.3, 0]]),
+        (None, [[0, -1], [2, 0]], [[0, 0], [0.3, 0]]),
+        (None, [0, 1], [[0, 0], [0.3, 0]]),
+        (None, [[0, 1], [0, 1], [0, 1]], [[0, 0], [0.3, 0]]),
+    ],
+)
+def test_errors_rates_style1(num_opinions, r, r_tilde):
+    with pytest.raises(ValueError):
+        CNVMParameters(num_opinions, 100, r=r, r_tilde=r_tilde)
 
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
-            r_imit=r_imit,
-            r_noise=r_noise,
-        )
 
-        prob_ones = np.array([[0, 1], [1, 0]])
-        self.assertTrue(np.allclose(params.r_imit, r_imit))
-        self.assertTrue(np.allclose(params.r_noise, r_noise))
-        self.assertTrue(np.allclose(params.prob_imit, prob_ones))
-        self.assertTrue(np.allclose(params.prob_noise, prob_ones))
+@pytest.mark.parametrize(
+    "in_num_opinions,in_prob_imit,in_prob_noise,prob_imit,prob_noise",
+    [
+        (
+            3,
+            1,
+            0.1,
+            [[0, 1, 1], [1, 0, 1], [1, 1, 0]],
+            [[0, 0.1, 0.1], [0.1, 0, 0.1], [0.1, 0.1, 0]],
+        ),
+        (
+            3,
+            [[1, 1, 1], [1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+            [[1, 1, 1], [1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+            [[0, 1, 1], [1, 0, 0.3], [0.4, 0.5, 0]],
+            [[0, 1, 1], [1, 0, 0.3], [0.4, 0.5, 0]],
+        ),
+        (
+            None,
+            [[1, 1], [0.2, 0.3]],
+            [[0.1, 0], [0.3, -2]],
+            [[0, 1], [0.2, 0]],
+            [[0, 0], [0.3, 0]],
+        ),
+        (
+            None,
+            [[0, 1], [0.2, 0]],
+            0.5,
+            [[0, 1], [0.2, 0]],
+            [[0, 0.5], [0.5, 0]],
+        ),
+        (
+            None,
+            0.5,
+            [[0, 1], [0.2, 0]],
+            [[0, 0.5], [0.5, 0]],
+            [[0, 1], [0.2, 0]],
+        ),
+    ],
+)
+def test_rates_style2(
+    in_num_opinions,
+    in_prob_imit,
+    in_prob_noise,
+    prob_imit,
+    prob_noise,
+):
+    r_imit = 1
+    r_noise = 0.1
+    params = CNVMParameters(
+        in_num_opinions,
+        r_imit=r_imit,
+        r_noise=r_noise,
+        prob_imit=in_prob_imit,
+        prob_noise=in_prob_noise,
+        num_agents=10,
+    )
+    assert params.r_imit == r_imit
+    assert params.r_noise == r_noise
+    assert np.all(params.prob_noise == prob_noise)
+    assert np.all(params.prob_imit == prob_imit)
+    num_opinions = np.array(prob_imit).shape[0]
+    assert params.num_opinions == num_opinions
 
-        r_array = np.array([[0, 1], [1, 0]])
-        r_tilde_array = np.array([[0, 0.1], [0.1, 0]])
-        self.assertTrue(np.allclose(params.r, r_array))
-        self.assertTrue(np.allclose(params.r_tilde, r_tilde_array))
+    r = r_imit * np.array(prob_imit)
+    r_tilde = r_noise * np.array(prob_noise) / num_opinions
+    assert np.all(params.r == r)
+    assert np.all(params.r_tilde == r_tilde)
 
-    def test_rates_style2_array(self):
-        r_imit = 1
-        r_noise = 0.2
-        prob_imit = np.array([[0, 0.2], [1, 1000]])  # diagonal should be ignored
-        prob_noise = np.array([[-10, 0.9], [1, 0]])
 
-        params = CNVMParameters(
-            num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
-            r_imit=r_imit,
-            r_noise=r_noise,
+@pytest.mark.parametrize(
+    "num_opinions,prob_imit,prob_noise",
+    [
+        (None, 0.2, 0.1),
+        (2, 2, 2),
+        (2, -1, 0.1),
+        (2, 1, -0.1),
+        (3, [[0, 1], [0.2, 0]], [[0, 0], [0.3, 0]]),
+        (None, [[0, -1], [0.2, 0]], [[0, 0], [0.3, 0]]),
+        (None, [[0, 1], [2, 0]], [[0, 0], [0.3, 0]]),
+        (None, [[0, 1], [0.2, 0]], [[0, 0], [-0.3, 0]]),
+        (None, [0, 1], [[0, 0], [0.3, 0]]),
+        (None, [[0, 1], [0, 1], [0, 1]], [[0, 0], [0.3, 0]]),
+    ],
+)
+def test_errors_rates_style2(num_opinions, prob_imit, prob_noise):
+    with pytest.raises(ValueError):
+        CNVMParameters(
+            num_opinions,
+            100,
+            r_imit=1,
+            r_noise=0.1,
             prob_imit=prob_imit,
             prob_noise=prob_noise,
         )
-
-        prob_imit = np.array([[0, 0.2], [1, 0]])
-        prob_noise = np.array([[0, 0.9], [1, 0]])
-        self.assertTrue(np.allclose(params.r_imit, r_imit))
-        self.assertTrue(np.allclose(params.r_noise, r_noise))
-        self.assertTrue(np.allclose(params.prob_imit, prob_imit))
-        self.assertTrue(np.allclose(params.prob_noise, prob_noise))
-
-        r_array = np.array([[0, 0.2], [1, 0]])
-        r_tilde_array = np.array([[0, 0.09], [0.1, 0]])
-        self.assertTrue(np.allclose(params.r, r_array))
-        self.assertTrue(np.allclose(params.r_tilde, r_tilde_array))
-
-    def test_style2_exceptions(self):
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions,
-                num_agents=self.num_agents,
-                r_imit=-0.2,
-                r_noise=0.1,
-            )
-
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions,
-                num_agents=self.num_agents,
-                r_imit=1,
-                r_noise=-0.1,
-            )
-
-        prob_imit = np.array([[0, 0.2], [1.5, 0]])
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions,
-                num_agents=self.num_agents,
-                r_imit=1,
-                r_noise=0.1,
-                prob_imit=prob_imit,
-            )
-
-        prob_noise = np.array([[0, 0.2], [1.5, 0]])
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions,
-                num_agents=self.num_agents,
-                r_imit=1,
-                r_noise=0.1,
-                prob_noise=prob_noise,
-            )
-
-        with self.assertRaises(ValueError):
-            CNVMParameters(
-                num_opinions=self.num_opinions,
-                num_agents=self.num_agents,
-                r_imit=1,
-                r=1,
-            )
 
 
 class TestParametersGetSet(TestCase):

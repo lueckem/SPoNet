@@ -4,6 +4,7 @@ from typing import Protocol
 import networkx as nx
 import numpy as np
 from numpy.random import Generator, default_rng
+from numpy.typing import ArrayLike
 
 
 class NetworkGenerator(Protocol):
@@ -11,12 +12,15 @@ class NetworkGenerator(Protocol):
 
     def __call__(self) -> nx.Graph:
         """Generate a network."""
+        ...
 
     def __repr__(self) -> str:
         """Return string representation of the generator."""
+        ...
 
     def abrv(self) -> str:
         """Return short description for file names."""
+        ...
 
 
 class ErdosRenyiGenerator:
@@ -171,7 +175,7 @@ class StochasticBlockGenerator:
     def __init__(
         self,
         num_agents: int,
-        p_matrix: np.ndarray,
+        p_matrix: ArrayLike,
         max_sample_time: float = 10,
         rng: Generator = default_rng(),
     ):
@@ -185,17 +189,17 @@ class StochasticBlockGenerator:
         Parameters
         ----------
         num_agents : int
-        p_matrix : np.ndarray
+        p_matrix : ArrayLike
             (n x n) matrix of edge probabilities.
         max_sample_time : float, optional
             In seconds.
         rng : Generator, optional
             random number generator
         """
-        self.p_matrix = p_matrix
+        self.p_matrix = np.array(p_matrix, ndmin=2)
         self.max_sample_time = max_sample_time
 
-        self.num_blocks = p_matrix.shape[0]
+        self.num_blocks = self.p_matrix.shape[0]
         self.block_size = int(num_agents / self.num_blocks)
         self.num_agents = self.block_size * self.num_blocks
         self.rng = rng

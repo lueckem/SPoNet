@@ -28,7 +28,7 @@ def params() -> CNVMParameters:
     ],
 )
 def test_shape(params, initial_state, c_shape):
-    t, c = calc_rre_traj(params, np.array(initial_state), 100, 101)
+    t, c = calc_rre_traj(params, initial_state, 100, 101)
     assert c.shape == c_shape
     assert t.shape == (101,)
 
@@ -42,7 +42,7 @@ def test_shape(params, initial_state, c_shape):
     ],
 )
 def test_t_eval(params, t_eval, expected_t):
-    initial_state = np.array([0.1, 0.7, 0.2])
+    initial_state = [0.1, 0.7, 0.2]
     t, c = calc_rre_traj(params, initial_state, 100, t_eval)
     assert np.allclose(t, expected_t)
     assert c.shape[0] == t.shape[0]
