@@ -23,6 +23,7 @@ class CNVMParameters:
     If multiple are given, NetworkGenerator overrules network, and network overrules num_agents.
     A network can either be given as a `nx.Graph` or as an adjacency list,
     where the i-th element is the list of neighbors of node i.
+    (The most efficient way to give a network is via an adjacency list of type list[NDArray].)
 
     The rate parameters r and r_tilde can be given as arrays of shape (num_opinions, num_opinions),
     or as floats, in which case all rates are set to this value.
