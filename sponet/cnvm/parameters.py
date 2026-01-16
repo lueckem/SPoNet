@@ -2,7 +2,6 @@ from typing import Iterable
 
 import networkx as nx
 import numpy as np
-from numba.typed.typedlist import List as NumbaList
 from numpy.typing import ArrayLike, NDArray
 
 from sponet.utils import calculate_neighbor_list
@@ -148,7 +147,7 @@ def _sanitize_network_input(
     num_agents: int | None,
     network: nx.Graph | Iterable | None,
     network_generator: NetworkGenerator | None,
-) -> tuple[int, NumbaList | None, NetworkGenerator | None]:
+) -> tuple[int, list[NDArray] | None, NetworkGenerator | None]:
     if network_generator is not None:
         return (network_generator.num_agents, None, network_generator)
     if network is not None:
@@ -159,12 +158,7 @@ def _sanitize_network_input(
                 None,
             )
         else:
-            if isinstance(network, NumbaList):
-                neighbor_list = network
-            else:
-                neighbor_list = NumbaList()
-                for nbrs in network:
-                    neighbor_list.append(np.array(nbrs))
+            neighbor_list = [np.array(nbrs) for nbrs in network]
             return (len(neighbor_list), neighbor_list, None)  # type: ignore
     if num_agents is not None:
         return (num_agents, None, None)
