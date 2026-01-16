@@ -5,6 +5,7 @@ from typing import Protocol, TypeVar, cast
 import networkx as nx
 import numpy as np
 from numba import njit
+from numba.typed import List
 from numpy.typing import ArrayLike, NDArray
 
 from .cnvm.parameters import CNVMParameters
@@ -356,7 +357,7 @@ class Propensities:
             )
             out = _propensities_numba(
                 x,
-                self.params.network,
+                List(self.params.network),
                 degrees_alpha,
                 self.params.r,
                 self.params.r_tilde,
