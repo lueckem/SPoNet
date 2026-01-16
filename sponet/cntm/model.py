@@ -1,6 +1,5 @@
 import numpy as np
 from numba import njit
-from numba.typed import List
 from numpy.random import Generator, default_rng
 from numpy.typing import ArrayLike, NDArray
 
@@ -26,7 +25,7 @@ class CNTM:
         self.params = params
 
         # self.neighbor_list[i] = array of neighbors of node i
-        self.neighbor_list = List(calculate_neighbor_list(params.network))  # type: ignore
+        self.neighbor_list = calculate_neighbor_list(params.network)
 
         self.noise_prob = self.params.r_tilde / (self.params.r + self.params.r_tilde)
         self.next_event_rate = 1 / (
@@ -78,7 +77,7 @@ class CNTM:
                 t_max,
                 self.params.threshold_01,
                 self.params.threshold_10,
-                self.neighbor_list,
+                self.neighbor_list,  # type: ignore
                 rng,
             )
         else:
@@ -89,7 +88,7 @@ class CNTM:
                 self.noise_prob,
                 self.params.threshold_01,
                 self.params.threshold_10,
-                self.neighbor_list,
+                self.neighbor_list,  # type: ignore
                 rng,
             )
 

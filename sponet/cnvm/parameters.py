@@ -96,7 +96,8 @@ class CNVMParameters:
 
         Parameters
         ----------
-        network : nx.Graph
+        network : nx.Graph | Iterable | None
+            Graph, or adjacency list, or None (=complete graph).
         """
         if self.network_generator is not None:
             raise ValueError("Cannot set network when there is a NetworkGenerator.")
@@ -113,7 +114,7 @@ class CNVMParameters:
         """
         if self.network_generator is None:
             raise ValueError("No NetworkGenerator was given.")
-        self.network = NumbaList(calculate_neighbor_list(self.network_generator()))
+        self.network = calculate_neighbor_list(self.network_generator())
 
     def change_rates(
         self,
@@ -154,7 +155,7 @@ def _sanitize_network_input(
         if isinstance(network, nx.Graph):
             return (
                 network.number_of_nodes(),
-                NumbaList(calculate_neighbor_list(network)),  # type: ignore
+                calculate_neighbor_list(network),
                 None,
             )
         else:

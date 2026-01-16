@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 from numba import njit
+from numba.typed.typedlist import List as NumbaList
 from numpy.typing import ArrayLike, NDArray
 
 
@@ -73,7 +74,7 @@ def mask_subsequent_duplicates(x: NDArray) -> NDArray:
     return mask
 
 
-def calculate_neighbor_list(network: nx.Graph) -> list[NDArray]:
+def calculate_neighbor_list(network: nx.Graph) -> NumbaList[NDArray]:
     """
     Calculate list of neighbors.
 
@@ -88,10 +89,10 @@ def calculate_neighbor_list(network: nx.Graph) -> list[NDArray]:
     -------
     list[NDArray]
     """
-    neighbor_list = []
+    neighbor_list = NumbaList()
     for i in network.nodes():
         neighbor_list.append(np.array(list(network.neighbors(i)), dtype=int))
-    return neighbor_list
+    return neighbor_list  # type: ignore
 
 
 @njit(cache=True)
