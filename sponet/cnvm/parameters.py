@@ -21,6 +21,8 @@ class CNVMParameters:
     Either a network has to specified, or a NetworkGenerator,
     or num_agents, in which case a complete network is used.
     If multiple are given, NetworkGenerator overrules network, and network overrules num_agents.
+    A network can either be given as a `nx.Graph` or as an adjacency list,
+    where the i-th element is the list of neighbors of node i.
 
     The rate parameters r and r_tilde can be given as arrays of shape (num_opinions, num_opinions),
     or as floats, in which case all rates are set to this value.
@@ -35,7 +37,7 @@ class CNVMParameters:
         self,
         num_opinions: int | None = None,
         num_agents: int | None = None,
-        network: nx.Graph | Iterable[NDArray] | None = None,
+        network: nx.Graph | Iterable | None = None,
         network_generator: NetworkGenerator | None = None,
         alpha: float = 1.0,
         # rate parameters in style 1
@@ -140,7 +142,7 @@ class CNVMParameters:
 
 def _sanitize_network_input(
     num_agents: int | None,
-    network: nx.Graph | Iterable[NDArray] | None,
+    network: nx.Graph | Iterable | None,
     network_generator: NetworkGenerator | None,
 ) -> tuple[int, NumbaList | None, NetworkGenerator | None]:
     if network_generator is not None:
@@ -153,7 +155,9 @@ def _sanitize_network_input(
                 None,
             )
         else:
-            neighbor_list = NumbaList(network)
+            neighbor_list = NumbaList()
+            for nbrs in network:
+                neighbor_list.append(np.array(nbrs))
             return (len(neighbor_list), neighbor_list, None)  # type: ignore
     if num_agents is not None:
         return (num_agents, None, None)

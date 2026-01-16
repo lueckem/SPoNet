@@ -25,7 +25,25 @@ def test_network_network():
     params = CNVMParameters(3, num_agents=10, network=network, r=1, r_tilde=1)
     assert params.num_agents == 100  # used the actual network
     assert params.network_generator is None
+    assert params.network is not None
+    assert params.network[2] == [0]
     assert nx.utils.graphs_equal(network, params.get_network())
+
+
+def test_network_adj_list():
+    network = [
+        [3, 1],
+        [0, 2],
+        [1, 3],
+        [2, 0],
+    ]
+    params = CNVMParameters(3, num_agents=10, network=network, r=1, r_tilde=1)
+    assert params.num_agents == 4
+    assert params.network_generator is None
+    assert params.network is not None
+    assert (params.network[0] == [3, 1]).all()
+    assert (params.network[1] == [0, 2]).all()
+    assert nx.utils.graphs_equal(nx.cycle_graph(4), params.get_network())
 
 
 def test_network_generator():
