@@ -158,8 +158,11 @@ def _sanitize_network_input(
                 None,
             )
         else:
-            neighbor_list = [np.array(nbrs) for nbrs in network]
-            return (len(neighbor_list), neighbor_list, None)  # type: ignore
+            if isinstance(network, list) and isinstance(network[0], np.ndarray):
+                neighbor_list = network
+            else:
+                neighbor_list = [np.array(nbrs, dtype=int) for nbrs in network]
+            return (len(neighbor_list), neighbor_list, None)
     if num_agents is not None:
         return (num_agents, None, None)
     raise ValueError(

@@ -351,7 +351,8 @@ class Propensities:
             )
         else:
             degrees_alpha = (
-                np.array([len(nbrs) for nbrs in self.params.network]) ** self.params.alpha  # type: ignore
+                np.array([len(nbrs) for nbrs in self.params.network])
+                ** self.params.alpha
             )
             out = _propensities_numba(
                 x,
