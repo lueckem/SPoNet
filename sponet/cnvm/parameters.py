@@ -87,7 +87,7 @@ class CNVMParameters:
         else:
             return nx.complete_graph(self.num_agents)
 
-    def set_network(self, network: nx.Graph) -> None:
+    def set_network(self, network: nx.Graph | Iterable | None) -> None:
         """
         Set new network.
 
@@ -99,8 +99,10 @@ class CNVMParameters:
         """
         if self.network_generator is not None:
             raise ValueError("Cannot set network when there is a NetworkGenerator.")
-        self.network = NumbaList(calculate_neighbor_list(network))
-        self.num_agents = len(network.nodes)
+
+        self.num_agents, self.network, _ = _sanitize_network_input(
+            self.num_agents, network, None
+        )
 
     def update_network_by_generator(self) -> None:
         """
@@ -155,9 +157,12 @@ def _sanitize_network_input(
                 None,
             )
         else:
-            neighbor_list = NumbaList()
-            for nbrs in network:
-                neighbor_list.append(np.array(nbrs))
+            if isinstance(network, NumbaList):
+                neighbor_list = network
+            else:
+                neighbor_list = NumbaList()
+                for nbrs in network:
+                    neighbor_list.append(np.array(nbrs))
             return (len(neighbor_list), neighbor_list, None)  # type: ignore
     if num_agents is not None:
         return (num_agents, None, None)

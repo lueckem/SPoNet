@@ -22,17 +22,6 @@ class CNVM:
         # set self.degree_alpha, an array containing d(i)^(1 - alpha)
         self._calculate_degree_alpha()
 
-        # set self.neighbor_list, a list with self.neighbor_list[i] = array of neighbors of node i
-        # self._calculate_neighbor_list()
-
-    # def _calculate_neighbor_list(self) -> None:
-    #     """
-    #     Calculate and set self.neighbor_list.
-    #     """
-    #     self.neighbor_list = List()  # type: ignore
-    #     if self.params.network is not None:  # not needed for complete network
-    #         self.neighbor_list = List(calculate_neighbor_list(self.params.network))  # type: ignore
-
     def _calculate_degree_alpha(self) -> None:
         """
         Calculate and set self.degree_alpha.
@@ -53,7 +42,6 @@ class CNVM:
         """
         self.params.update_network_by_generator()
         self._calculate_degree_alpha()
-        # self._calculate_neighbor_list()
 
     def update_rates(
         self,
