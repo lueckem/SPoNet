@@ -5,10 +5,7 @@ from typing import Protocol, TypeVar, cast
 import networkx as nx
 import numpy as np
 from numba import njit
-from numba.typed import List
 from numpy.typing import ArrayLike, NDArray
-
-from sponet.utils import calculate_neighbor_list
 
 from .cnvm.parameters import CNVMParameters
 
@@ -353,14 +350,12 @@ class Propensities:
                 x, degree_alpha, self.params.r, self.params.r_tilde
             )
         else:
-            network = self.params.get_network()
             degrees_alpha = (
-                np.array([d for _, d in network.degree()]) ** self.params.alpha  # type: ignore
+                np.array([len(nbrs) for nbrs in self.params.network]) ** self.params.alpha  # type: ignore
             )
-            neighbors_list = List(calculate_neighbor_list(self.params.network))  # type: ignore
             out = _propensities_numba(
                 x,
-                neighbors_list,
+                self.params.network,
                 degrees_alpha,
                 self.params.r,
                 self.params.r_tilde,

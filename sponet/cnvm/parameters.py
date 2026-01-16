@@ -1,6 +1,11 @@
+from typing import Iterable
+
 import networkx as nx
 import numpy as np
+from numba.typed.typedlist import List as NumbaList
 from numpy.typing import ArrayLike, NDArray
+
+from sponet.utils import calculate_neighbor_list
 
 from ..network_generator import NetworkGenerator
 
@@ -30,7 +35,7 @@ class CNVMParameters:
         self,
         num_opinions: int | None = None,
         num_agents: int | None = None,
-        network: nx.Graph | None = None,
+        network: nx.Graph | Iterable[NDArray] | None = None,
         network_generator: NetworkGenerator | None = None,
         alpha: float = 1.0,
         # rate parameters in style 1
@@ -72,7 +77,9 @@ class CNVMParameters:
         nx.Graph
         """
         if self.network is not None:
-            return self.network
+            return nx.from_dict_of_lists(
+                {i: nbrs for i, nbrs in enumerate(self.network)}
+            )
         elif self.network_generator is not None:
             return self.network_generator()
         else:
@@ -90,7 +97,7 @@ class CNVMParameters:
         """
         if self.network_generator is not None:
             raise ValueError("Cannot set network when there is a NetworkGenerator.")
-        self.network = network
+        self.network = NumbaList(calculate_neighbor_list(network))
         self.num_agents = len(network.nodes)
 
     def update_network_by_generator(self) -> None:
@@ -101,7 +108,7 @@ class CNVMParameters:
         """
         if self.network_generator is None:
             raise ValueError("No NetworkGenerator was given.")
-        self.network = self.network_generator()
+        self.network = NumbaList(calculate_neighbor_list(self.network_generator()))
 
     def change_rates(
         self,
@@ -133,13 +140,21 @@ class CNVMParameters:
 
 def _sanitize_network_input(
     num_agents: int | None,
-    network: nx.Graph | None,
+    network: nx.Graph | Iterable[NDArray] | None,
     network_generator: NetworkGenerator | None,
-) -> tuple[int, nx.Graph | None, NetworkGenerator | None]:
+) -> tuple[int, NumbaList | None, NetworkGenerator | None]:
     if network_generator is not None:
         return (network_generator.num_agents, None, network_generator)
     if network is not None:
-        return (network.number_of_nodes(), network, None)
+        if isinstance(network, nx.Graph):
+            return (
+                network.number_of_nodes(),
+                NumbaList(calculate_neighbor_list(network)),  # type: ignore
+                None,
+            )
+        else:
+            neighbor_list = NumbaList(network)
+            return (len(neighbor_list), neighbor_list, None)  # type: ignore
     if num_agents is not None:
         return (num_agents, None, None)
     raise ValueError(
@@ -262,7 +277,7 @@ def save_params_as_txt_file(filename: str, params: CNVMParameters):
         if params.network_generator is not None:
             f.write(f"network_generator = {params.network_generator}\n")
         elif params.network is not None:
-            f.write(f"network = {params.network}\n")
+            f.write(f"network = graph with {len(params.network)} nodes\n")
         else:
             f.write(f"network = fully connected\n")
 
