@@ -6,7 +6,7 @@ from sponet import CNVMParameters, sample_cle
 def main():
     r = [[0, 0.8, 0.2], [0.2, 0, 0.8], [0.8, 0.2, 0]]
     r_tilde = 0.01
-    num_agents = 100
+    num_agents = 1000
     num_samples = 3200
     delta_t = 0.001
     t_max = 50
@@ -27,5 +27,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # took 9.8 s
+    # took 5.6 s
     main()

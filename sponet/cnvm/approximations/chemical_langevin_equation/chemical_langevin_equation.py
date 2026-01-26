@@ -148,7 +148,11 @@ def _numba_euler_maruyama(
     x_store = np.zeros((t_eval.shape[0], dim))
     x_store[0] = initial_state
 
+    drift = np.zeros(dim)
+    diffusion = np.zeros((dim, dim**2 - dim))
+
     x = np.copy(initial_state)
+    x_new = np.copy(x)
     t = 0.0
     next_store_index = 1
     next_t_store = t_eval[next_store_index]
@@ -160,12 +164,12 @@ def _numba_euler_maruyama(
             this_delta_t = delta_t
             store = False
 
-        # NOTE: possible performance improvement:
-        # Maybe drift, diffusion, wiener_increments allocate at each step.
-        # Make sure that the new ones overwrite the old ones in place.
-        drift, diffusion = _drift_and_diffusion(x, r, r_tilde, num_agents)
+        _drift_and_diffusion(drift, diffusion, x, r, r_tilde, num_agents)
+        # NOTE: This allocates each step. The `rng.standard_normal` method supports
+        # overwriting an existing array, but according to the Numba manual it is not
+        # recommended to use Generator in parallel code.
         wiener_increments = np.random.normal(0, this_delta_t**0.5, dim_diffusion)
-        x_new = x + drift * delta_t + diffusion @ wiener_increments
+        x_new[:] = x + drift * delta_t + diffusion @ wiener_increments
 
         # Check if trajectory left boundary
         if (x_new <= 0).any():
@@ -201,23 +205,20 @@ def _numba_euler_maruyama(
 
 
 @njit()
-def _drift_and_diffusion(c, r, r_tilde, num_agents):
-    num_o = c.shape[0]
-    drift = np.zeros(num_o)
-    diffusion = np.zeros((num_o, num_o**2 - num_o))
+def _drift_and_diffusion(drift, diffusion, c, r, r_tilde, num_agents):
+    drift[:] = 0
+    diffusion[:] = 0
 
+    num_o = c.shape[0]
     i = 0
     for m in range(num_o):
         for n in range(num_o):
             if n == m:
                 continue
 
-            state_change = np.zeros(num_o)
-            state_change[m] = -1
-            state_change[n] = 1
             prop = c[m] * (r[m, n] * c[n] + r_tilde[m, n])
-            drift += prop * state_change
-            diffusion[:, i] = (prop / num_agents) ** 0.5 * state_change
+            drift[m] -= prop
+            drift[n] += prop
+            diffusion[m, i] -= (prop / num_agents) ** 0.5
+            diffusion[n, i] += (prop / num_agents) ** 0.5
             i += 1
-
-    return drift, diffusion
