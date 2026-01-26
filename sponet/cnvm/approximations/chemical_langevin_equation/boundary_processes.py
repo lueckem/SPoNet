@@ -5,7 +5,6 @@ from typing import TypeAlias
 from numba import njit
 from collections.abc import Callable
 
-
 BoundaryProcess: TypeAlias = Callable[
     [
         NDArray,  # t_eval

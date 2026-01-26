@@ -14,8 +14,7 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ### The SIS model and epidemic thresholds
 
     In this notebook we examine the *Susceptible-Infectious-Susceptible* (SIS) model of epidemiology.
@@ -32,8 +31,7 @@ def _(mo):
     However, for simplicity we will use the default $\alpha = 1$ in this notebook.
 
     Let us start by doing the necessary imports and defining the model.
-    """
-    )
+    """)
     return
 
 
@@ -79,15 +77,13 @@ def _(CNVM, CNVMParameters, OpinionShares, np, nx):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     The behavior of the SIS model heavily depends on the underlying network structure.
     We have chosen a random Erdös-Renyi graph in this example because it is well understood.
 
     Now we define the simulation parameters, let the model run, and plot the results.
     We start with 30% infectious nodes and plot the evolution of the share of infectious nodes.
-    """
-    )
+    """)
     return
 
 
@@ -115,13 +111,11 @@ def _(cv, model, plt, t_eval, t_max, x_init):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     The above plot shows that the disease dies out quickly. After a short time all the nodes have state (S).
     This is because the infection rate was rather small ($\lambda=0.5$).
     Let us investigate the dynamics for a larger infection rate of $\lambda=2$.
-    """
-    )
+    """)
     return
 
 
@@ -142,15 +136,13 @@ def _(cv, model, np, plt, t_eval, t_max, x_init):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     Now the disease did not die out. After a short transient phase, the percentage of infectious nodes stabilizes at around 50%.
 
     Let us conduct a statistical analysis of this behavior for different infection rates.
     In the following code block we perform many simulations of the SIS model.
     (If this takes too long on your machine, try reducing the number of samples by modifying the `num_runs` parameter.)
-    """
-    )
+    """)
     return
 
 
@@ -176,11 +168,9 @@ def _(cv, np, params, sample_many_runs, t_eval, t_max, x_init):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     We plot the average share of infectious nodes and the probability that the disease survived up to time $t=100$ (i.e., there is at least one infectious node present).
-    """
-    )
+    """)
     return
 
 
@@ -212,8 +202,7 @@ def _(c_results, infection_rates, np, plt):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     Apparently, the disease will likely die out if the infection rate is below 1, and will likely persist if the infection rate is above 1.
     This critical value is called the *epidemic threshold*.
 
@@ -224,8 +213,7 @@ def _(mo):
     (See the notebook `mean_field.ipynb` or the paper [[Lücke et al., 2022]](https://arxiv.org/abs/2210.02934) for further information about the RRE.)
 
     The plot below shows that this ODE is already reasonably accurate for our finite size network.
-    """
-    )
+    """)
     return
 
 
@@ -245,16 +233,14 @@ def _(c_results, calc_rre_traj, np, params, plt, t, t_max):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     The dynamics given by the RRE exhibits a so-called *transcritical bifurcation* as the parameter $\lambda$ crosses the critical value $\lambda_c = 1$:
     - For $\lambda < \lambda_c$ the equilibrium $c=0$ is stable and hence the disease always dies out.
     - For $\lambda > \lambda_c$ the equlibrium $c=0$ is unstable, but the equilibirum $c_\infty = (\lambda - 1)/\lambda$ is stable. Thus the disease will prevail and the share of infectious nodes converges to $c_\infty$.
 
     In this notebook we have examined the SIS model on a random network using the CNVM package.
     We have found that in this system an *epidemic threshold* occurs, i.e., there is a critical infection rate that separates the regimes of the disease dying out and surviving.
-    """
-    )
+    """)
     return
 
 

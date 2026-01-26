@@ -14,8 +14,7 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ### Mean-field limits
 
     This notebook discusses the behavior of the CNVM as we let the number of nodes $N$ increase.
@@ -29,8 +28,7 @@ def _(mo):
 
     We show how to investigate this phenomenon using the CNVM package.
     First we do the necessary imports.
-    """
-    )
+    """)
     return
 
 
@@ -56,11 +54,9 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     We will use the following example parameters.
-    """
-    )
+    """)
     return
 
 
@@ -79,16 +75,14 @@ def _(OpinionShares, np):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     Now we conduct a statistical analysis of the CNVM for Erdös-Rényi (ER) networks ($p=0.1$) of different sizes.
     We sample multiple realizations for networks of sizes $N=200,1000,5000$ using the `sample_many_runs` function.
     The initial state is picked such that 40\% of nodes have state 0, 20\% state 1, and 40\% state 2.
     Moreover, we use a `NetworkGenerator` object to generate a new ER network for each sample.
 
     (If the following code block takes long on your machine, try reducing the `num_samples`.)
-    """
-    )
+    """)
     return
 
 
@@ -128,11 +122,9 @@ def _(
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     The CNVM package offers the function `calc_rre_traj` that calculates the solution of the mean-field ODE for us.
-    """
-    )
+    """)
     return
 
 
@@ -145,12 +137,10 @@ def _(calc_rre_traj, np, params, t, t_max):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     Finally, we compare the results from our simulations to the solution of the RRE.
     As the theory suggests, a larger number of nodes yields a closer match between the average simulation and the RRE.
-    """
-    )
+    """)
     return
 
 
