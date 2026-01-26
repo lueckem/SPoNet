@@ -1,6 +1,10 @@
+from typing import Iterable
+
 import networkx as nx
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+
+from sponet.utils import calculate_neighbor_list
 
 from ..network_generator import NetworkGenerator
 
@@ -16,6 +20,9 @@ class CNVMParameters:
     Either a network has to specified, or a NetworkGenerator,
     or num_agents, in which case a complete network is used.
     If multiple are given, NetworkGenerator overrules network, and network overrules num_agents.
+    A network can either be given as a `nx.Graph` or as an adjacency list,
+    where the i-th element is the list of neighbors of node i.
+    (The most efficient way to give a network is via an adjacency list of type list[NDArray].)
 
     The rate parameters r and r_tilde can be given as arrays of shape (num_opinions, num_opinions),
     or as floats, in which case all rates are set to this value.
@@ -30,7 +37,7 @@ class CNVMParameters:
         self,
         num_opinions: int | None = None,
         num_agents: int | None = None,
-        network: nx.Graph | None = None,
+        network: nx.Graph | Iterable | None = None,
         network_generator: NetworkGenerator | None = None,
         alpha: float = 1.0,
         # rate parameters in style 1
@@ -72,13 +79,15 @@ class CNVMParameters:
         nx.Graph
         """
         if self.network is not None:
-            return self.network
+            return nx.from_dict_of_lists(
+                {i: nbrs for i, nbrs in enumerate(self.network)}
+            )
         elif self.network_generator is not None:
             return self.network_generator()
         else:
             return nx.complete_graph(self.num_agents)
 
-    def set_network(self, network: nx.Graph) -> None:
+    def set_network(self, network: nx.Graph | Iterable | None) -> None:
         """
         Set new network.
 
@@ -86,12 +95,15 @@ class CNVMParameters:
 
         Parameters
         ----------
-        network : nx.Graph
+        network : nx.Graph | Iterable | None
+            Graph, or adjacency list, or None (=complete graph).
         """
         if self.network_generator is not None:
             raise ValueError("Cannot set network when there is a NetworkGenerator.")
-        self.network = network
-        self.num_agents = len(network.nodes)
+
+        self.num_agents, self.network, _ = _sanitize_network_input(
+            self.num_agents, network, None
+        )
 
     def update_network_by_generator(self) -> None:
         """
@@ -101,7 +113,7 @@ class CNVMParameters:
         """
         if self.network_generator is None:
             raise ValueError("No NetworkGenerator was given.")
-        self.network = self.network_generator()
+        self.network = calculate_neighbor_list(self.network_generator())
 
     def change_rates(
         self,
@@ -133,13 +145,24 @@ class CNVMParameters:
 
 def _sanitize_network_input(
     num_agents: int | None,
-    network: nx.Graph | None,
+    network: nx.Graph | Iterable | None,
     network_generator: NetworkGenerator | None,
-) -> tuple[int, nx.Graph | None, NetworkGenerator | None]:
+) -> tuple[int, list[NDArray] | None, NetworkGenerator | None]:
     if network_generator is not None:
         return (network_generator.num_agents, None, network_generator)
     if network is not None:
-        return (network.number_of_nodes(), network, None)
+        if isinstance(network, nx.Graph):
+            return (
+                network.number_of_nodes(),
+                calculate_neighbor_list(network),
+                None,
+            )
+        else:
+            if isinstance(network, list) and isinstance(network[0], np.ndarray):
+                neighbor_list = network
+            else:
+                neighbor_list = [np.array(nbrs, dtype=np.int32) for nbrs in network]
+            return (len(neighbor_list), neighbor_list, None)
     if num_agents is not None:
         return (num_agents, None, None)
     raise ValueError(
@@ -262,7 +285,7 @@ def save_params_as_txt_file(filename: str, params: CNVMParameters):
         if params.network_generator is not None:
             f.write(f"network_generator = {params.network_generator}\n")
         elif params.network is not None:
-            f.write(f"network = {params.network}\n")
+            f.write(f"network = graph with {len(params.network)} nodes\n")
         else:
             f.write(f"network = fully connected\n")
 

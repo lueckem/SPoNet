@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+import networkx as nx
 import numpy as np
 from numpy.random import default_rng
 
@@ -12,12 +13,13 @@ class TestSampleManyRuns(TestCase):
     def setUp(self):
         self.num_opinions = 3
         self.num_agents = 100
+        self.network = nx.cycle_graph(self.num_agents)
         self.r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
         self.r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
 
         self.params = CNVMParameters(
             num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
+            network=self.network,
             r=self.r,
             r_tilde=self.r_tilde,
         )

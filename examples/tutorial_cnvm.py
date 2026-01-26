@@ -14,8 +14,7 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     ## Continuous-time Noisy Voter Model (CNVM)
 
     This package provides an efficient implementation of the CNVM, which is a dynamical system on a network of $N$ nodes (agents).
@@ -34,8 +33,7 @@ def _(mo):
     The model is simulated using a Gillespie-like algorithm that generates statistically correct samples.
 
     Let us conduct an example simulation of the CNVM. We begin by doing the necessary imports:
-    """
-    )
+    """)
     return
 
 
@@ -50,11 +48,9 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     In this example, we will have $N=100$ agents and $M=3$ different opinions. The rates $r_{m,n}$ and $\tilde{r}_{m,n}$ have to be specified for each pair $m\neq n$ and are thus defined as $M \times M$ arrays.
-    """
-    )
+    """)
     return
 
 
@@ -70,12 +66,10 @@ def _(np):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     Now we specify the network structure using the `networkx` package. In this example, we sample a random graph using the Erdös-Renyi model.
     It should be noted that graphs with isolated vertices are not allowed in the CNVM model.
-    """
-    )
+    """)
     return
 
 
@@ -89,14 +83,12 @@ def _(num_agents, nx, plt):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     We summarize the model parameters in the class `CNVMParameters`.
 
     Providing `num_opinions` and the rates `r` and `r_tilde` is required to create an instance of `CNVMParameters`. Moreover, it is required to either specify a `network` (which we do), or a `network_generator` (from `cnvm.network_generators`), or `num_agents` (in which case a complete network is used).
     The parameter `alpha` is optional with default value 1.
-    """
-    )
+    """)
     return
 
 
@@ -112,11 +104,9 @@ def _(network, num_opinions, r, r_tilde):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     Now we construct the model using the `CNVM` class and the parameters that we have defined before. We execute the simulation by calling the method `CNVM.simulate`. Note that the first call of `CNVM.simulate` takes longer than subsequent calls because the simulation code is just-in-time compiled using `numba`.
-    """
-    )
+    """)
     return
 
 
@@ -145,11 +135,9 @@ def _(CNVM, np, num_agents, params):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     In order to visualize the results of the simulation, we calculate an aggregate state called the *opinion shares*. The opinion shares are simply the numbers of agents of each discrete opinion. For example, in our initial state we had 20 agents with opinion 0, 50 with opinion 1, and 30 with opinion 2.
-    """
-    )
+    """)
     return
 
 
@@ -177,11 +165,9 @@ def _(c, plt, t):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     It is often required to perform many simulations for many initial states to approximate important statistics. We provide the utility function `sample_many_runs` for that purpose:
-    """
-    )
+    """)
     return
 
 
@@ -205,13 +191,11 @@ def _(opinion_shares, params, t_max, x_init):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
+    mo.md(r"""
     The output c has the shape (# samples, # timesteps, # opinions). Multiprocessing is enabled via n_jobs=-1 and disabled via n_jobs=None.
 
     We plot the ensemble average:
-    """
-    )
+    """)
     return
 
 
