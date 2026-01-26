@@ -149,7 +149,8 @@ def _numba_euler_maruyama(
     x_store[0] = initial_state
 
     drift = np.zeros(dim)
-    diffusion = np.zeros((dim, dim**2 - dim))
+    diffusion = np.zeros((dim, dim_diffusion))
+    wiener_increments = np.zeros(dim_diffusion)
 
     x = np.copy(initial_state)
     x_new = np.copy(x)
@@ -165,10 +166,7 @@ def _numba_euler_maruyama(
             store = False
 
         _drift_and_diffusion(drift, diffusion, x, r, r_tilde, num_agents)
-        # NOTE: This allocates each step. The `rng.standard_normal` method supports
-        # overwriting an existing array, but according to the Numba manual it is not
-        # recommended to use Generator in parallel code.
-        wiener_increments = np.random.normal(0, this_delta_t**0.5, dim_diffusion)
+        _sample_wiener_incr(wiener_increments, this_delta_t)
         x_new[:] = x + drift * delta_t + diffusion @ wiener_increments
 
         # Check if trajectory left boundary
@@ -204,7 +202,7 @@ def _numba_euler_maruyama(
     return x_store
 
 
-@njit()
+@njit(inline="always")
 def _drift_and_diffusion(drift, diffusion, c, r, r_tilde, num_agents):
     drift[:] = 0
     diffusion[:] = 0
@@ -222,3 +220,10 @@ def _drift_and_diffusion(drift, diffusion, c, r, r_tilde, num_agents):
             diffusion[m, i] -= (prop / num_agents) ** 0.5
             diffusion[n, i] += (prop / num_agents) ** 0.5
             i += 1
+
+
+@njit(inline="always")
+def _sample_wiener_incr(wiener_increments, delta_t):
+    std = np.sqrt(delta_t)
+    for i in range(wiener_increments.shape[0]):
+        wiener_increments[i] = np.random.normal(0, std)

@@ -27,5 +27,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # took 5.6 s
+    # took 5.0 s
     main()
