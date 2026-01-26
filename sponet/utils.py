@@ -88,7 +88,9 @@ def calculate_neighbor_list(network: nx.Graph) -> list[NDArray]:
     -------
     list[NDArray]
     """
-    return [np.array(list(network.neighbors(i)), dtype=int) for i in network.nodes()]
+    return [
+        np.array(list(network.neighbors(i)), dtype=np.int32) for i in network.nodes()
+    ]
 
 
 @njit(cache=True)
