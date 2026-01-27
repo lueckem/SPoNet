@@ -167,7 +167,7 @@ def _numba_euler_maruyama(
 
         _drift_and_diffusion(drift, diffusion, x, r, r_tilde, num_agents)
         _sample_wiener_incr(wiener_increments, this_delta_t)
-        x_new[:] = x + drift * delta_t + diffusion @ wiener_increments
+        x_new[:] = x + drift * this_delta_t + diffusion @ wiener_increments
 
         # Check if trajectory left boundary
         if (x_new <= 0).any():
@@ -187,6 +187,9 @@ def _numba_euler_maruyama(
             # In both cases a new euler-maruyama step has to be computed before storing any value.
             if changed_time:
                 store = False
+                if next_store_index >= t_eval.shape[0]:
+                    break
+                next_t_store = t_eval[next_store_index]
         else:
             t += this_delta_t
 
