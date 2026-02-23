@@ -10,6 +10,8 @@ from sponet.cnvm.parameters import CNVMParameters
 from sponet.utils import t_eval_to_ndarray
 
 
+# TODO: seed rng
+# (make sure that the is also used in the boundary process)
 def sample_cle(
     params: CNVMParameters,
     initial_states: ArrayLike,

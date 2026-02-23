@@ -7,6 +7,7 @@ from sponet.utils import t_eval_to_ndarray
 from ..parameters import CNVMParameters
 
 
+# TODO: seed rng
 def sample_stochastic_approximation(
     params: CNVMParameters,
     initial_states: ArrayLike,

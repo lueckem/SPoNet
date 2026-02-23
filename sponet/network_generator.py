@@ -419,6 +419,7 @@ class BianconiBarabasiGenerator:
         return f"bianconi_barabasi_m{self.m}_N{self.num_agents}"
 
 
+# TODO: use rng
 def _unisolate_vertices(network: nx.Graph) -> None:
     """
     Make isolated vertices un-isolated by adding one edge to a random node.
