@@ -12,7 +12,7 @@ Available models:
 
 
 ## Installation
-The package requires Python 3.10, 3.11, 3.12, or 3.13.
+The package requires a Python version between 3.10 and 3.14.
 Install from the PyPI repository:
 ```
 pip install sponet
