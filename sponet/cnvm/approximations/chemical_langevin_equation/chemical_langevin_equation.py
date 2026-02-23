@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit, prange
+from numpy.random import Generator
 from numpy.typing import ArrayLike, NDArray
 
 from sponet.cnvm.approximations.chemical_langevin_equation.boundary_processes import (
@@ -20,6 +21,8 @@ def sample_cle(
     delta_t: float | None = None,
     t_eval: ArrayLike | None = None,
     boundary_process: str = "clipping",
+    rng: Generator | None = None,
+    seed: int | None = None,
 ) -> tuple[NDArray, NDArray]:
     """
     Sample Chemical Langevin Equation (CLE) approximation for the CNVM.
@@ -40,10 +43,13 @@ def sample_cle(
     t_eval : ArrayLike, optional
         Array of time points where the solution should be saved,
         or number "n" in which case the solution is stored equidistantly at "n" time points.
-    boundary_process : str
+    boundary_process : str, optional
         Kind of process used to deal with the approximation leaving the simplex boundary.
         Possible values: "clipping", "jump", "normal-reflection"
         Defaults to "clipping".
+    rng : Generator, optional
+    seed : int, optional
+        If both `rng` and `seed` are given, `rng` takes precedence.
 
     Returns
     -------
@@ -53,6 +59,11 @@ def sample_cle(
         c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
         (If saving_offset > 1, the number of time steps will be smaller.)
     """
+    if rng is not None:
+        _numba_seed(rng.integers(1, 2**24))
+    elif seed is not None:
+        _numba_seed(seed)
+
     delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
 
     initial_states = np.array(initial_states, ndmin=1)
@@ -232,3 +243,8 @@ def _sample_wiener_incr(wiener_increments, delta_t):
     std = np.sqrt(delta_t)
     for i in range(wiener_increments.shape[0]):
         wiener_increments[i] = np.random.normal(0, std)
+
+
+@njit
+def _numba_seed(a):
+    np.random.seed(a)
