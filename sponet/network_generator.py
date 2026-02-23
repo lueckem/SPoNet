@@ -66,7 +66,7 @@ class ErdosRenyiGenerator:
                 return network
 
             if self.force_no_isolates:
-                _unisolate_vertices(network)
+                _unisolate_vertices(network, self.rng)
                 return network
 
             if time.time() - start > self.max_sample_time:
@@ -419,17 +419,12 @@ class BianconiBarabasiGenerator:
         return f"bianconi_barabasi_m{self.m}_N{self.num_agents}"
 
 
-# TODO: use rng
-def _unisolate_vertices(network: nx.Graph) -> None:
+def _unisolate_vertices(network: nx.Graph, rng: Generator) -> None:
     """
     Make isolated vertices un-isolated by adding one edge to a random node.
-
-    Parameters
-    ----------
-    network : nx.Graph
     """
     for i in nx.isolates(network):
         while (j := i) == i:
-            j = np.random.randint(0, network.number_of_nodes())
+            j = rng.integers(0, network.number_of_nodes())
 
         network.add_edge(i, j)
