@@ -60,17 +60,35 @@ def test_t_eval_delta_t(params, delta_t, t_eval, expected_t):
 
 def test_seed(params):
     initial_state = [0.1, 0.7, 0.2]
-    _, c1 = sample_cle(params, initial_state, 100, 25, 0.1, 101, seed=1234)
-    _, c2 = sample_cle(params, initial_state, 100, 25, 0.1, 101, seed=1234)
+    _, c1 = sample_cle(
+        params, initial_state, 100, 250, 0.1, 101, boundary_process="jump", seed=1234
+    )
+    _, c2 = sample_cle(
+        params, initial_state, 100, 250, 0.1, 101, boundary_process="jump", seed=1234
+    )
     assert np.all(c1 == c2)
 
 
 def test_rng(params):
     initial_state = [0.1, 0.7, 0.2]
     _, c1 = sample_cle(
-        params, initial_state, 100, 25, 0.1, 101, rng=np.random.default_rng(1234)
+        params,
+        initial_state,
+        100,
+        250,
+        0.1,
+        101,
+        boundary_process="jump",
+        rng=np.random.default_rng(1234),
     )
     _, c2 = sample_cle(
-        params, initial_state, 100, 25, 0.1, 101, rng=np.random.default_rng(1234)
+        params,
+        initial_state,
+        100,
+        250,
+        0.1,
+        101,
+        boundary_process="jump",
+        rng=np.random.default_rng(1234),
     )
     assert np.all(c1 == c2)
