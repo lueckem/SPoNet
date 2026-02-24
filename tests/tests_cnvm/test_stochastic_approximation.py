@@ -54,3 +54,35 @@ def test_t_eval_deta_t(params, t_eval, expected_t):
     assert np.allclose(t, expected_t)
     assert c.shape[1] == t.shape[0]
     assert np.allclose(c[:, 0, :], initial_state)
+
+
+def test_seed(params):
+    initial_state = [0.1, 0.7, 0.2]
+    _, c1 = sample_stochastic_approximation(
+        params, initial_state, 100, 250, 101, seed=1234
+    )
+    _, c2 = sample_stochastic_approximation(
+        params, initial_state, 100, 250, 101, seed=1234
+    )
+    assert np.all(c1 == c2)
+
+
+def test_rng(params):
+    initial_state = [0.1, 0.7, 0.2]
+    _, c1 = sample_stochastic_approximation(
+        params,
+        initial_state,
+        100,
+        250,
+        101,
+        rng=np.random.default_rng(1234),
+    )
+    _, c2 = sample_stochastic_approximation(
+        params,
+        initial_state,
+        100,
+        250,
+        101,
+        rng=np.random.default_rng(1234),
+    )
+    assert np.all(c1 == c2)

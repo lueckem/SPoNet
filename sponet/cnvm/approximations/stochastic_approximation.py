@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit, prange
+from numpy.random import Generator, default_rng
 from numpy.typing import ArrayLike, NDArray
 
 from sponet.utils import t_eval_to_ndarray
@@ -13,6 +14,8 @@ def sample_stochastic_approximation(
     t_max: float,
     num_samples: int,
     t_eval: ArrayLike,
+    rng: Generator | None = None,
+    seed: int | None = None,
 ) -> tuple[NDArray, NDArray]:
     """
     Simulate the opinion shares directly.
@@ -34,6 +37,10 @@ def sample_stochastic_approximation(
     t_eval : ArrayLike
         Array of time points where the solution should be saved,
         or number "n" in which case the solution is stored equidistantly at "n" time points.
+    rng : Generator, optional
+        Random number generator.
+    seed : int, optional
+        Seed for random numbers. If both `rng` and `seed` are given, `rng` takes precedence.
 
     Returns
     -------
@@ -42,6 +49,11 @@ def sample_stochastic_approximation(
         t.shape=(num_timesteps),
         c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
     """
+    if rng is not None:
+        seed = int(rng.integers(1, 2**24))
+    elif seed is None:
+        seed = int(default_rng().integers(1, 2**24))
+
     t_eval = t_eval_to_ndarray(t_eval, t_max)
 
     initial_states = np.array(initial_states, ndmin=1)
@@ -53,6 +65,7 @@ def sample_stochastic_approximation(
             params.r_tilde,
             t_eval,
             num_samples,
+            seed,
         )
         return t_eval, c
 
@@ -74,6 +87,7 @@ def sample_stochastic_approximation(
             params.r_tilde,
             t_eval,
             num_samples,
+            seed,
         )
     return t_eval, c
 
@@ -86,10 +100,12 @@ def _sample_many(
     r_tilde: NDArray,
     t_eval: NDArray,
     num_samples: int,
+    seed: int,
 ) -> NDArray:
     c_out = np.zeros((num_samples, t_eval.shape[0], initial_state.shape[0]))
 
     for i in prange(num_samples):
+        np.random.seed(seed + 1)
         c = _simulate(
             initial_state,
             t_eval,

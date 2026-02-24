@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit, prange
+from numpy.random import Generator, default_rng
 from numpy.typing import ArrayLike, NDArray
 
 from sponet.cnvm.approximations.chemical_langevin_equation.boundary_processes import (
@@ -18,6 +19,8 @@ def sample_cle(
     delta_t: float | None = None,
     t_eval: ArrayLike | None = None,
     boundary_process: str = "clipping",
+    rng: Generator | None = None,
+    seed: int | None = None,
 ) -> tuple[NDArray, NDArray]:
     """
     Sample Chemical Langevin Equation (CLE) approximation for the CNVM.
@@ -38,10 +41,14 @@ def sample_cle(
     t_eval : ArrayLike, optional
         Array of time points where the solution should be saved,
         or number "n" in which case the solution is stored equidistantly at "n" time points.
-    boundary_process : str
+    boundary_process : str, optional
         Kind of process used to deal with the approximation leaving the simplex boundary.
         Possible values: "clipping", "jump", "normal-reflection"
         Defaults to "clipping".
+    rng : Generator, optional
+        Random number generator.
+    seed : int, optional
+        Seed for random numbers. If both `rng` and `seed` are given, `rng` takes precedence.
 
     Returns
     -------
@@ -51,6 +58,11 @@ def sample_cle(
         c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
         (If saving_offset > 1, the number of time steps will be smaller.)
     """
+    if rng is not None:
+        seed = int(rng.integers(1, 2**24))
+    elif seed is None:
+        seed = int(default_rng().integers(1, 2**24))
+
     delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
 
     initial_states = np.array(initial_states, ndmin=1)
@@ -81,6 +93,7 @@ def sample_cle(
             params.r_tilde,
             num_samples,
             boundary_process,
+            seed,
         )
 
     if is_1d:
@@ -120,11 +133,13 @@ def _numba_sample_cle(
     r_tilde: NDArray,
     num_samples: int,
     boundary_process: BoundaryProcess,
+    seed: int,
 ) -> tuple[NDArray, NDArray]:
     dim = initial_state.shape[0]
     x_out = np.zeros((num_samples, t_eval.shape[0], dim))
 
     for i in prange(num_samples):
+        np.random.seed(seed + 1)
         x_out[i] = _numba_euler_maruyama(
             initial_state, delta_t, t_eval, num_agents, r, r_tilde, boundary_process
         )
