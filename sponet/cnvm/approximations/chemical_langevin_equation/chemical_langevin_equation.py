@@ -139,7 +139,7 @@ def _numba_sample_cle(
     x_out = np.zeros((num_samples, t_eval.shape[0], dim))
 
     for i in prange(num_samples):
-        _numba_seed(seed + 1)
+        np.random.seed(seed + 1)
         x_out[i] = _numba_euler_maruyama(
             initial_state, delta_t, t_eval, num_agents, r, r_tilde, boundary_process
         )
@@ -245,8 +245,3 @@ def _sample_wiener_incr(wiener_increments, delta_t):
     std = np.sqrt(delta_t)
     for i in range(wiener_increments.shape[0]):
         wiener_increments[i] = np.random.normal(0, std)
-
-
-@njit
-def _numba_seed(a):
-    np.random.seed(a)
