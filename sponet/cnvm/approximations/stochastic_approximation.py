@@ -132,8 +132,7 @@ def _simulate(
     c_store[0] = c
     props = np.zeros((num_opinions, num_opinions))
 
-    i = 1
-    t_store = t_eval[i]
+    t_store_idx = 1
     while t < t_max:
         _update_propensities(props, r, r_tilde, c, num_agents)
 
@@ -146,13 +145,15 @@ def _simulate(
         c[m] -= 1 / num_agents
         c[n] += 1 / num_agents
 
-        # TODO: Match previous t as well? Similar to cnvm model loop
-        if t >= t_store:
-            c_store[i] = c
-            i += 1
-            t_store = t_eval[i]
+        if t >= t_eval[t_store_idx]:
+            c_store[t_store_idx] = c
+            t_store_idx += 1
 
-    # TODO: c_store may not be filled completely, see cnvm model loop
+    if t_store_idx < t_eval.shape[0]:
+        # `c_store` is not filled completely.
+        # Simply duplicate the last value.
+        # This could be done better, see CNVM.
+        c_store[t_store_idx:] = c_store[t_store_idx - 1]
     return c_store
 
 
