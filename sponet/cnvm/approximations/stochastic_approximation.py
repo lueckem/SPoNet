@@ -57,17 +57,9 @@ def sample_stochastic_approximation(
     t_eval = t_eval_to_ndarray(t_eval, t_max)
 
     initial_states = np.array(initial_states, ndmin=1)
-    if initial_states.ndim == 1:
-        c = _sample_many(
-            initial_states,
-            params.num_agents,
-            params.r,
-            params.r_tilde,
-            t_eval,
-            num_samples,
-            seed,
-        )
-        return t_eval, c
+    is_1d = initial_states.ndim == 1
+    if is_1d:
+        initial_states = np.expand_dims(initial_states, 0)
 
     num_states = initial_states.shape[0]
     num_timesteps = t_eval.shape[0]
@@ -79,6 +71,7 @@ def sample_stochastic_approximation(
             initial_states.shape[1],
         )
     )
+
     for i in range(num_states):
         c[i] = _sample_many(
             initial_states[i],
@@ -89,6 +82,9 @@ def sample_stochastic_approximation(
             num_samples,
             seed,
         )
+
+    if is_1d:
+        c = c[0]
     return t_eval, c
 
 
@@ -136,8 +132,7 @@ def _simulate(
     c_store[0] = c
     props = np.zeros((num_opinions, num_opinions))
 
-    i = 1
-    t_store = t_eval[i]
+    t_store_idx = 1
     while t < t_max:
         _update_propensities(props, r, r_tilde, c, num_agents)
 
@@ -150,13 +145,15 @@ def _simulate(
         c[m] -= 1 / num_agents
         c[n] += 1 / num_agents
 
-        # TODO: Match previous t as well? Similar to cnvm model loop
-        if t >= t_store:
-            c_store[i] = c
-            i += 1
-            t_store = t_eval[i]
+        if t >= t_eval[t_store_idx]:
+            c_store[t_store_idx] = c
+            t_store_idx += 1
 
-    # TODO: c_store may not be filled completely, see cnvm model loop
+    if t_store_idx < t_eval.shape[0]:
+        # `c_store` is not filled completely.
+        # Simply duplicate the last value.
+        # This could be done better, see CNVM.
+        c_store[t_store_idx:] = c_store[t_store_idx - 1]
     return c_store
 
 
