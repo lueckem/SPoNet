@@ -96,7 +96,7 @@ class CNTM:
             )
 
         t_traj = np.array(t_traj)
-        x_traj = np.array(x_traj, dtype=int)
+        x_traj = np.array(x_traj)
 
         if t_eval is not None and t_traj.shape[0] != t_eval.shape[0]:
             # there might be less samples than len(t_eval)

@@ -38,6 +38,7 @@ def test_simulate_basic(params, x_init, rng):
     assert ((x == 0) | (x == 1)).all()
     assert x.shape[1] == 100
     assert t.shape[0] == x.shape[0]
+    assert x.dtype == np.uint8
 
 
 def test_simulate_linspace(params, x_init, rng):
@@ -50,6 +51,7 @@ def test_simulate_linspace(params, x_init, rng):
     assert (x[0] == x_init).all()
     assert ((x == 0) | (x == 1)).all()
     assert x.shape == (11, 100)
+    assert x.dtype == np.uint8
 
 
 def test_simulate_teval(params, x_init, rng):
@@ -62,6 +64,7 @@ def test_simulate_teval(params, x_init, rng):
     assert (x[0] == x_init).all()
     assert ((x == 0) | (x == 1)).all()
     assert x.shape == (4, 100)
+    assert x.dtype == np.uint8
 
 
 def test_rng(params):
