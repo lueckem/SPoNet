@@ -96,14 +96,13 @@ class CNVM:
             self.update_network()
 
         opinion_dtype = np.min_scalar_type(self.params.num_opinions - 1)
-
         if x_init is None:
-            x_init = rng.choice(
-                np.arange(self.params.num_opinions), size=self.params.num_agents
+            x = rng.choice(
+                np.arange(self.params.num_opinions, dtype=opinion_dtype),
+                size=self.params.num_agents,
             )
         else:
-            x_init = np.array(x_init)
-        x = x_init.astype(opinion_dtype)
+            x = np.array(x_init, dtype=opinion_dtype)
 
         if t_eval is not None:
             t_eval = t_eval_to_ndarray(t_eval, t_max)
