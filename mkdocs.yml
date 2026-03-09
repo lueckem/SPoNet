@@ -20,8 +20,9 @@ plugins:
 nav:
   - Home: index.md
   - Reference:
-    - Collective Variables: collective_variables.md
+    - CNVM: cnvm.md
     - Network Generators: network_generators.md
+    - Collective Variables: collective_variables.md
 
 markdown_extensions:
   - pymdownx.arithmatex:
