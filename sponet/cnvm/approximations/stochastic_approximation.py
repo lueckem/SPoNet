@@ -101,7 +101,7 @@ def _sample_many(
     c_out = np.zeros((num_samples, t_eval.shape[0], initial_state.shape[0]))
 
     for i in prange(num_samples):
-        np.random.seed(seed + 1)
+        np.random.seed(seed + i)
         c = _simulate(
             initial_state,
             t_eval,
