@@ -12,3 +12,4 @@ plugins:
 nav:
   - Home: index.md
   - Collective Variables: collective_variables.md
+  - API: api.md
