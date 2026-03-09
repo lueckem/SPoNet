@@ -4,8 +4,7 @@
 x = 2
 ```
 
-TODO: Fix latex
-$x = \pi$
+This is $x = \pi$ an equation.
 
 ## Installation
 

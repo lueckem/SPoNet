@@ -21,3 +21,11 @@ nav:
   - Home: index.md
   - Collective Variables: collective_variables.md
   - Network Generators: network_generators.md
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
