@@ -7,7 +7,14 @@ theme:
   user_color_mode_toggle: true
 
 plugins:
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [sponet]
+          options:
+            docstring_style: numpy
+            merge_init_into_class: true
+            docstring_section_style: list
 
 nav:
   - Home: index.md
