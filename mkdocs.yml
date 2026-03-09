@@ -7,6 +7,7 @@ theme:
   user_color_mode_toggle: true
 
 plugins:
+  - search
   - mkdocstrings:
       handlers:
         python:
