@@ -19,3 +19,4 @@ plugins:
 nav:
   - Home: index.md
   - Collective Variables: collective_variables.md
+  - Network Generators: network_generators.md
