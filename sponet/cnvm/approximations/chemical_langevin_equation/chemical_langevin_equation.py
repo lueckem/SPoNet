@@ -139,7 +139,7 @@ def _numba_sample_cle(
     x_out = np.zeros((num_samples, t_eval.shape[0], dim))
 
     for i in prange(num_samples):
-        np.random.seed(seed + 1)
+        np.random.seed(seed + i)
         x_out[i] = _numba_euler_maruyama(
             initial_state, delta_t, t_eval, num_agents, r, r_tilde, boundary_process
         )
