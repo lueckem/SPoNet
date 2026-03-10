@@ -17,6 +17,6 @@ pip install git+https://github.com/lueckem/SPoNet
 
 ## Available models
 
-- continuous-time noisy voter model (CNVM)
-- continuous-time noisy threshold model (CNTM)
+- [continuous-time noisy voter model (CNVM)](models/cnvm.md)
+- [continuous-time noisy threshold model (CNTM)](model/cntm.md)
 

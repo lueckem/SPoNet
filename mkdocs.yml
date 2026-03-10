@@ -20,6 +20,9 @@ plugins:
 
 nav:
   - Home: index.md
+  - Models:
+    - models/cnvm.md
+    - models/cntm.md
   - Reference:
     - CNVM: reference/cnvm.md
     - CNTM: reference/cntm.md
