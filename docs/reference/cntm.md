@@ -1,6 +1,6 @@
 # Continuous-time threshold model (CNTM)
 
-TODO: Description.
+Detailed information about the CNTM can be found [here](../models/cntm.md).
 
 ::: sponet.cntm
     options:

@@ -1,6 +1,6 @@
 # Continuous-time noisy voter model (CNVM)
 
-TODO: Description.
+Detailed information about the CNVM can be found [here](../models/cnvm.md).
 
 ::: sponet.cnvm
     options:
