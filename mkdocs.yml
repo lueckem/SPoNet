@@ -22,6 +22,7 @@ nav:
   - Home: index.md
   - Reference:
     - CNVM: cnvm.md
+    - CNTM: cntm.md
     - Network Generators: network_generators.md
     - Collective Variables: collective_variables.md
     - Sampling States: states.md
