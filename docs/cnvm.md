@@ -10,7 +10,7 @@ TODO: Description.
             - CNVMParameters
             - CNVM
 
-## Approximations
+## CNVM Approximations
 
 ::: sponet.cnvm.approximations
     options:
