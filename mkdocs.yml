@@ -21,12 +21,12 @@ plugins:
 nav:
   - Home: index.md
   - Reference:
-    - CNVM: cnvm.md
-    - CNTM: cntm.md
-    - Network Generators: network_generators.md
-    - Collective Variables: collective_variables.md
-    - Sampling States: states.md
-    - Multiprocessing: multiprocessing.md
+    - CNVM: reference/cnvm.md
+    - CNTM: reference/cntm.md
+    - Network Generators: reference/network_generators.md
+    - Collective Variables: reference/collective_variables.md
+    - Sampling States: reference/states.md
+    - Multiprocessing: reference/multiprocessing.md
 
 markdown_extensions:
   - pymdownx.arithmatex:
