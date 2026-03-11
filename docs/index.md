@@ -17,14 +17,14 @@ pip install git+https://github.com/lueckem/SPoNet
 
 ## Available models
 
-- [continuous-time noisy voter model (CNVM)](models/cnvm.md)
-- [continuous-time noisy threshold model (CNTM)](models/cntm.md)
+- [Continuous-time noisy voter model (CNVM)](models/cnvm.md)
+- [Continuous-time noisy threshold model (CNTM)](models/cntm.md)
 
 ## Reference
 
 - [CNVM](reference/cnvm.md)
 - [CNTM](reference/cntm.md)
-- [Network Generators](reference/network_generators.md): generate (random) networks
-- [Collective Variables](reference/collective_variables.md): aggregate state information
-- [Sampling States](reference/states.md): sample system states (e.g., as initial states for simulations)
+- [Network generators](reference/network_generators.md): generate (random) networks
+- [Collective variables](reference/collective_variables.md): aggregate state information
+- [Sampling states](reference/states.md): sample system states (e.g., as initial states for simulations)
 - [Multiprocessing](reference/multiprocessing.md): run many simulations in parallel
