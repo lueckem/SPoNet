@@ -62,7 +62,7 @@ def sample_states_uniform(
         Default: 1.
     rng : Generator, optional
         Random number generator.
-    unique: bool, optional
+    unique : bool, optional
         Whether states should be unique. Default: True.
 
     Returns
@@ -96,16 +96,16 @@ def sample_states_uniform_shares(
     num_agents : int
     num_opinions : int
     num_states : int, optional
-       Default: 1.
+        Default: 1.
     rng : Generator, optional
-       Random number generator.
-    unique: bool, optional
-       Whether states should be unique. Default: True.
+        Random number generator.
+    unique : bool, optional
+        Whether states should be unique. Default: True.
 
     Returns
     -------
     NDArray
-       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
+        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
     alpha = np.ones(num_opinions)
     opinion_indices = np.arange(num_opinions)
@@ -138,19 +138,19 @@ def sample_states_target_shares(
     Parameters
     ----------
     num_agents : int
-    target_share : ArrayLike
+    target_shares : ArrayLike
         shape = (num_opinions,)
     num_states : int, optional
-       Default: 1.
+        Default: 1.
     rng : Generator, optional
         Random number Generator.
-    unique: bool, optional
-       Whether states should be unique. Default: True.
+    unique : bool, optional
+        Whether states should be unique. Default: True.
 
     Returns
     -------
     NDArray
-       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
+        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
     target_counts = counts_from_shares(target_shares, num_agents)
     num_opinions = target_counts.shape[0]
@@ -190,13 +190,13 @@ def sample_states_local_clusters(
     min_num_seeds : int, optional
     rng : Generator, optional
         random number generator
-    unique: bool, optional
-       Whether states should be unique. Default: True.
+    unique : bool, optional
+        Whether states should be unique. Default: True.
 
     Returns
     -------
     NDArray
-       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
+        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
     num_agents = network.number_of_nodes()
     alpha = np.ones(num_opinions)
@@ -349,20 +349,20 @@ def sample_states_target_cvs(
     target_cv_value : ArrayLike
         Shape = (cv_dim,).
     num_states : int, optional
-       Default: 1.
+        Default: 1.
     rtol : float, optional
         Relative tolerance.
     rng : Generator, optional
         Random number generator.
     max_sample_time_per_state : float, optional
         In seconds. Raises RuntimeError if no state could be found in that time.
-    unique: bool, optional
-       Whether states should be unique. Default: True.
+    unique : bool, optional
+        Whether states should be unique. Default: True.
 
     Returns
     -------
     NDArray
-       shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
+        shape = (num_states, num_agents) or shape = (num_agents,) if num_states = 1.
     """
     target_cv_value = np.array(target_cv_value, ndmin=1)
 

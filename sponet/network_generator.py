@@ -58,6 +58,9 @@ class ErdosRenyiGenerator:
         self.force_no_isolates = force_no_isolates
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         gnp_fun = nx.erdos_renyi_graph if self.p > 0.2 else nx.fast_gnp_random_graph
         start = time.time()
         while True:
@@ -98,6 +101,9 @@ class RandomRegularGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         return nx.random_regular_graph(self.d, self.num_agents, seed=self.rng)
 
     def __repr__(self) -> str:
@@ -126,6 +132,9 @@ class BarabasiAlbertGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         return nx.barabasi_albert_graph(self.num_agents, self.m, seed=self.rng)
 
     def __repr__(self) -> str:
@@ -160,6 +169,9 @@ class WattsStrogatzGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         return nx.connected_watts_strogatz_graph(
             self.num_agents, self.num_neighbors, self.p, seed=self.rng
         )
@@ -223,6 +235,9 @@ class StochasticBlockGenerator:
         return adj_matrix
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         start = time.time()
         while True:
             adj_mat = self._sample_adj_matrix()
@@ -264,6 +279,9 @@ class GridGenerator:
         self.shape = shape0, shape1
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         g = nx.grid_graph(self.shape, periodic=self.periodic)
 
         relabel_dict = {}
@@ -342,6 +360,9 @@ class BinomialWattsStrogatzGenerator:
         return network
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         start = time.time()
         while True:
             network = self._sample_network()
@@ -392,6 +413,9 @@ class BianconiBarabasiGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         g = nx.star_graph(self.m)
         degrees = np.array([d for _, d in g.degree()])
         degrees = np.concatenate(
