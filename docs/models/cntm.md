@@ -1,5 +1,8 @@
 # Continuous-time noisy threshold model (CNTM)
 
+This page explains what the CNTM is and how it is implemented in this package.
+For the code reference see [here](../reference/cntm.md).
+
 ## About the CNTM
 On a network (undirected simple graph) of $N$ nodes, each node $i$ has one of two opinions $x_i \in \{0, 1\}$.
 At the rate $r \geq 0$, each node evaluates to change their opinion from its current

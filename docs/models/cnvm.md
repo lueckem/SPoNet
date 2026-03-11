@@ -1,5 +1,7 @@
 # Continuous-time noisy voter model (CNVM)
 
+This page explains what the CNVM is and how it is implemented in this package.
+For the code reference see [here](../reference/cnvm.md).
 
 ## About the CNVM
 Let a network (undirected simple graph) of $N$ nodes be given. The nodes represent agents and the edges social interactions. 
