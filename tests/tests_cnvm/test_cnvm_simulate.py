@@ -11,7 +11,7 @@ from sponet.cnvm.parameters import CNVMParameters
 
 @pytest.fixture
 def rng() -> Generator:
-    return np.random.default_rng(123)
+    return np.random.default_rng(1234)
 
 
 @pytest.fixture
