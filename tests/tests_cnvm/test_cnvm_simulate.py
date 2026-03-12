@@ -179,3 +179,28 @@ def test_output_dtype(num_opinions, expected_dtype):
     model = CNVM(params)
     _, x = model.simulate(1)
     assert x.dtype == expected_dtype
+
+
+def test_absorbing():
+    r = [[0, 1], [0, 0]]
+    params = CNVMParameters(
+        network=nx.erdos_renyi_graph(100, 0.2),
+        r=r,
+        r_tilde=0,
+    )
+    model = CNVM(params)
+    x_init = [0] * 50 + [1] * 50
+    _, x = model.simulate(t_max=100, x_init=x_init, t_eval=101)
+    # should reach absorbing state at about t=7
+
+    # test reaches absorbing state
+    idx_absorb = 0
+    while idx_absorb < 101:
+        if np.array_equal(x[idx_absorb, :], np.ones(100)):
+            break
+        idx_absorb += 1
+    assert idx_absorb < 101
+
+    # test stays in absorbing state
+    for i in range(idx_absorb, 101):
+        assert np.array_equal(x[i, :], np.ones(100))
