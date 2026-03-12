@@ -11,7 +11,7 @@ from sponet.cnvm.parameters import CNVMParameters
 
 @pytest.fixture
 def rng() -> Generator:
-    return np.random.default_rng(123)
+    return np.random.default_rng(1234)
 
 
 @pytest.fixture
@@ -32,7 +32,6 @@ def r_tilde() -> NDArray:
 @pytest.fixture
 def params_complete(r, r_tilde) -> CNVMParameters:
     return CNVMParameters(
-        num_opinions=3,
         num_agents=100,
         r=r,
         r_tilde=r_tilde,
@@ -42,7 +41,6 @@ def params_complete(r, r_tilde) -> CNVMParameters:
 @pytest.fixture
 def params_network(r, r_tilde) -> CNVMParameters:
     return CNVMParameters(
-        num_opinions=3,
         network=nx.barabasi_albert_graph(100, 3),
         r=r,
         r_tilde=r_tilde,
@@ -53,7 +51,6 @@ def params_network(r, r_tilde) -> CNVMParameters:
 @pytest.fixture
 def params_generator(r, r_tilde) -> CNVMParameters:
     return CNVMParameters(
-        num_opinions=3,
         network_generator=ng.BarabasiAlbertGenerator(100, 3),
         r=r,
         r_tilde=r_tilde,
@@ -179,3 +176,38 @@ def test_output_dtype(num_opinions, expected_dtype):
     model = CNVM(params)
     _, x = model.simulate(1)
     assert x.dtype == expected_dtype
+
+
+@pytest.fixture
+def params_absorbing_complete() -> CNVMParameters:
+    return CNVMParameters(num_agents=100, r=[[0, 1], [0, 0]], r_tilde=0)
+
+
+@pytest.fixture
+def params_absorbing_network() -> CNVMParameters:
+    return CNVMParameters(
+        network=nx.erdos_renyi_graph(100, 0.2), r=[[0, 1], [0, 0]], r_tilde=0
+    )
+
+
+@pytest.mark.parametrize(
+    "params", ["params_absorbing_complete", "params_absorbing_network"]
+)
+def test_absorbing(params, request):
+    params = request.getfixturevalue(params)
+    model = CNVM(params)
+    x_init = [0] * 50 + [1] * 50
+    _, x = model.simulate(t_max=100, x_init=x_init, t_eval=101)
+    # should reach absorbing state at about t=7
+
+    # test reaches absorbing state
+    idx_absorb = 0
+    while idx_absorb < 101:
+        if np.array_equal(x[idx_absorb, :], np.ones(100)):
+            break
+        idx_absorb += 1
+    assert idx_absorb < 101
+
+    # test stays in absorbing state
+    for i in range(idx_absorb, 101):
+        assert np.array_equal(x[i, :], np.ones(100))

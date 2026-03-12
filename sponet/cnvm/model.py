@@ -211,17 +211,16 @@ def _simulate_all(
     # simulation loop
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
-        noise = True if rng.random() < noise_probability else False
 
         update = False  # whether a state update occured in this step
 
-        if noise:
+        if rng.random() < noise_probability:  # noise
             agent = sample_randint(num_agents, rng)  # agent of next event
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
                 update = True
-        else:
+        else:  # imitation
             agent = sample_from_alias(prob_table, alias_table, rng)
             neighbors = neighbor_list[agent]
             rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
@@ -251,7 +250,7 @@ def _simulate_teval(
     rng: Generator,
 ) -> tuple[list[float], list[NDArray]]:
     """
-    CNVM simulation, storing snapshots equidistantly with `t_delta`.
+    CNVM simulation, storing snapshots at `t_eval`.
     """
     # pre-calculate some values
     num_agents = x.shape[0]
@@ -267,32 +266,32 @@ def _simulate_teval(
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
+    previous_t = t
 
     # simulation loop
     t_store_idx = 1
     len_t_eval = len(t_eval)
     while t_store_idx < len_t_eval:
-        previous_t = t
-        t += rng.exponential(next_event_rate)  # time of next event
-        noise = True if rng.random() < noise_probability else False
-
-        if noise:
+        if rng.random() < noise_probability:  # noise
             agent = sample_randint(num_agents, rng)  # agent of next event
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
+                previous_t = t
                 previous_agent = agent
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
-        else:
+        else:  # imitation
             agent = sample_from_alias(prob_table, alias_table, rng)
             neighbors = neighbor_list[agent]
             rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
             new_opinion = x[rand_neighbor]
             if rng.random() < prob_imit[x[agent], new_opinion]:
+                previous_t = t
                 previous_agent = agent
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
 
+        t += rng.exponential(next_event_rate)  # time of next event
         if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
@@ -339,16 +338,15 @@ def _simulate_complete_all(
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
         agent = sample_randint(num_agents, rng)  # agent of next event
-        noise = True if rng.random() < noise_probability else False
 
         update = False  # whether a state update occured in this step
 
-        if noise:
+        if rng.random() < noise_probability:  # noise
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
                 update = True
-        else:
+        else:  # imitation
             neighbor = sample_randint(num_agents, rng)
             while neighbor == agent:
                 neighbor = sample_randint(num_agents, rng)
@@ -377,7 +375,7 @@ def _simulate_complete_teval(
     rng: Generator,
 ) -> tuple[list[float], list[NDArray]]:
     """
-    CNVM simulation for complete networks, storing snapshots equidistantly with `t_delta`.
+    CNVM simulation for complete networks, storing snapshots at `t_eval`.
     """
     # pre-calculate some values
     num_agents = x.shape[0]
@@ -393,28 +391,32 @@ def _simulate_complete_teval(
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
+    previous_t = t
 
     # simulation loop
     t_store_idx = 1
     len_t_eval = len(t_eval)
     while t_store_idx < len_t_eval:
-        previous_t = t
-        t += rng.exponential(next_event_rate)  # time of next event
         agent = sample_randint(num_agents, rng)  # agent of next event
-        noise = True if rng.random() < noise_probability else False
-
-        if noise:
+        if rng.random() < noise_probability:  # noise
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
+                previous_t = t
+                previous_agent = agent
+                previous_opinion = x[agent]
                 x[agent] = new_opinion
-        else:
+        else:  # imitation
             neighbor = sample_randint(num_agents, rng)
             while neighbor == agent:
                 neighbor = sample_randint(num_agents, rng)
             new_opinion = x[neighbor]
             if rng.random() < prob_imit[x[agent], new_opinion]:
+                previous_t = t
+                previous_agent = agent
+                previous_opinion = x[agent]
                 x[agent] = new_opinion
 
+        t += rng.exponential(next_event_rate)  # time of next event
         if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
