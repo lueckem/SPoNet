@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.2"
+__generated_with = "0.20.4"
 app = marimo.App()
 
 
@@ -41,8 +41,7 @@ def _():
     import networkx as nx
     from matplotlib import pyplot as plt
 
-    from sponet import CNVMParameters, CNVM
-    from sponet.collective_variables import OpinionShares
+    from sponet import CNVMParameters, CNVM, OpinionShares
     from sponet import sample_many_runs, calc_rre_traj
 
     return (
@@ -58,21 +57,34 @@ def _():
 
 
 @app.cell
-def _(CNVM, CNVMParameters, OpinionShares, np, nx):
-    num_opinions = 2  # opinion 1 represents 'S', opinion 2 represents 'I'
+def _(OpinionShares, nx):
+    # -- constants --
+    num_opinions=2
     num_agents = 1000
-    _infection_rate = 0.5
-    _r = np.array([[0, _infection_rate], [0, 0]])
-    r_tilde = np.array([[0, 0], [1, 0]])
+    r_tilde = [[0, 0], [1, 0]]
     network = nx.erdos_renyi_graph(num_agents, p=0.1)
-    params = CNVMParameters(
-        num_opinions=num_opinions, network=network, r=_r, r_tilde=r_tilde
-    )
-    model = CNVM(params)
     cv = OpinionShares(
         num_opinions, normalize=True
     )  # for measuring the percentage of infectious nodes
-    return cv, model, num_agents, params
+    return cv, network, num_agents, r_tilde
+
+
+@app.function
+def r_from_infection_rate(infection_rate: float):
+    return [[0, infection_rate], [0, 0]]
+
+
+@app.cell
+def _(CNVM, CNVMParameters, network, r_tilde):
+    def model_from_infection_rate(infection_rate: float):
+        params = CNVMParameters(
+            network=network,
+            r=r_from_infection_rate(infection_rate),
+            r_tilde=r_tilde
+            )
+        return CNVM(params)
+
+    return (model_from_infection_rate,)
 
 
 @app.cell(hide_code=True)
@@ -98,14 +110,18 @@ def _(np, num_agents):
 
 
 @app.cell
-def _(cv, model, plt, t_eval, t_max, x_init):
-    _t, _x = model.simulate(t_max=t_max, x_init=x_init, t_eval=t_eval)
+def _(cv, mo, model_from_infection_rate, plt, t_eval, t_max, x_init):
+    _t, _x = model_from_infection_rate(0.5).simulate(
+        t_max=t_max,
+        x_init=x_init,
+        t_eval=t_eval,
+    )
     _c = cv(_x)  # calculate the share of infectious nodes
     plt.plot(_t, _c[:, 1])
     plt.grid()
     plt.xlabel("t")
     plt.ylabel("percentage infected")
-    plt.show()
+    mo.mpl.interactive(plt.gca())
     return
 
 
@@ -120,17 +136,14 @@ def _(mo):
 
 
 @app.cell
-def _(cv, model, np, plt, t_eval, t_max, x_init):
-    _infection_rate = 2
-    _r = np.array([[0, _infection_rate], [0, 0]])
-    model.update_rates(r=_r)
-    _t, _x = model.simulate(t_max=t_max, x_init=x_init, t_eval=t_eval)
+def _(cv, mo, model_from_infection_rate, plt, t_eval, t_max, x_init):
+    _t, _x = model_from_infection_rate(2).simulate(t_max=t_max, x_init=x_init, t_eval=t_eval)
     _c = cv(_x)
     plt.plot(_t, _c[:, 1])
     plt.grid()
     plt.xlabel("t")
     plt.ylabel("percentage infected")
-    plt.show()
+    mo.mpl.interactive(plt.gca())
     return
 
 
@@ -147,12 +160,26 @@ def _(mo):
 
 
 @app.cell
-def _(cv, np, params, sample_many_runs, t_eval, t_max, x_init):
+def _(
+    CNVMParameters,
+    cv,
+    network,
+    np,
+    r_tilde,
+    sample_many_runs,
+    t_eval,
+    t_max,
+    x_init,
+):
     infection_rates = [0.8, 0.9, 1.0, 1.1, 1.2]
     c_results = []
     for _i_r in infection_rates:
         _r = np.array([[0, _i_r], [0, 0]])
-        params.change_rates(r=_r)
+        params = CNVMParameters(
+            network=network,
+            r=r_from_infection_rate(_i_r),
+            r_tilde=r_tilde
+            )
         t, _c = sample_many_runs(
             params=params,
             initial_states=x_init,
@@ -163,7 +190,7 @@ def _(cv, np, params, sample_many_runs, t_eval, t_max, x_init):
             n_jobs=-1,
         )
         c_results.append(_c)
-    return c_results, infection_rates, t
+    return c_results, infection_rates, params, t
 
 
 @app.cell(hide_code=True)
@@ -189,7 +216,7 @@ def _(c_results, infection_rates, np, plt, t):
 @app.cell
 def _(c_results, infection_rates, np, plt):
     persistence_probabilities = [
-        np.linalg.norm(c_r[:, -1, 1], 0) / c_r.shape[1] for c_r in c_results
+        np.linalg.norm(c_r[:, -1, 1], 0) / c_r.shape[0] for c_r in c_results
     ]
 
     plt.plot(infection_rates, persistence_probabilities, "--x")
