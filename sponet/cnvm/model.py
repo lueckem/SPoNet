@@ -211,17 +211,16 @@ def _simulate_all(
     # simulation loop
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
-        noise = True if rng.random() < noise_probability else False
 
         update = False  # whether a state update occured in this step
 
-        if noise:
+        if rng.random() < noise_probability:  # noise
             agent = sample_randint(num_agents, rng)  # agent of next event
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
                 update = True
-        else:
+        else:  # imitation
             agent = sample_from_alias(prob_table, alias_table, rng)
             neighbors = neighbor_list[agent]
             rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
@@ -273,8 +272,7 @@ def _simulate_teval(
     t_store_idx = 1
     len_t_eval = len(t_eval)
     while t_store_idx < len_t_eval:
-        noise = True if rng.random() < noise_probability else False
-        if noise:
+        if rng.random() < noise_probability:  # noise
             agent = sample_randint(num_agents, rng)  # agent of next event
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
@@ -282,7 +280,7 @@ def _simulate_teval(
                 previous_agent = agent
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
-        else:
+        else:  # imitation
             agent = sample_from_alias(prob_table, alias_table, rng)
             neighbors = neighbor_list[agent]
             rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
@@ -340,16 +338,15 @@ def _simulate_complete_all(
     while t < t_max:
         t += rng.exponential(next_event_rate)  # time of next event
         agent = sample_randint(num_agents, rng)  # agent of next event
-        noise = True if rng.random() < noise_probability else False
 
         update = False  # whether a state update occured in this step
 
-        if noise:
+        if rng.random() < noise_probability:  # noise
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 x[agent] = new_opinion
                 update = True
-        else:
+        else:  # imitation
             neighbor = sample_randint(num_agents, rng)
             while neighbor == agent:
                 neighbor = sample_randint(num_agents, rng)
@@ -401,15 +398,14 @@ def _simulate_complete_teval(
     len_t_eval = len(t_eval)
     while t_store_idx < len_t_eval:
         agent = sample_randint(num_agents, rng)  # agent of next event
-        noise = True if rng.random() < noise_probability else False
-        if noise:
+        if rng.random() < noise_probability:  # noise
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
                 previous_t = t
                 previous_agent = agent
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
-        else:
+        else:  # imitation
             neighbor = sample_randint(num_agents, rng)
             while neighbor == agent:
                 neighbor = sample_randint(num_agents, rng)
