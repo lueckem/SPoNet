@@ -267,19 +267,18 @@ def _simulate_teval(
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
+    previous_t = t
 
     # simulation loop
     t_store_idx = 1
     len_t_eval = len(t_eval)
     while t_store_idx < len_t_eval:
-        previous_t = t
-        t += rng.exponential(next_event_rate)  # time of next event
         noise = True if rng.random() < noise_probability else False
-
         if noise:
             agent = sample_randint(num_agents, rng)  # agent of next event
             new_opinion = sample_randint(num_opinions, rng)
             if rng.random() < prob_noise[x[agent], new_opinion]:
+                previous_t = t
                 previous_agent = agent
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
@@ -289,10 +288,12 @@ def _simulate_teval(
             rand_neighbor = neighbors[sample_randint(len(neighbors), rng)]
             new_opinion = x[rand_neighbor]
             if rng.random() < prob_imit[x[agent], new_opinion]:
+                previous_t = t
                 previous_agent = agent
                 previous_opinion = x[agent]
                 x[agent] = new_opinion
 
+        t += rng.exponential(next_event_rate)  # time of next event
         if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
