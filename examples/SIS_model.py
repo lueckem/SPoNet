@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.2"
+__generated_with = "0.20.4"
 app = marimo.App()
 
 
@@ -30,6 +30,9 @@ def _(mo):
     Typically, the parameter $\alpha$ of the CNVM is set to $0$ in the SIS model, which means that the rate at which a susceptible node gets infected scales linearly with the number of infectious neighbors.
     However, for simplicity we will use the default $\alpha = 1$ in this notebook.
 
+    The behavior of the SIS model heavily depends on the underlying network structure.
+    We chose a random Erdös-Renyi graph in this example because it is well understood.
+
     Let us start by doing the necessary imports and defining the model.
     """)
     return
@@ -41,8 +44,7 @@ def _():
     import networkx as nx
     from matplotlib import pyplot as plt
 
-    from sponet import CNVMParameters, CNVM
-    from sponet.collective_variables import OpinionShares
+    from sponet import CNVMParameters, CNVM, OpinionShares
     from sponet import sample_many_runs, calc_rre_traj
 
     return (
@@ -58,37 +60,51 @@ def _():
 
 
 @app.cell
-def _(CNVM, CNVMParameters, OpinionShares, np, nx):
-    num_opinions = 2  # opinion 1 represents 'S', opinion 2 represents 'I'
+def _(OpinionShares, nx):
+    # -- constants --
+    num_opinions = 2
     num_agents = 1000
-    _infection_rate = 0.5
-    _r = np.array([[0, _infection_rate], [0, 0]])
-    r_tilde = np.array([[0, 0], [1, 0]])
     network = nx.erdos_renyi_graph(num_agents, p=0.1)
-    params = CNVMParameters(
-        num_opinions=num_opinions, network=network, r=_r, r_tilde=r_tilde
-    )
-    model = CNVM(params)
     cv = OpinionShares(
         num_opinions, normalize=True
     )  # for measuring the percentage of infectious nodes
-    return cv, model, num_agents, params
+    return cv, network, num_agents
+
+
+@app.cell
+def _(CNVMParameters, network):
+    # helper function to create parameters for varying infection rates
+    def params_from_infection_rate(infection_rate: float) -> CNVMParameters:
+        return CNVMParameters(
+            network=network, r=[[0, infection_rate], [0, 0]], r_tilde=[[0, 0], [1, 0]]
+        )
+
+    return (params_from_infection_rate,)
+
+
+@app.cell
+def _(CNVM, params_from_infection_rate):
+    # helper function to create models for varying infection rates
+    def model_from_infection_rate(infection_rate: float) -> CNVM:
+        return CNVM(params_from_infection_rate(infection_rate))
+
+    return (model_from_infection_rate,)
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    The behavior of the SIS model heavily depends on the underlying network structure.
-    We have chosen a random Erdös-Renyi graph in this example because it is well understood.
-
     Now we define the simulation parameters, let the model run, and plot the results.
-    We start with 30% infectious nodes and plot the evolution of the share of infectious nodes.
+    We always start with 30% infectious nodes and plot the evolution of the share of infectious nodes.
+
+    Observe how the trajectories differ for varying infection rate $\lambda$ using the below slider.
     """)
     return
 
 
 @app.cell
 def _(np, num_agents):
+    # -- simulation parameters --
     t_max = 100
     t_eval = 1001
     x_init = np.zeros(num_agents)  # initial state
@@ -98,71 +114,72 @@ def _(np, num_agents):
 
 
 @app.cell
-def _(cv, model, plt, t_eval, t_max, x_init):
-    _t, _x = model.simulate(t_max=t_max, x_init=x_init, t_eval=t_eval)
-    _c = cv(_x)  # calculate the share of infectious nodes
-    plt.plot(_t, _c[:, 1])
-    plt.grid()
-    plt.xlabel("t")
-    plt.ylabel("percentage infected")
-    plt.show()
+def _(cv, model_from_infection_rate, np, plt, t_eval, t_max, x_init):
+    # plot a trajectory of the model depending on the infection rate `ir`
+    def plot_traj(ir: float):
+        # simulate model
+        t, x = model_from_infection_rate(ir).simulate(
+            t_max=t_max,
+            x_init=x_init,
+            t_eval=t_eval,
+            rng=np.random.default_rng(123),
+        )
+        c = cv(x)  # calculate the share of infectious nodes
+
+        # create plot
+        fig, ax = plt.subplots()
+        ax.plot(t, c[:, 1])
+        ax.grid()
+        ax.set_xlabel("t")
+        ax.set_ylabel("percentage infected")
+        ax.set_ylim(-0.03, 0.6)
+        return fig
+
+    return (plot_traj,)
+
+
+@app.cell
+def _(mo):
+    infection_rate = mo.ui.slider(0.1, 2.0, 0.1, show_value=True, value=1.0)
+    mo.md(f"Infection rate $\\lambda$ = {infection_rate}")
+    return (infection_rate,)
+
+
+@app.cell
+def _(infection_rate, mo, plot_traj):
+    mo.mpl.interactive(plot_traj(infection_rate.value))
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    The above plot shows that the disease dies out quickly. After a short time all the nodes have state (S).
-    This is because the infection rate was rather small ($\lambda=0.5$).
-    Let us investigate the dynamics for a larger infection rate of $\lambda=2$.
+    The above plot shows that the disease dies out quickly if the infection rate is rather small since the percentage of infected nodes goes to 0.
+    If the infection rate is large, however, the disease does not die out.
+    Instead, the share of infected nodes stabilizes around a value larger than 0.
+
+    Let us conduct a statistical analysis of this behavior for different infection rates. In the following code block we perform many simulations of the SIS model. (If this takes too long on your machine, try reducing the number of samples by modifying the `num_runs` parameter.)
     """)
     return
 
 
 @app.cell
-def _(cv, model, np, plt, t_eval, t_max, x_init):
-    _infection_rate = 2
-    _r = np.array([[0, _infection_rate], [0, 0]])
-    model.update_rates(r=_r)
-    _t, _x = model.simulate(t_max=t_max, x_init=x_init, t_eval=t_eval)
-    _c = cv(_x)
-    plt.plot(_t, _c[:, 1])
-    plt.grid()
-    plt.xlabel("t")
-    plt.ylabel("percentage infected")
-    plt.show()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    Now the disease did not die out. After a short transient phase, the percentage of infectious nodes stabilizes at around 50%.
-
-    Let us conduct a statistical analysis of this behavior for different infection rates.
-    In the following code block we perform many simulations of the SIS model.
-    (If this takes too long on your machine, try reducing the number of samples by modifying the `num_runs` parameter.)
-    """)
-    return
-
-
-@app.cell
-def _(cv, np, params, sample_many_runs, t_eval, t_max, x_init):
+def _(cv, params_from_infection_rate, sample_many_runs, t_eval, t_max, x_init):
     infection_rates = [0.8, 0.9, 1.0, 1.1, 1.2]
-    c_results = []
-    for _i_r in infection_rates:
-        _r = np.array([[0, _i_r], [0, 0]])
-        params.change_rates(r=_r)
-        t, _c = sample_many_runs(
+
+    c_results = []  # collect trajectories for each ir in a list
+    for ir in infection_rates:
+        params = params_from_infection_rate(ir)
+        t, c = sample_many_runs(
             params=params,
             initial_states=x_init,
             t_max=t_max,
             t_eval=t_eval,
             num_runs=100,
-            collective_variable=cv,
-            n_jobs=-1,
+            collective_variable=cv,  # return shares instead of full states
+            n_jobs=-1,  # use multiprocessing
         )
-        c_results.append(_c)
+        c_results.append(c)
     return c_results, infection_rates, t
 
 
@@ -175,28 +192,36 @@ def _(mo):
 
 
 @app.cell
-def _(c_results, infection_rates, np, plt, t):
-    for _i_r, c_r in zip(infection_rates, c_results):
-        plt.plot(t, np.mean(c_r[:, :, 1], axis=0), label=f"rate={_i_r}")
-    plt.legend()
-    plt.grid()
-    plt.xlabel("t")
-    plt.ylabel("percentage infected")
-    plt.show()
+def _(c_results, infection_rates, mo, np, plt, t):
+    def plot_results():
+        fig, ax = plt.subplots()
+        for ir, c_res in zip(infection_rates, c_results):
+            ax.plot(t, np.mean(c_res[:, :, 1], axis=0), label=f"$\\lambda={ir}$")
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel("t")
+        ax.set_ylabel("percentage infected")
+        return fig
+
+    mo.mpl.interactive(plot_results())
     return
 
 
 @app.cell
-def _(c_results, infection_rates, np, plt):
+def _(c_results, infection_rates, mo, np, plt):
     persistence_probabilities = [
-        np.linalg.norm(c_r[:, -1, 1], 0) / c_r.shape[1] for c_r in c_results
+        np.linalg.norm(c_r[:, -1, 1], 0) / c_r.shape[0] for c_r in c_results
     ]
 
-    plt.plot(infection_rates, persistence_probabilities, "--x")
-    plt.ylabel("infection survival probability")
-    plt.xlabel("infection rate")
-    plt.grid()
-    plt.show()
+    def plot_survival():
+        fig, ax = plt.subplots()
+        ax.plot(infection_rates, persistence_probabilities, "--x")
+        ax.set_ylabel("infection survival probability")
+        ax.set_xlabel("infection rate")
+        ax.grid()
+        return fig
+
+    mo.mpl.interactive(plot_survival())
     return
 
 
@@ -210,7 +235,7 @@ def _(mo):
 
     $$ \frac{d}{dt} c(t) = -c(t) + \lambda (1 - c(t)) c(t). \qquad \text{(reaction-rate equation (RRE))} $$
 
-    (See the notebook `mean_field.ipynb` or the paper [[Lücke et al., 2022]](https://arxiv.org/abs/2210.02934) for further information about the RRE.)
+    (See for example the paper [[Lücke et al., 2022]](https://arxiv.org/abs/2210.02934) for further information about the RRE.)
 
     The plot below shows that this ODE is already reasonably accurate for our finite size network.
     """)
@@ -218,16 +243,33 @@ def _(mo):
 
 
 @app.cell
-def _(c_results, calc_rre_traj, np, params, plt, t, t_max):
-    t_rre, c_rre = calc_rre_traj(params, c_results[-1][0, 0], t_max)
+def _(
+    c_results,
+    calc_rre_traj,
+    infection_rates,
+    mo,
+    np,
+    params_from_infection_rate,
+    plt,
+    t,
+    t_max,
+):
+    def plot_rre():
+        idx = 2  # pick which infection rate
+        ir = infection_rates[idx]
+        params = params_from_infection_rate(ir)
+        t_rre, c_rre = calc_rre_traj(params, [0.7, 0.3], t_max)
 
-    plt.plot(t_rre, c_rre[:, 1], "-k", label="RRE")
-    plt.plot(t, np.mean(c_results[-1][:, :, 1], axis=0), label="model")
-    plt.legend()
-    plt.grid()
-    plt.xlabel("t")
-    plt.ylabel("percentage infected")
-    plt.show()
+        fig, ax = plt.subplots()
+        ax.plot(t, np.mean(c_results[idx][:, :, 1], axis=0), label="CNVM")
+        ax.plot(t_rre, c_rre[:, 1], "--k", label="RRE")
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel("t")
+        ax.set_ylabel("percentage infected")
+        return fig
+
+    mo.mpl.interactive(plot_rre())
     return
 
 

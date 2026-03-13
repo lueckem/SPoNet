@@ -20,6 +20,15 @@ pip install git+https://github.com/lueckem/SPoNet
 - [Continuous-time noisy voter model (CNVM)](models/cnvm.md)
 - [Continuous-time noisy threshold model (CNTM)](models/cntm.md)
 
+## Examples
+Check out the examples in the [repository](https://github.com/lueckem/SPoNet/tree/main/examples).
+They are [marimo](https://docs.marimo.io/) notebooks.
+You can install marimo on your machine (`pip install marimo`), clone the repository, and launch via `marimo edit`.
+Alternatively, you can also view the notebooks in your browser using the [molab](https://docs.marimo.io/guides/molab/) web interface by following these links:
+
+- [Notebook CNVM tutorial](https://molab.marimo.io/github/lueckem/SPoNet/blob/main/examples/tutorial_cnvm.py)
+- [Notebook SIS model](https://molab.marimo.io/github/lueckem/SPoNet/blob/main/examples/SIS_model.py)
+
 ## Reference
 
 - [CNVM](reference/cnvm.md)
