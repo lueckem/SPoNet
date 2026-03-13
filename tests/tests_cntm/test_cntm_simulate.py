@@ -101,3 +101,29 @@ def test_output_fill(params, x_init, rng):
         if (x[i] == x[i + 1]).all():  # there have to be duplicates
             break
         assert False
+
+
+def test_absorbing():
+    params = CNTMParameters(
+        network=nx.erdos_renyi_graph(100, 0.1, seed=123),
+        r=1,
+        r_tilde=0,
+        threshold_01=0.0,
+        threshold_10=1.0,
+    )
+    model = CNTM(params)
+    x_init = [0] * 50 + [1] * 50
+    _, x = model.simulate(t_max=100, x_init=x_init, t_eval=101)
+    # should reach absorbing state at about t=7
+
+    # test reaches absorbing state
+    idx_absorb = 0
+    while idx_absorb < 101:
+        if np.array_equal(x[idx_absorb, :], np.ones(100)):
+            break
+        idx_absorb += 1
+    assert idx_absorb < 101
+
+    # test stays in absorbing state
+    for i in range(idx_absorb, 101):
+        assert np.array_equal(x[i, :], np.ones(100))
