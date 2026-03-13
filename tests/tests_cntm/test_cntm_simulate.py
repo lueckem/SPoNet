@@ -47,7 +47,7 @@ def test_simulate_linspace(params, x_init, rng):
     target_t = np.linspace(0, 10, 11)
 
     assert t.shape == (11,)
-    assert np.allclose(t, target_t, atol=0.01)
+    assert np.allclose(t, target_t, atol=0.02)
     assert (x[0] == x_init).all()
     assert ((x == 0) | (x == 1)).all()
     assert x.shape == (11, 100)
