@@ -1,21 +1,25 @@
 from unittest import TestCase
-import numpy as np
 
+import networkx as nx
+import numpy as np
+from numpy.random import default_rng
+
+import sponet.multiprocessing as smp
 from sponet import CNVMParameters, sample_many_runs
 from sponet.collective_variables import OpinionShares
-import sponet.multiprocessing as smp
 
 
 class TestSampleManyRuns(TestCase):
     def setUp(self):
         self.num_opinions = 3
         self.num_agents = 100
+        self.network = nx.cycle_graph(self.num_agents)
         self.r = np.array([[0, 1, 2], [1, 0, 1], [2, 0, 0]])
         self.r_tilde = np.array([[0, 0.2, 0.1], [0, 0, 0.1], [0.1, 0.2, 0]])
 
         self.params = CNVMParameters(
             num_opinions=self.num_opinions,
-            num_agents=self.num_agents,
+            network=self.network,
             r=self.r,
             r_tilde=self.r_tilde,
         )
@@ -36,10 +40,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_parallelization_runs(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
         )
@@ -56,10 +60,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_parallelization_initial_states(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=3,
             n_jobs=2,
         )
@@ -76,10 +80,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_no_parallelization(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=3,
             n_jobs=None,
         )
@@ -96,10 +100,10 @@ class TestSampleManyRuns(TestCase):
 
     def test_parallelization_with_cv(self):
         t, x = sample_many_runs(
-            params=self.params,
-            initial_states=self.initial_states,
-            t_max=self.t_max,
-            num_timesteps=self.num_timesteps,
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
             num_runs=15,
             n_jobs=2,
             collective_variable=self.cv,
@@ -127,14 +131,118 @@ class TestSampleManyRuns(TestCase):
                 r_tilde=1,
             )
 
-            t, x = sample_many_runs(
-                params=params,
-                initial_states=self.initial_states,
-                t_max=5,
-                num_timesteps=self.num_timesteps,
+            _, x = sample_many_runs(
+                params,
+                self.initial_states,
+                5,
+                self.num_timesteps,
                 num_runs=2,
                 n_jobs=2,
                 collective_variable=None,
             )
 
             self.assertEqual(correct_dtype, x.dtype)
+
+    def test_reproducible(self):
+        rng = default_rng(123)
+        t1, x1 = sample_many_runs(
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+            rng=rng,
+        )
+
+        rng = default_rng(123)
+        t2, x2 = sample_many_runs(
+            self.params,
+            self.initial_states,
+            self.t_max,
+            self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+            rng=rng,
+        )
+
+        self.assertTrue((t1 == t2).all())
+        self.assertTrue((x1 == x2).all())
+
+    def test_single_initial_state_no_parallelization(self):
+        t, x = sample_many_runs(
+            self.params,
+            self.initial_states[0],
+            self.t_max,
+            self.num_timesteps,
+            num_runs=3,
+            n_jobs=1,
+        )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(
+            x.shape,
+            (
+                3,
+                self.num_timesteps,
+                self.num_agents,
+            ),
+        )
+
+    def test_single_initial_state(self):
+        t, x = sample_many_runs(
+            self.params,
+            self.initial_states[0],
+            self.t_max,
+            self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+        )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(
+            x.shape,
+            (
+                15,
+                self.num_timesteps,
+                self.num_agents,
+            ),
+        )
+
+    def test_arraylike_initial_state(self):
+        t, x = sample_many_runs(
+            self.params,
+            [0] * 40 + [1] * 60,
+            self.t_max,
+            self.num_timesteps,
+            num_runs=15,
+            n_jobs=2,
+        )
+        self.assertEqual(t.shape, (self.num_timesteps,))
+        self.assertEqual(
+            x.shape,
+            (
+                15,
+                self.num_timesteps,
+                self.num_agents,
+            ),
+        )
+
+    def test_teval(self):
+        t_eval = [0, 2, 8, 99]
+        t, x = sample_many_runs(
+            self.params,
+            self.initial_states[0],
+            self.t_max,
+            t_eval,
+            num_runs=15,
+            n_jobs=2,
+        )
+        self.assertEqual(t.shape, (4,))
+        self.assertTrue(np.allclose(t, t_eval))
+        self.assertEqual(
+            x.shape,
+            (
+                15,
+                4,
+                self.num_agents,
+            ),
+        )

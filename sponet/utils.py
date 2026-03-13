@@ -1,22 +1,23 @@
 import networkx as nx
 import numpy as np
 from numba import njit
+from numpy.typing import ArrayLike, NDArray
 
 
 @njit(cache=True)
-def argmatch(x_ref, x):
+def argmatch(x_ref: NDArray, x: NDArray) -> NDArray:
     """
     Find indices such that |x[indices] - x_ref| = min!
 
     Parameters
     ----------
-    x_ref : np.ndarray
+    x_ref : NDArray
         1D, sorted
-    x : np.ndarray
+    x : NDArray
         1D, sorted
     Returns
     -------
-    np.ndarray
+    NDArray
     """
     size = np.shape(x_ref)[0]
     out = np.zeros(size, dtype=np.int64)
@@ -44,7 +45,7 @@ def argmatch(x_ref, x):
     return out
 
 
-def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
+def mask_subsequent_duplicates(x: NDArray) -> NDArray:
     """
     Calculate mask that removes subsequent duplicates.
 
@@ -54,12 +55,12 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    x : np.ndarray
+    x : NDArray
         1D or 2D array.
 
     Returns
     -------
-    np.ndarray
+    NDArray
     """
     if x.ndim == 1:
         mask = x[:-1] != x[1:]
@@ -72,7 +73,7 @@ def mask_subsequent_duplicates(x: np.ndarray) -> np.ndarray:
     return mask
 
 
-def calculate_neighbor_list(network: nx.Graph):
+def calculate_neighbor_list(network: nx.Graph) -> list[NDArray]:
     """
     Calculate list of neighbors.
 
@@ -85,9 +86,105 @@ def calculate_neighbor_list(network: nx.Graph):
 
     Returns
     -------
-    List[np.ndarray]
+    list[NDArray]
     """
-    neighbor_list = []
-    for i in network.nodes():
-        neighbor_list.append(np.array(list(network.neighbors(i)), dtype=int))
-    return neighbor_list
+    return [
+        np.array(list(network.neighbors(i)), dtype=np.int32) for i in network.nodes()
+    ]
+
+
+@njit(cache=True)
+def store_snapshot_linspace(
+    t: float,
+    t_store: float,
+    previous_t: float,
+    x: NDArray,
+    previous_agent: int,
+    previous_opinion: int,
+    x_traj: list[NDArray],
+    t_traj: list[float],
+) -> None:
+    """
+    Store either the current snapshot in `t_traj` and `x_traj` or the previous one,
+    depending on which is closer to `t_store`.
+
+    Parameters
+    ----------
+    t : float
+        Current time.
+    t_store : float
+        Desired time.
+    previous_t : float
+        Time of previous snapshot.
+    x : NDArray
+        System state.
+    previous_agent : int
+        Agent that switched from previous to current snapshot.
+    previous_opinion : int
+        Previous opinion of the agent before the switch.
+    x_traj : list[NDArray]
+    t_traj : list[float]
+    """
+    x_store = x.copy()
+    if t - t_store <= abs(t_store - previous_t):  # t is closer
+        x_traj.append(x_store)
+        t_traj.append(t)
+    else:  # previous_t is closer
+        x_store[previous_agent] = previous_opinion  # revert to previous state
+        x_traj.append(x_store)
+        t_traj.append(previous_t)
+
+
+def counts_from_shares(shares: ArrayLike, num_agents: int) -> NDArray:
+    """
+    Convert shares like [0.2, 0.3, 0.5] into counts like [20, 30, 50].
+
+    Parameters
+    ----------
+    shares : NDArray
+        Shares with shape (num_opinions,) or (num_states, num_opinions).
+    num_agents : int
+
+    Returns
+    -------
+    NDArray
+        Counts with shape (num_opinions,) or (num_states, num_opinions).
+    """
+    shares = np.array(shares) * num_agents
+    if shares.ndim == 1:
+        return _counts_from_shares_1d(shares, num_agents)
+    else:
+        counts = np.zeros_like(shares, dtype=int)
+        for i in range(counts.shape[0]):
+            counts[i] = _counts_from_shares_1d(shares[i], num_agents)
+        return counts
+
+
+def _counts_from_shares_1d(shares: NDArray, num_agents: int) -> NDArray:
+    counts = np.floor(shares)
+    deltas = counts - shares  # <= 0
+    counts = counts.astype(int)
+    num_incr = num_agents - np.sum(counts)
+    idx_incr = np.argpartition(deltas, num_incr)[:num_incr]
+    counts[idx_incr] += 1
+    return counts
+
+
+def t_eval_to_ndarray(t_eval: ArrayLike, t_max: float) -> NDArray:
+    if isinstance(t_eval, float):
+        raise ValueError("t_eval has to be an array of time points or an int.")
+    if isinstance(t_eval, int):
+        return np.linspace(0, t_max, t_eval)
+
+    t_eval = np.array(t_eval, dtype=float)
+    if len(t_eval) == 0:
+        raise ValueError("t_eval cannot be empty.")
+    # check ascending
+    diffs = np.diff(t_eval)
+    if np.min(diffs) <= 0:
+        raise ValueError("The times in t_eval have to be increasing.")
+    if t_eval[0] < 0:
+        raise ValueError("The times in t_eval have to be >= 0.")
+    if t_eval[-1] > t_max:
+        raise ValueError("The times in t_eval cannot be larger than t_max.")
+    return t_eval

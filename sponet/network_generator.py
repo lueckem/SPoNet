@@ -1,8 +1,10 @@
+import time
 from typing import Protocol
+
 import networkx as nx
 import numpy as np
 from numpy.random import Generator, default_rng
-import time
+from numpy.typing import ArrayLike
 
 
 class NetworkGenerator(Protocol):
@@ -10,12 +12,15 @@ class NetworkGenerator(Protocol):
 
     def __call__(self) -> nx.Graph:
         """Generate a network."""
+        ...
 
     def __repr__(self) -> str:
         """Return string representation of the generator."""
+        ...
 
     def abrv(self) -> str:
         """Return short description for file names."""
+        ...
 
 
 class ErdosRenyiGenerator:
@@ -53,6 +58,9 @@ class ErdosRenyiGenerator:
         self.force_no_isolates = force_no_isolates
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         gnp_fun = nx.erdos_renyi_graph if self.p > 0.2 else nx.fast_gnp_random_graph
         start = time.time()
         while True:
@@ -61,7 +69,7 @@ class ErdosRenyiGenerator:
                 return network
 
             if self.force_no_isolates:
-                _unisolate_vertices(network)
+                _unisolate_vertices(network, self.rng)
                 return network
 
             if time.time() - start > self.max_sample_time:
@@ -93,6 +101,9 @@ class RandomRegularGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         return nx.random_regular_graph(self.d, self.num_agents, seed=self.rng)
 
     def __repr__(self) -> str:
@@ -121,6 +132,9 @@ class BarabasiAlbertGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         return nx.barabasi_albert_graph(self.num_agents, self.m, seed=self.rng)
 
     def __repr__(self) -> str:
@@ -155,6 +169,9 @@ class WattsStrogatzGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         return nx.connected_watts_strogatz_graph(
             self.num_agents, self.num_neighbors, self.p, seed=self.rng
         )
@@ -170,7 +187,7 @@ class StochasticBlockGenerator:
     def __init__(
         self,
         num_agents: int,
-        p_matrix: np.ndarray,
+        p_matrix: ArrayLike,
         max_sample_time: float = 10,
         rng: Generator = default_rng(),
     ):
@@ -184,17 +201,17 @@ class StochasticBlockGenerator:
         Parameters
         ----------
         num_agents : int
-        p_matrix : np.ndarray
+        p_matrix : ArrayLike
             (n x n) matrix of edge probabilities.
         max_sample_time : float, optional
             In seconds.
         rng : Generator, optional
             random number generator
         """
-        self.p_matrix = p_matrix
+        self.p_matrix = np.array(p_matrix, ndmin=2)
         self.max_sample_time = max_sample_time
 
-        self.num_blocks = p_matrix.shape[0]
+        self.num_blocks = self.p_matrix.shape[0]
         self.block_size = int(num_agents / self.num_blocks)
         self.num_agents = self.block_size * self.num_blocks
         self.rng = rng
@@ -218,6 +235,9 @@ class StochasticBlockGenerator:
         return adj_matrix
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         start = time.time()
         while True:
             adj_mat = self._sample_adj_matrix()
@@ -259,6 +279,9 @@ class GridGenerator:
         self.shape = shape0, shape1
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         g = nx.grid_graph(self.shape, periodic=self.periodic)
 
         relabel_dict = {}
@@ -337,6 +360,9 @@ class BinomialWattsStrogatzGenerator:
         return network
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         start = time.time()
         while True:
             network = self._sample_network()
@@ -387,6 +413,9 @@ class BianconiBarabasiGenerator:
         self.rng = rng
 
     def __call__(self) -> nx.Graph:
+        """
+        Sample a network from the Network Generator.
+        """
         g = nx.star_graph(self.m)
         degrees = np.array([d for _, d in g.degree()])
         degrees = np.concatenate(
@@ -414,17 +443,12 @@ class BianconiBarabasiGenerator:
         return f"bianconi_barabasi_m{self.m}_N{self.num_agents}"
 
 
-def _unisolate_vertices(network: nx.Graph) -> None:
+def _unisolate_vertices(network: nx.Graph, rng: Generator) -> None:
     """
     Make isolated vertices un-isolated by adding one edge to a random node.
-
-    Parameters
-    ----------
-    network : nx.Graph
     """
     for i in nx.isolates(network):
-        j = i
-        while j == i:
-            j = np.random.randint(0, network.number_of_nodes())
+        while (j := i) == i:
+            j = rng.integers(0, network.number_of_nodes())
 
         network.add_edge(i, j)

@@ -1,13 +1,14 @@
 from unittest import TestCase
-import numpy as np
+
 import networkx as nx
+import numpy as np
 
 import sponet.network_generator as ng
 
 
 class TestStochasticBlockGenerator(TestCase):
     def test_shape(self):
-        p_matrix = np.array([[1, 0.5, 0], [0.5, 0, 1], [0, 1, 0]])
+        p_matrix = [[1, 0.5, 0], [0.5, 0, 1], [0, 1, 0]]
         num_agents = 90
         sbm = ng.StochasticBlockGenerator(num_agents, p_matrix)
         network = sbm()

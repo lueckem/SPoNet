@@ -1,13 +1,10 @@
-from __future__ import annotations
-from typing import Protocol
-import networkx as nx
 import pickle
+from typing import Protocol
 
 
 class Parameters(Protocol):
     num_opinions: int
     num_agents: int
-    network: nx.Graph | None
 
 
 def save_params(filename: str, params: Parameters):

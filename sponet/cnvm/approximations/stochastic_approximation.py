@@ -1,17 +1,22 @@
 import numpy as np
 from numba import njit, prange
+from numpy.random import Generator, default_rng
+from numpy.typing import ArrayLike, NDArray
 
-from ...utils import argmatch
+from sponet.utils import t_eval_to_ndarray
+
 from ..parameters import CNVMParameters
 
 
 def sample_stochastic_approximation(
     params: CNVMParameters,
-    initial_state: np.ndarray,
-    max_time: float,
-    num_timesteps: int,
+    initial_states: ArrayLike,
+    t_max: float,
     num_samples: int,
-) -> tuple[np.ndarray, np.ndarray]:
+    t_eval: ArrayLike,
+    rng: Generator | None = None,
+    seed: int | None = None,
+) -> tuple[NDArray, NDArray]:
     """
     Simulate the opinion shares directly.
 
@@ -25,79 +30,109 @@ def sample_stochastic_approximation(
     Parameters
     ----------
     params : CNVMParameters
-    initial_state : np.ndarray
-        Initial shares c of shape (num_opinions,).
-    max_time : float
-    num_timesteps : int
-        Number of states in returned trajectory, at equidistant times.
+    initial_states : NDArray
+        Either shape = (num_opinions,) or (num_states, num_opinions)
+    t_max : float
     num_samples: int
+    t_eval : ArrayLike
+        Array of time points where the solution should be saved,
+        or number "n" in which case the solution is stored equidistantly at "n" time points.
+    rng : Generator, optional
+        Random number generator.
+    seed : int, optional
+        Seed for random numbers. If both `rng` and `seed` are given, `rng` takes precedence.
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
-        t with shape (num_timesteps,), c with shape (num_timesteps, num_opinions)
+    tuple[NDArray, NDArray]
+        (t, c),
+        t.shape=(num_timesteps),
+        c.shape = (num_states, num_samples, num_timesteps, num_opinions), or c.shape = (num_samples, num_timesteps, num_opinions) if a single initial state was given.
     """
-    return _sample_many(
-        initial_state,
-        max_time,
-        params.num_agents,
-        params.r,
-        params.r_tilde,
-        num_timesteps,
-        num_samples,
+    if rng is not None:
+        seed = int(rng.integers(1, 2**24))
+    elif seed is None:
+        seed = int(default_rng().integers(1, 2**24))
+
+    t_eval = t_eval_to_ndarray(t_eval, t_max)
+
+    initial_states = np.array(initial_states, ndmin=1)
+    is_1d = initial_states.ndim == 1
+    if is_1d:
+        initial_states = np.expand_dims(initial_states, 0)
+
+    num_states = initial_states.shape[0]
+    num_timesteps = t_eval.shape[0]
+    c = np.zeros(
+        (
+            num_states,
+            num_samples,
+            num_timesteps,
+            initial_states.shape[1],
+        )
     )
+
+    for i in range(num_states):
+        c[i] = _sample_many(
+            initial_states[i],
+            params.num_agents,
+            params.r,
+            params.r_tilde,
+            t_eval,
+            num_samples,
+            seed,
+        )
+
+    if is_1d:
+        c = c[0]
+    return t_eval, c
 
 
 @njit(parallel=True, cache=True)
 def _sample_many(
-    initial_state: np.ndarray,
-    t_max: float,
+    initial_state: NDArray,
     num_agents: int,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-    num_timesteps: int,
+    r: NDArray,
+    r_tilde: NDArray,
+    t_eval: NDArray,
     num_samples: int,
-):
-    t_delta = t_max / (5 * num_timesteps)
-    t_out = np.linspace(0, t_max, num_timesteps + 1)
-    c_out = np.zeros((num_samples, t_out.shape[0], initial_state.shape[0]))
+    seed: int,
+) -> NDArray:
+    c_out = np.zeros((num_samples, t_eval.shape[0], initial_state.shape[0]))
 
     for i in prange(num_samples):
-        t, c = _simulate(
+        np.random.seed(seed + i)
+        c = _simulate(
             initial_state,
-            t_max,
-            t_delta,
+            t_eval,
             num_agents,
             r,
             r_tilde,
         )
-        t = np.array(t)
-        c = make_2d(c)
 
-        t_ind = argmatch(t_out, t)
-        c_out[i] = c[t_ind, :]
+        c_out[i] = c
 
-    return t_out, c_out
+    return c_out
 
 
 @njit
 def _simulate(
-    initial_state: np.ndarray,
-    t_max: float,
-    t_delta: float,
+    initial_state: NDArray,
+    t_eval: NDArray,
     num_agents: int,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-):
-    t = 0
+    r: NDArray,
+    r_tilde: NDArray,
+) -> NDArray:
+    t_max = t_eval[-1]
+    t = 0.0
     c = initial_state.copy()
     num_opinions = c.shape[0]
 
-    t_list = [0]
-    c_list = [initial_state.copy()]
+    c_store = np.zeros((t_eval.shape[0], c.shape[0]))
+    c_store[0] = c
     props = np.zeros((num_opinions, num_opinions))
 
-    t_store = t_delta
+    t_store_idx = 1
     while t < t_max:
         _update_propensities(props, r, r_tilde, c, num_agents)
 
@@ -110,20 +145,24 @@ def _simulate(
         c[m] -= 1 / num_agents
         c[n] += 1 / num_agents
 
-        if t >= t_store:
-            t_store += t_delta
-            t_list.append(t)
-            c_list.append(c.copy())
+        if t >= t_eval[t_store_idx]:
+            c_store[t_store_idx] = c
+            t_store_idx += 1
 
-    return t_list, c_list
+    if t_store_idx < t_eval.shape[0]:
+        # `c_store` is not filled completely.
+        # Simply duplicate the last value.
+        # This could be done better, see CNVM.
+        c_store[t_store_idx:] = c_store[t_store_idx - 1]
+    return c_store
 
 
 @njit
 def _update_propensities(
-    props: np.ndarray,
-    r: np.ndarray,
-    r_tilde: np.ndarray,
-    c: np.ndarray,
+    props: NDArray,
+    r: NDArray,
+    r_tilde: NDArray,
+    c: NDArray,
     num_agents: int,
 ):
     for m in range(props.shape[0]):
@@ -132,13 +171,3 @@ def _update_propensities(
                 continue
             props[m, n] = c[m] * (r[m, n] * c[n] + r_tilde[m, n])
     props *= num_agents
-
-
-@njit
-def make_2d(arraylist):
-    n = len(arraylist)
-    k = arraylist[0].shape[0]
-    a2d = np.zeros((n, k))
-    for i in range(n):
-        a2d[i] = arraylist[i]
-    return a2d

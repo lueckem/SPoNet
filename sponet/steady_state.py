@@ -49,7 +49,7 @@ def estimate_steady_state(
     delta_t = float(delta_t)
     # transient phase: integrate until steady state
     print("Integrating through transient phase...")
-    _, x = model.simulate(1000 * delta_t, len_output=2)
+    _, x = model.simulate(1000 * delta_t, t_eval=2)
 
     # sampling phase: integrate until tol
     remaining_samples = 1000
@@ -62,7 +62,7 @@ def estimate_steady_state(
         print("")
 
         _, x = model.simulate(
-            remaining_samples * delta_t, x[-1], len_output=remaining_samples + 1
+            remaining_samples * delta_t, x[-1], t_eval=remaining_samples + 1
         )
 
         c_new = col_var(x)[1:]

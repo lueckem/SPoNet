@@ -1,10 +1,10 @@
-from __future__ import annotations
-
-from typing import Optional, Union
+from typing import Iterable
 
 import networkx as nx
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
+
+from sponet.utils import calculate_neighbor_list
 
 from ..network_generator import NetworkGenerator
 
@@ -20,8 +20,11 @@ class CNVMParameters:
     Either a network has to specified, or a NetworkGenerator,
     or num_agents, in which case a complete network is used.
     If multiple are given, NetworkGenerator overrules network, and network overrules num_agents.
+    A network can either be given as a `nx.Graph` or as an adjacency list,
+    where the i-th element is the list of neighbors of node i.
+    (The most efficient way to give a network is via an adjacency list of type list[NDArray].)
 
-    The rate parameters r and r_tilde can be given as numpy arrays of shape (num_opinions, num_opinions),
+    The rate parameters r and r_tilde can be given as arrays of shape (num_opinions, num_opinions),
     or as floats, in which case all rates are set to this value.
 
     (Internally, the CNVM uses an equivalent set of rate parameters: r_imit, r_noise, prob_imit and prob_noise.
@@ -32,21 +35,20 @@ class CNVMParameters:
 
     def __init__(
         self,
-        num_opinions: int,
-        num_agents: Optional[int] = None,
-        network: Optional[nx.Graph] = None,
-        network_generator: Optional[NetworkGenerator] = None,
+        num_opinions: int | None = None,
+        num_agents: int | None = None,
+        network: nx.Graph | Iterable | None = None,
+        network_generator: NetworkGenerator | None = None,
         alpha: float = 1.0,
         # rate parameters in style 1
-        r: Union[float, NDArray, None] = None,
-        r_tilde: Union[float, NDArray, None] = None,
+        r: ArrayLike | None = None,
+        r_tilde: ArrayLike | None = None,
         # rate parameters in style 2
-        r_imit: Optional[float] = None,
-        r_noise: Optional[float] = None,
-        prob_imit: Union[float, NDArray] = 1,
-        prob_noise: Union[float, NDArray] = 1,
+        r_imit: float | None = None,
+        r_noise: float | None = None,
+        prob_imit: ArrayLike = 1,
+        prob_noise: ArrayLike = 1,
     ):
-        self.num_opinions = num_opinions
         self.alpha = alpha
 
         # network
@@ -55,6 +57,7 @@ class CNVMParameters:
         )
 
         (
+            self.num_opinions,
             self.r,
             self.r_tilde,
             self.r_imit,
@@ -76,13 +79,15 @@ class CNVMParameters:
         nx.Graph
         """
         if self.network is not None:
-            return self.network
+            return nx.from_dict_of_lists(
+                {i: nbrs for i, nbrs in enumerate(self.network)}
+            )
         elif self.network_generator is not None:
             return self.network_generator()
         else:
             return nx.complete_graph(self.num_agents)
 
-    def set_network(self, network: nx.Graph) -> None:
+    def set_network(self, network: nx.Graph | Iterable | None) -> None:
         """
         Set new network.
 
@@ -90,12 +95,15 @@ class CNVMParameters:
 
         Parameters
         ----------
-        network : nx.Graph
+        network : nx.Graph | Iterable | None
+            Graph, or adjacency list, or None (=complete graph).
         """
         if self.network_generator is not None:
             raise ValueError("Cannot set network when there is a NetworkGenerator.")
-        self.network = network
-        self.num_agents = len(network.nodes)
+
+        self.num_agents, self.network, _ = _sanitize_network_input(
+            self.num_agents, network, None
+        )
 
     def update_network_by_generator(self) -> None:
         """
@@ -105,12 +113,12 @@ class CNVMParameters:
         """
         if self.network_generator is None:
             raise ValueError("No NetworkGenerator was given.")
-        self.network = self.network_generator()
+        self.network = calculate_neighbor_list(self.network_generator())
 
     def change_rates(
         self,
-        r: Union[float, NDArray, None] = None,
-        r_tilde: Union[float, NDArray, None] = None,
+        r: ArrayLike | None = None,
+        r_tilde: ArrayLike | None = None,
     ):
         """
         Change one or both rate parameters.
@@ -125,6 +133,7 @@ class CNVMParameters:
         r = r if r is not None else self.r
         r_tilde = r_tilde if r_tilde is not None else self.r_tilde
         (
+            self.num_opinions,
             self.r,
             self.r_tilde,
             self.r_imit,
@@ -135,14 +144,25 @@ class CNVMParameters:
 
 
 def _sanitize_network_input(
-    num_agents: Optional[int],
-    network: Optional[nx.Graph],
-    network_generator: Optional[NetworkGenerator],
-) -> tuple[int, Optional[nx.Graph], Optional[NetworkGenerator]]:
+    num_agents: int | None,
+    network: nx.Graph | Iterable | None,
+    network_generator: NetworkGenerator | None,
+) -> tuple[int, list[NDArray] | None, NetworkGenerator | None]:
     if network_generator is not None:
         return (network_generator.num_agents, None, network_generator)
     if network is not None:
-        return (network.number_of_nodes(), network, None)
+        if isinstance(network, nx.Graph):
+            return (
+                network.number_of_nodes(),
+                calculate_neighbor_list(network),
+                None,
+            )
+        else:
+            if isinstance(network, list) and isinstance(network[0], np.ndarray):
+                neighbor_list = network
+            else:
+                neighbor_list = [np.array(nbrs, dtype=np.int32) for nbrs in network]
+            return (len(neighbor_list), neighbor_list, None)
     if num_agents is not None:
         return (num_agents, None, None)
     raise ValueError(
@@ -151,17 +171,16 @@ def _sanitize_network_input(
 
 
 def _sanitize_rates_input(
-    num_opinions: int,
-    r: Union[float, NDArray, None],
-    r_tilde: Union[float, NDArray, None],
-    r_imit: Optional[float],
-    r_noise: Optional[float],
-    prob_imit: Union[float, NDArray],
-    prob_noise: Union[float, NDArray],
-) -> tuple[NDArray, NDArray, float, float, NDArray, NDArray]:
+    num_opinions: int | None,
+    r: ArrayLike | None,
+    r_tilde: ArrayLike | None,
+    r_imit: float | None,
+    r_noise: float | None,
+    prob_imit: ArrayLike,
+    prob_noise: ArrayLike,
+) -> tuple[int, NDArray, NDArray, float, float, NDArray, NDArray]:
     if r is not None and r_tilde is not None:  # style 1
-        r = _to_matrix(num_opinions, r)
-        r_tilde = _to_matrix(num_opinions, r_tilde)
+        r, r_tilde, num_opinions = _to_matrix(num_opinions, r, r_tilde)
         if np.min(r) < 0 or np.min(r_tilde) < 0:
             raise ValueError("Rates have to be non-negative.")
 
@@ -172,11 +191,12 @@ def _sanitize_rates_input(
             prob_noise,
         ) = convert_rate_to_cnvm(r, r_tilde)
 
-        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+        return (num_opinions, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     if r_imit is not None and r_noise is not None:  # style 2
-        prob_imit = _to_matrix(num_opinions, prob_imit)
-        prob_noise = _to_matrix(num_opinions, prob_noise)
+        prob_imit, prob_noise, num_opinions = _to_matrix(
+            num_opinions, prob_imit, prob_noise
+        )
         if r_imit < 0 or r_noise < 0:
             raise ValueError("Rates have to be non-negative.")
         if np.min(prob_imit) < 0 or np.max(prob_imit) > 1:
@@ -187,20 +207,56 @@ def _sanitize_rates_input(
         r = r_imit * prob_imit
         r_tilde = r_noise * prob_noise / num_opinions
 
-        return (r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
+        return (num_opinions, r, r_tilde, r_imit, r_noise, prob_imit, prob_noise)
 
     raise ValueError("Rate parameters have to be provided.")
 
 
-def _to_matrix(num_opinions: int, r: Union[float, NDArray]) -> NDArray:
+def _to_matrix(
+    num_opinions: int | None, r1: ArrayLike, r2: ArrayLike
+) -> tuple[NDArray, NDArray, int]:
     """
+    Convert `r1` and `r2` to matrices.
+
     If `r` is a already a NDArray, return `r` but with 0 put on the diagonal.
     If `r` is a float, return a `num_opinions` x `num_opinions` matrix with 0 on the diagonal and `r` everywhere else.
+    Also returns the determined `num_opinions`.
     """
-    if isinstance(r, (int, float)):
-        r = r * np.ones((num_opinions, num_opinions))
-    np.fill_diagonal(r, 0)
-    return r
+    # num_opinions + float + float
+    if isinstance(r1, (int, float)) and isinstance(r2, (int, float)):
+        if num_opinions is None:
+            raise ValueError("`num_opinions` has to be provided.")
+        r1 = r1 * np.ones((num_opinions, num_opinions))
+        np.fill_diagonal(r1, 0)
+        r2 = r2 * np.ones((num_opinions, num_opinions))
+        np.fill_diagonal(r2, 0)
+        return r1, r2, num_opinions
+
+    if isinstance(r1, (int, float)):  # float + matrix
+        r2 = np.array(r2, ndmin=2)
+        r1 = r1 * np.ones_like(r2)
+    elif isinstance(r2, (int, float)):  # matrix + float
+        r1 = np.array(r1, ndmin=2)
+        r2 = r2 * np.ones_like(r1)
+    else:  # matrix + matrix
+        r1 = np.array(r1, ndmin=2)
+        r2 = np.array(r2, ndmin=2)
+    np.fill_diagonal(r1, 0)
+    np.fill_diagonal(r2, 0)
+
+    if (
+        r1.ndim != 2
+        or r2.ndim != 2
+        or r1.shape[0] != r1.shape[1]
+        or r2.shape[0] != r2.shape[1]
+    ):
+        raise ValueError("Expected square matrix.")
+    if r1.shape[0] != r2.shape[0]:
+        raise ValueError("Shapes do not match.")
+    if num_opinions is not None:
+        if r1.shape[0] != num_opinions or r2.shape[0] != num_opinions:
+            raise ValueError("Shape of matrix does not match `num_opinions`")
+    return r1, r2, int(r1.shape[0])
 
 
 def save_params_as_txt_file(filename: str, params: CNVMParameters):
@@ -229,13 +285,13 @@ def save_params_as_txt_file(filename: str, params: CNVMParameters):
         if params.network_generator is not None:
             f.write(f"network_generator = {params.network_generator}\n")
         elif params.network is not None:
-            f.write(f"network = {params.network}\n")
+            f.write(f"network = graph with {len(params.network)} nodes\n")
         else:
             f.write(f"network = fully connected\n")
 
 
 def convert_rate_to_cnvm(
-    r: NDArray, r_tilde: NDArray
+    r: ArrayLike, r_tilde: ArrayLike
 ) -> tuple[float, float, NDArray, NDArray]:
     """
     Convert the rates r and r_tilde to the parameters used in the CNVM, i.e., r_imit, r_noise, prob_imit, prob_noise.
@@ -247,16 +303,18 @@ def convert_rate_to_cnvm(
 
     Parameters
     ----------
-    r : np.ndarray
+    r : ArrayLike
         shape = (num_opinions, num_opinions)
-    r_tilde : np.ndarray
+    r_tilde : ArrayLike
         shape = (num_opinions, num_opinions)
 
     Returns
     -------
-    tuple[float, float, np.ndarray, np.ndarray]
+    tuple[float, float, NDArray, NDArray]
         r_imit, r_noise, prob_imit, prob_noise
     """
+    r = np.array(r)
+    r_tilde = np.array(r_tilde)
     num_opinions = r.shape[0]
 
     # r[m,n] = r_imit * prob_imit[m,n]
