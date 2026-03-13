@@ -20,4 +20,4 @@ pip install git+https://github.com/lueckem/SPoNet
 
 
 ## Documentation
-The documenation can be found at [lueckem.github.io/SPoNet](lueckem.github.io/SPoNet).
+The documenation can be found at [lueckem.github.io/SPoNet](https://lueckem.github.io/SPoNet).
