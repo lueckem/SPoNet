@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.19.2"
+__generated_with = "0.20.4"
 app = marimo.App()
 
 
@@ -50,17 +50,19 @@ def _():
 def _(mo):
     mo.md(r"""
     In this example, we will have $N=100$ agents and $M=3$ different opinions. The rates $r_{m,n}$ and $\tilde{r}_{m,n}$ have to be specified for each pair $m\neq n$ and are thus defined as $M \times M$ arrays.
+    (The diagonal entries are of no relevance.)
+    It is also possible to set `r` or `r_tilde` to a single number, which then will be used for all $r_{m,n}$ or $\tilde{r}_{m,n}$ respectively.
     """)
     return
 
 
 @app.cell
-def _(np):
+def _():
     num_agents = 100
     num_opinions = 3
 
-    r = np.array([[0, 0.8, 0.2], [0.2, 0, 0.9], [0.8, 0.3, 0]])
-    r_tilde = 0.01 * np.array([[0, 0.9, 0.8], [0.7, 0, 0.9], [0.9, 0.7, 0]])
+    r = [[0, 0.8, 0.2], [0.2, 0, 0.9], [0.8, 0.3, 0]]
+    r_tilde = 0.01
     return num_agents, num_opinions, r, r_tilde
 
 
@@ -69,6 +71,7 @@ def _(mo):
     mo.md(r"""
     Now we specify the network structure using the `networkx` package. In this example, we sample a random graph using the Erdös-Renyi model.
     It should be noted that graphs with isolated vertices are not allowed in the CNVM model.
+    Instead of a `networkx` graph we could also provide a neighbor list directly (i.e., a list where the i-th entry contains an array of the neighbors of node i).
     """)
     return
 
@@ -86,50 +89,48 @@ def _(mo):
     mo.md(r"""
     We summarize the model parameters in the class `CNVMParameters`.
 
-    Providing `num_opinions` and the rates `r` and `r_tilde` is required to create an instance of `CNVMParameters`. Moreover, it is required to either specify a `network` (which we do), or a `network_generator` (from `cnvm.network_generators`), or `num_agents` (in which case a complete network is used).
+    Providing the rates `r` and `r_tilde` is required to create an instance of `CNVMParameters`. Moreover, it is required to either specify a `network` (which we do), or a `network_generator` (from `sponet.network_generators`), or `num_agents` (in which case a complete network is used).
     The parameter `alpha` is optional with default value 1.
+
+    Then we construct the model using the `CNVM` class and the parameters that we have defined before.
     """)
     return
 
 
 @app.cell
-def _(network, num_opinions, r, r_tilde):
+def _(network, r, r_tilde):
     from sponet import CNVMParameters, CNVM
 
     params = CNVMParameters(
-        num_opinions=num_opinions, network=network, r=r, r_tilde=r_tilde, alpha=1
+        network=network, r=r, r_tilde=r_tilde, alpha=1
     )
-    return CNVM, params
+    model = CNVM(params)
+    return model, params
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Now we construct the model using the `CNVM` class and the parameters that we have defined before. We execute the simulation by calling the method `CNVM.simulate`. Note that the first call of `CNVM.simulate` takes longer than subsequent calls because the simulation code is just-in-time compiled using `numba`.
+    We execute the simulation by calling the method `CNVM.simulate`. Note that the first call of `CNVM.simulate` takes longer than subsequent calls because the simulation code is just-in-time compiled using `numba`.
     """)
     return
 
 
 @app.cell
-def _(CNVM, np, num_agents, params):
-    model = CNVM(params)
+def _(model, num_agents):
+    from sponet import sample_states_target_shares
 
-    # initial state
-    x_init = np.concatenate(
-        [
-            0 * np.ones(int(20 * num_agents / 100)),
-            1 * np.ones(int(50 * num_agents / 100)),
-            2 * np.ones(int(30 * num_agents / 100)),
-        ]
-    )
+    # sample a random initial state where 20% of nodes have opinion 0,
+    # 50% have opinion 1, and 30% have opinion 2
+    x_init = sample_states_target_shares(num_agents, [0.2, 0.5, 0.3])
 
     # simulation from t=0 to t=t_max
-    t_max = 200
+    t_max = 100
 
     # execute simulation
     t, x = model.simulate(t_max, x_init)
-    print(t.shape)  # time stamps of jumps
-    print(x.shape)  # system state after each jump
+    print(f"t.shape = {t.shape}")  # time stamps of jumps
+    print(f"x.shape = {x.shape}")  # system state after each jump
     return t, t_max, x, x_init
 
 
@@ -137,36 +138,44 @@ def _(CNVM, np, num_agents, params):
 def _(mo):
     mo.md(r"""
     In order to visualize the results of the simulation, we calculate an aggregate state called the *opinion shares*. The opinion shares are simply the numbers of agents of each discrete opinion. For example, in our initial state we had 20 agents with opinion 0, 50 with opinion 1, and 30 with opinion 2.
+
+    The option `normalize=True` has the effect that instead of the absolute counts of each opinion we compute the normalized shares.
     """)
     return
 
 
 @app.cell
 def _(num_opinions, x):
-    from sponet.collective_variables import OpinionShares
+    from sponet import OpinionShares
 
-    opinion_shares = OpinionShares(num_opinions)
+    opinion_shares = OpinionShares(num_opinions, normalize=True)
     c = opinion_shares(x)
-    print(c.shape)
+    print(f"c.shape = {c.shape}")
     return c, opinion_shares
 
 
 @app.cell
-def _(c, plt, t):
-    for _i in range(c.shape[1]):
-        plt.plot(t, c[:, _i], label=f"$c_{_i + 1}$")
-    plt.grid()
-    plt.legend()
-    plt.xlabel("time")
-    plt.ylabel("counts")
-    plt.show()
+def _(c, mo, plt, t):
+    def plot_traj():
+        fig, ax = plt.subplots()
+        for i in range(c.shape[1]):
+            ax.plot(t, c[:, i], label=f"$c_{i + 1}$")
+        ax.grid()
+        ax.legend()
+        ax.set_xlabel("time")
+        ax.set_ylabel("shares")
+        return fig
+
+    mo.mpl.interactive(plot_traj())
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    It is often required to perform many simulations for many initial states to approximate important statistics. We provide the utility function `sample_many_runs` for that purpose:
+    It is often required to perform many simulations for different initial states to approximate important statistics. We provide the utility function `sample_many_runs` for that purpose.
+    It would be hard to compare the trajectories if they would be stored at their different jump times.
+    Hence, we have to provide the argument `t_eval` which is either an array of time points at which all the trajectories will be stored, or a number in which case the snapshots are stored equidistantly.
     """)
     return
 
@@ -175,7 +184,7 @@ def _(mo):
 def _(opinion_shares, params, t_max, x_init):
     from sponet import sample_many_runs
 
-    t_1, c_1 = sample_many_runs(
+    t_many, c_many = sample_many_runs(
         params,
         x_init,
         t_max,
@@ -184,15 +193,15 @@ def _(opinion_shares, params, t_max, x_init):
         collective_variable=opinion_shares,
         n_jobs=-1,
     )
-    print(t_1.shape)
-    print(c_1.shape)
-    return c_1, t_1
+    print(f"t_many.shape = {t_many.shape}")
+    print(f"c_many.shape = {c_many.shape}")
+    return c_many, t_many
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    The output c has the shape (# samples, # timesteps, # opinions). Multiprocessing is enabled via n_jobs=-1 and disabled via n_jobs=None.
+    The output `c_many` has the shape (# samples, # timesteps, # opinions). Multiprocessing is enabled via n_jobs=-1 and disabled via n_jobs=None.
 
     We plot the ensemble average:
     """)
@@ -200,14 +209,74 @@ def _(mo):
 
 
 @app.cell
-def _(c_1, np, plt, t_1):
-    for i in range(c_1.shape[2]):
-        plt.plot(t_1, np.mean(c_1[:, :, i], axis=0), label=f"$c_{i + 1}$")
-    plt.grid()
-    plt.legend()
-    plt.xlabel("time")
-    plt.ylabel("counts")
-    plt.show()
+def _(c_many, mo, np, plt, t_many):
+    def plot_mean():
+        fig, ax = plt.subplots()
+        for i in range(c_many.shape[2]):
+            ax.plot(t_many, np.mean(c_many[:, :, i], axis=0), label=f"$c_{i + 1}$")
+        ax.grid()
+        ax.legend()
+        ax.set_xlabel("time")
+        ax.set_ylabel("counts")
+        return fig
+
+    mo.mpl.interactive(plot_mean())
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    The `sponet` package also provides some approximations for the CNVM.
+
+    For example, it is known that for certain networks, e.g., complete networks and dense Erdös-Rényi networks, the dynamics of the CNVM converges to a mean-field limit given by an ordinary differential equation (ODE) of the opinion shares.
+    This ODE is also called mean-field equation or reaction-rate equation (RRE) and is defined as
+
+    $$ \frac{d}{dt} c(t) = \sum_{\substack{m,n=1 \\ m\neq n}}^M c_m(t) (r_{mn} c_n(t) + \tilde{r}_{mn})(e_n - e_m), \quad \text{(RRE)} $$
+
+    where $c(t)=(c_1(t), \dots, c_M(t))$ is the vector of opinion shares (e.g., $c_1(t) \in [0,1]$ is the share of nodes in state $1$), and $e_n$ is the $n$-th unit vector.
+    (The proof can be found for example in [[Lücke et al., 2022]](https://arxiv.org/abs/2210.02934).)
+
+    The RRE is accessible via the function `calc_rre_traj` that calculates the solution for us:
+    """)
+    return
+
+
+@app.cell
+def _(params, t_many, t_max):
+    from sponet import calc_rre_traj
+
+    t_rre, c_rre = calc_rre_traj(params, [0.2, 0.5, 0.3], t_max, t_eval=t_many)
+    print(f"t_rre.shape = {t_rre.shape}")
+    print(f"c_rre.shape = {c_rre.shape}")
+    return c_rre, t_rre
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    As you can see below, the RRE does not agree particularly well with our model simulations.
+    The reason is that the network is very small (100 nodes).
+    Increasing the network size would result in a better match.
+
+    (For smaller populations, the _chemical Langevin equation_ provides a much better approximation, see the `sample_cle` function in `sponet`.)
+    """)
+    return
+
+
+@app.cell
+def _(c_many, c_rre, mo, np, plt, t_many, t_rre):
+    def plot_mean_rre():
+        fig, ax = plt.subplots()
+        ax.plot(t_many, np.mean(c_many[:, :, 0], axis=0), label=f"CNVM")
+        ax.plot(t_rre, c_rre[:, 0], label=f"RRE")
+        ax.grid()
+        ax.legend()
+        ax.set_xlabel("time")
+        ax.set_ylabel("$c_1$")
+        return fig
+
+    mo.mpl.interactive(plot_mean_rre())
     return
 
 
