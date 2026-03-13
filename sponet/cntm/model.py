@@ -182,15 +182,14 @@ def _simulate_teval(
     # In the previous step, `previous_agent` switched from its `previous_opinion` to its current opinion.
     previous_agent = 0
     previous_opinion = x[0]
+    previous_t = t
 
     t_store_idx = 1
     len_t_eval = len(t_eval)
     while t_store_idx < len_t_eval:
-        previous_t = t
-        t += rng.exponential(next_event_rate)  # time of next event
         agent = sample_randint(num_agents, rng)  # agent of next event
-
         if rng.random() < noise_prob:  # noise
+            previous_t = t
             previous_agent = agent
             previous_opinion = x[agent]
             x[agent] = sample_randint(2, rng)
@@ -206,10 +205,12 @@ def _simulate_teval(
 
                 threshold = threshold_10 if x[agent] == 1 else threshold_01
                 if share_other_opinion >= threshold:
+                    previous_t = t
                     previous_agent = agent
                     previous_opinion = x[agent]
                     x[agent] = other_opinion
 
+        t += rng.exponential(next_event_rate)  # time of next event
         if t >= t_eval[t_store_idx]:  # store only after passing the next `t_store`
             store_snapshot_linspace(
                 t,
