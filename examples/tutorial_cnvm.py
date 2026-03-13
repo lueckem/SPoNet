@@ -101,9 +101,7 @@ def _(mo):
 def _(network, r, r_tilde):
     from sponet import CNVMParameters, CNVM
 
-    params = CNVMParameters(
-        network=network, r=r, r_tilde=r_tilde, alpha=1
-    )
+    params = CNVMParameters(network=network, r=r, r_tilde=r_tilde, alpha=1)
     model = CNVM(params)
     return model, params
 

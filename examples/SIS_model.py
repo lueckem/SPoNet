@@ -76,10 +76,8 @@ def _(CNVMParameters, network):
     # helper function to create parameters for varying infection rates
     def params_from_infection_rate(infection_rate: float) -> CNVMParameters:
         return CNVMParameters(
-            network=network,
-            r=[[0, infection_rate], [0, 0]],
-            r_tilde=[[0, 0], [1, 0]]
-            )
+            network=network, r=[[0, infection_rate], [0, 0]], r_tilde=[[0, 0], [1, 0]]
+        )
 
     return (params_from_infection_rate,)
 
@@ -261,7 +259,7 @@ def _(
         ir = infection_rates[idx]
         params = params_from_infection_rate(ir)
         t_rre, c_rre = calc_rre_traj(params, [0.7, 0.3], t_max)
-    
+
         fig, ax = plt.subplots()
         ax.plot(t, np.mean(c_results[idx][:, :, 1], axis=0), label="CNVM")
         ax.plot(t_rre, c_rre[:, 1], "--k", label="RRE")
