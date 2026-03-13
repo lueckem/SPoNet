@@ -1,11 +1,10 @@
 [project]
 name = "sponet"
-version = "2.8.0"
+version = "3.0.0"
 description = "Spreading Processes on Networks"
 license = "GPL-3.0-or-later"
 authors = [{name = "Marvin Lücke"}]
 readme = "README.md"
-repository = "https://github.com/lueckem/SPoNet"
 keywords = [
     "voter model",
     "threshold model",
@@ -29,6 +28,10 @@ dependencies = [
   "tqdm (>=4.67.1,<5.0.0)",
 ]
 
+[project.urls]
+Documentation = "https://lueckem.github.io/SPoNet"
+Repository = "https://github.com/lueckem/SPoNet"
+
 [tool.poetry.group.test]
 optional = true
 
@@ -36,7 +39,6 @@ optional = true
 pytest = ">=7.3.0"
 pytest-cov = ">=4.0.0"
 black = ">=24.3.0"
-
 
 [tool.poetry.group.notebooks]
 optional = true
@@ -52,7 +54,6 @@ optional = true
 mkdocs = ">=1.6.0,<2.0.0"
 mkdocstrings-python = ">=2.0.0"
 mkdocs-material = ">= 9.7.4"
-
 
 [build-system]
 requires = ["poetry-core"]
