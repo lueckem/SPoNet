@@ -1,4 +1,5 @@
 from .chemical_langevin_equation import sample_cle
+from .hybrid_jump_diffusion_approximation import sample_hybrid_jump_diffusion
 from .pair_approximation import calc_pair_approximation_traj
 from .reaction_rate_equation import calc_modified_rre_traj, calc_rre_traj
 from .stochastic_approximation import sample_stochastic_approximation

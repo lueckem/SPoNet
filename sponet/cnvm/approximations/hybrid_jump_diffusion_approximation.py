@@ -1,11 +1,88 @@
 import numpy as np
 from numba import njit, prange
+from numpy.random import Generator, default_rng
 from numpy.typing import ArrayLike, NDArray
 
+from sponet.cnvm.parameters import CNVMParameters
+from sponet.utils import t_eval_to_ndarray
 
-def sample_hybrid_jump_diffusion() -> tuple[NDArray, NDArray]:
-    # TODO: execute many simulations
-    pass
+
+# TODO: tests
+def sample_hybrid_jump_diffusion(
+    params: CNVMParameters,
+    initial_states: ArrayLike,
+    t_max: float,
+    num_samples: int,
+    switch_propensity_threshold: float,
+    switch_boundary_thresholds: NDArray,
+    delta_t: float | None = None,
+    t_eval: ArrayLike | None = None,
+    rng: Generator | None = None,
+    seed: int | None = None,
+) -> tuple[NDArray, NDArray]:
+    # TODO: docs
+    if rng is not None:
+        seed = int(rng.integers(1, 2**24))
+    elif seed is None:
+        seed = int(default_rng().integers(1, 2**24))
+
+    delta_t, t_eval = _sanitize_delta_t_and_t_eval(delta_t, t_eval, t_max)
+
+    initial_states = np.array(initial_states, ndmin=1)
+    is_1d = initial_states.ndim == 1
+    if is_1d:
+        initial_states = np.expand_dims(initial_states, 0)
+
+    num_states = initial_states.shape[0]
+    num_time_steps = t_eval.shape[0]
+    c = np.zeros(
+        (
+            num_states,
+            num_samples,
+            num_time_steps,
+            initial_states.shape[1],
+        )
+    )
+
+    for i in range(num_states):
+        t, c[i] = _numba_sample_jda(
+            initial_states[i],
+            delta_t,
+            t_eval,
+            params.num_agents,
+            params.r,
+            params.r_tilde,
+            num_samples,
+            switch_propensity_threshold,
+            switch_boundary_thresholds,
+            seed,
+        )
+
+    if is_1d:
+        c = c[0]
+    return t, c  # type: ignore
+
+
+def _sanitize_delta_t_and_t_eval(
+    delta_t: float | None, t_eval: ArrayLike | None, max_time: float
+) -> tuple[float, NDArray]:
+    if delta_t is None and t_eval is None:
+        raise ValueError("Either `delta_t` or `t_eval` has to be provided.")
+
+    if t_eval is not None:
+        t_eval = t_eval_to_ndarray(t_eval, max_time)
+
+        if delta_t is None:
+            delta_t = np.max(np.diff(t_eval))
+
+    if delta_t is not None and t_eval is None:
+        num_steps = int(np.ceil(max_time / delta_t))
+        t_eval = np.linspace(0, delta_t * num_steps, num_steps + 1)
+        t_eval[-1] = max_time
+
+    assert isinstance(t_eval, np.ndarray)
+    assert isinstance(delta_t, float)
+    return delta_t, t_eval
 
 
 @njit(parallel=True, cache=True)
