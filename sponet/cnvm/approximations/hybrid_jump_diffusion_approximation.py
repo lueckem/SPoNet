@@ -122,9 +122,11 @@ def _numba_update_channels(
     return
 
 
+@njit()
 def _numba_compute_timestep(
     c: NDArray,
     c_buf: NDArray,
+    propensities: NDArray,
     delta_t: float,
     jump_channels: NDArray,
     jump_thresholds: NDArray,
@@ -133,4 +135,83 @@ def _numba_compute_timestep(
     r_tilde: NDArray,
     num_agents: int,
 ):
-    pass
+    """
+    Advance the hybrid process by one step of size `delta_t` in place.
+
+    Diffusive channels take an Euler-Maruyama step, jump channels integrate their
+    propensity and fire a jump of size 1/num_agents once the integrated time reaches
+    the jump threshold. Leaving the simplex is handled by clipping without altering time.
+
+    Parameters
+    ----------
+    c : NDArray
+        Shape = (n_states,). Current state, overwritten with the new state.
+    c_buf : NDArray
+        Shape = (n_states,). Buffer for the intermediate state.
+    propensities : NDArray
+        Shape = (n_states, n_states). Propensities evaluated at `c`,
+        overwritten with the propensities evaluated at the new state.
+    delta_t : float
+    jump_channels : NDArray
+        Shape = (n_states, n_states).
+    jump_thresholds : NDArray
+        Shape = (n_states, n_states).
+    jump_integrated_times : NDArray
+        Shape = (n_states, n_states).
+    r : NDArray
+    r_tilde : NDArray
+    num_agents : int
+    """
+    n_states = c.shape[0]
+    std = np.sqrt(delta_t)
+
+    # Diffusion step
+    c_buf[:] = c
+    for i in range(n_states):
+        for j in range(n_states):
+            if i == j or jump_channels[i, j]:
+                continue
+            prop = propensities[i, j]
+            increment = prop * delta_t + np.sqrt(prop / num_agents) * np.random.normal(
+                0, std
+            )
+            c_buf[i] -= increment
+            c_buf[j] += increment
+
+    # Map diffusion step back onto the simplex if it left it
+    if (c_buf < 0).any():
+        np.clip(c_buf, 0, 1, out=c_buf)
+        c_buf /= np.sum(c_buf)
+
+    # Jump step
+    for i in range(n_states):
+        for j in range(n_states):
+            if i == j or not jump_channels[i, j]:
+                continue
+            jump_integrated_times[i, j] += num_agents * propensities[i, j] * delta_t
+            if jump_integrated_times[i, j] < jump_thresholds[i, j]:
+                continue
+
+            # Clip jump such that the trajectory ends up on the boundary
+            jump_size = min(1 / num_agents, c_buf[i])
+            c_buf[i] -= jump_size
+            c_buf[j] += jump_size
+
+            jump_integrated_times[i, j] = 0
+            jump_thresholds[i, j] = np.random.exponential(1)
+
+    c[:] = c_buf
+    _numba_update_propensities(propensities, c, r, r_tilde)
+
+
+@njit(inline="always")
+def _numba_update_propensities(
+    propensities: NDArray, c: NDArray, r: NDArray, r_tilde: NDArray
+):
+    n_states = c.shape[0]
+    for i in range(n_states):
+        for j in range(n_states):
+            if i == j:
+                propensities[i, j] = 0
+                continue
+            propensities[i, j] = c[i] * (r[i, j] * c[j] + r_tilde[i, j])
