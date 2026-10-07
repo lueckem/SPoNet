@@ -171,8 +171,6 @@ def _numba_jda(
             jump_channels,
             jump_thresholds,
             jump_integrated_times,
-            r,
-            r_tilde,
             num_agents,
         )
 
@@ -228,8 +226,6 @@ def _numba_compute_timestep(
     jump_channels: NDArray,
     jump_thresholds: NDArray,
     jump_integrated_times: NDArray,
-    r: NDArray,
-    r_tilde: NDArray,
     num_agents: int,
 ):
     """
@@ -255,8 +251,6 @@ def _numba_compute_timestep(
         Shape = (n_states, n_states).
     jump_integrated_times : NDArray
         Shape = (n_states, n_states).
-    r : NDArray
-    r_tilde : NDArray
     num_agents : int
     """
     n_states = c.shape[0]
