@@ -4,7 +4,9 @@ from numba import njit
 
 from sponet.cnvm.approximations.hybrid_jump_diffusion_approximation import (
     _numba_compute_timestep,
+    _numba_jda,
     _numba_update_channels,
+    _numba_update_propensities,
 )
 
 
@@ -210,7 +212,6 @@ def test_timestep_zero_propensities_no_change(
     c_old = c.copy()
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         np.zeros((3, 3)),
         0.1,
         jump_channels,
@@ -223,14 +224,21 @@ def test_timestep_zero_propensities_no_change(
     assert np.allclose(c, c_old)
 
 
-def test_timestep_updates_propensities(
+def test_update_propensities(c, rates):
+    r, r_tilde = rates
+    propensities = np.zeros((3, 3))
+    _numba_update_propensities(propensities, c, r, r_tilde)
+    assert np.allclose(propensities, _expected_propensities(c, r, r_tilde))
+
+
+def test_timestep_does_not_change_propensities(
     c, jump_channels, jump_thresholds, jump_integrated_times, rates
 ):
     r, r_tilde = rates
     propensities = _expected_propensities(c, r, r_tilde)
+    old_propensities = propensities.copy()
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         0.01,
         jump_channels,
@@ -240,7 +248,7 @@ def test_timestep_updates_propensities(
         r_tilde,
         100,
     )
-    assert np.allclose(propensities, _expected_propensities(c, r, r_tilde))
+    assert np.all(propensities == old_propensities)
 
 
 def test_timestep_jump_not_fired(c, jump_thresholds, jump_integrated_times, rates):
@@ -256,7 +264,6 @@ def test_timestep_jump_not_fired(c, jump_thresholds, jump_integrated_times, rate
 
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         delta_t,
         jump_channels,
@@ -285,7 +292,6 @@ def test_timestep_jump_fired(c, jump_thresholds, jump_integrated_times, rates):
 
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         0.1,
         jump_channels,
@@ -312,7 +318,6 @@ def test_timestep_jump_clipped(jump_thresholds, jump_integrated_times, rates):
 
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         1.0,
         jump_channels,
@@ -332,7 +337,6 @@ def test_timestep_diffusion_stays_in_simplex(rates):
         propensities = _expected_propensities(c, r, r_tilde)
         _numba_compute_timestep(
             c,
-            np.zeros(3),
             propensities,
             0.5,
             np.zeros((3, 3), dtype=bool),
@@ -361,7 +365,6 @@ def test_timestep_jump_channels_do_not_diffuse(c, rates):
 
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         0.1,
         jump_channels,
@@ -390,7 +393,6 @@ def test_timestep_jump_not_fired_at_threshold(c, rates):
     # integrated time = 10 * 0.5 * 0.1 = 0.5 = threshold, which is not exceeded
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         0.1,
         jump_channels,
@@ -418,7 +420,6 @@ def test_timestep_zero_propensity_never_jumps():
 
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         0.1,
         jump_channels,
@@ -445,7 +446,6 @@ def test_timestep_multiple_jumps_clipped_sequentially(rates):
 
     _numba_compute_timestep(
         c,
-        np.zeros(3),
         propensities,
         1.0,
         jump_channels,
@@ -464,31 +464,12 @@ def test_timestep_multiple_jumps_clipped_sequentially(rates):
     assert jump_thresholds[0, 2] != 5.0
 
 
-def test_timestep_c_buf_holds_new_state(c, rates):
-    r, r_tilde = rates
-    c_buf = np.zeros(3)
-    _numba_compute_timestep(
-        c,
-        c_buf,
-        _expected_propensities(c, r, r_tilde),
-        0.1,
-        np.zeros((3, 3), dtype=bool),
-        np.zeros((3, 3)),
-        np.zeros((3, 3)),
-        r,
-        r_tilde,
-        10,
-    )
-    assert np.all(c_buf == c)
-
-
 def test_timestep_mixed_conserves_mass(rates):
     r, r_tilde = rates
     _seed_numba(1)
     rng = np.random.default_rng(1)
     num_agents = 20
     c = np.array([0.1, 0.3, 0.6])
-    c_buf = np.zeros(3)
     propensities = _expected_propensities(c, r, r_tilde)
     jump_thresholds = rng.exponential(size=(3, 3))
     jump_integrated_times = np.zeros((3, 3))
@@ -496,7 +477,6 @@ def test_timestep_mixed_conserves_mass(rates):
         jump_channels = rng.random((3, 3)) < 0.5
         _numba_compute_timestep(
             c,
-            c_buf,
             propensities,
             0.05,
             jump_channels,
@@ -525,7 +505,6 @@ def test_timestep_diffusion_moments(rates):
 
     increments = np.zeros((num_samples, 3))
     c = np.zeros(3)
-    c_buf = np.zeros(3)
     propensities = np.zeros((3, 3))
     jump_channels = np.zeros((3, 3), dtype=bool)
     jump_thresholds = np.zeros((3, 3))
@@ -535,7 +514,6 @@ def test_timestep_diffusion_moments(rates):
         propensities[:] = props0
         _numba_compute_timestep(
             c,
-            c_buf,
             propensities,
             delta_t,
             jump_channels,
@@ -579,7 +557,6 @@ def test_timestep_jump_count_poisson(rates, jumps_per_step):
     propensity = jumps_per_step / (num_agents * delta_t)
 
     c = np.zeros(3)
-    c_buf = np.zeros(3)
     propensities = np.zeros((3, 3))
     jump_channels = np.zeros((3, 3), dtype=bool)
     jump_channels[0, 1] = True
@@ -592,7 +569,6 @@ def test_timestep_jump_count_poisson(rates, jumps_per_step):
         propensities[0, 1] = propensity
         _numba_compute_timestep(
             c,
-            c_buf,
             propensities,
             delta_t,
             jump_channels,
@@ -625,7 +601,6 @@ def test_timestep_diffusion_clipping_only_affects_channel(rates):
         propensities[0, 1] = 1.0
         _numba_compute_timestep(
             c,
-            np.zeros(3),
             propensities,
             1.0,
             jump_channels,
@@ -640,3 +615,111 @@ def test_timestep_diffusion_clipping_only_affects_channel(rates):
         assert np.isclose(np.sum(c), 1)
         clipped |= c[0] == 0
     assert clipped
+
+
+def _run_jda(c_init, delta_t, t_eval, num_agents, rates, seed):
+    r, r_tilde = rates
+    _seed_numba(seed)
+    return _numba_jda(
+        np.array(c_init, dtype=float),
+        delta_t,
+        np.array(t_eval, dtype=float),
+        num_agents,
+        r,
+        r_tilde,
+        0.01,
+        np.full((3, 3), 2 / num_agents),
+    )
+
+
+@pytest.mark.parametrize(
+    "delta_t, t_eval",
+    [
+        (0.01, np.linspace(0, 5, 51)),
+        (0.5, np.linspace(0, 5, 51)),  # delta_t larger than the store interval
+        (0.01, [0, 0.33, 2.5, 4.999]),
+    ],
+)
+def test_jda_shape_and_simplex(rates, delta_t, t_eval):
+    c_init = [0.1, 0.3, 0.6]
+    c = _run_jda(c_init, delta_t, t_eval, 30, rates, 0)
+    assert c.shape == (len(t_eval), 3)
+    assert np.all(c[0] == c_init)
+    assert np.all(c >= 0)
+    assert np.allclose(np.sum(c, axis=1), 1)
+    # the state actually evolves
+    assert not np.allclose(c[-1], c_init)
+
+
+def test_jda_seed(rates):
+    t_eval = np.linspace(0, 5, 51)
+    c1 = _run_jda([0.1, 0.3, 0.6], 0.01, t_eval, 30, rates, 5)
+    c2 = _run_jda([0.1, 0.3, 0.6], 0.01, t_eval, 30, rates, 5)
+    c3 = _run_jda([0.1, 0.3, 0.6], 0.01, t_eval, 30, rates, 6)
+    assert np.all(c1 == c2)
+    assert not np.all(c1 == c3)
+
+
+def test_jda_extinct_opinion_stays_extinct():
+    """Voter model: an extinct opinion can never reappear."""
+    r = np.array([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]])
+    r_tilde = np.zeros((3, 3))
+    c = _run_jda([0.5, 0.0, 0.5], 0.01, np.linspace(0, 5, 51), 30, (r, r_tilde), 0)
+    assert np.all(c[:, 1] == 0)
+
+
+def _exact_count_chain(c_init, t_eval, num_agents, r, r_tilde, num_samples, rng):
+    """Gillespie simulation of the aggregated count chain of the CNVM."""
+    out = np.zeros((num_samples, len(t_eval), 3))
+    for s in range(num_samples):
+        k = np.round(np.array(c_init) * num_agents).astype(int)
+        t = 0.0
+        t_index = 0
+        while t_index < len(t_eval):
+            c = k / num_agents
+            props = _expected_propensities(c, r, r_tilde) * num_agents
+            total = props.sum()
+            t_next = t + rng.exponential(1 / total) if total > 0 else np.inf
+            while t_index < len(t_eval) and t_eval[t_index] < t_next:
+                out[s, t_index] = c
+                t_index += 1
+            if t_index == len(t_eval):
+                break
+            m, n = divmod(rng.choice(9, p=(props / total).ravel()), 3)
+            k[m] -= 1
+            k[n] += 1
+            t = t_next
+    return out
+
+
+def test_jda_agrees_with_exact_count_chain(rates):
+    r, r_tilde = rates
+    num_agents = 30
+    num_samples = 2000
+    c_init = np.array([1, 9, 20]) / num_agents
+    t_eval = np.array([0, 0.5, 1, 2])
+
+    exact = _exact_count_chain(
+        c_init, t_eval, num_agents, r, r_tilde, num_samples, np.random.default_rng(0)
+    )
+    _seed_numba(7)
+    jda = np.array(
+        [
+            _numba_jda(
+                c_init,
+                0.01,
+                t_eval.astype(float),
+                num_agents,
+                r,
+                r_tilde,
+                0.01,
+                np.full((3, 3), 2 / num_agents),
+            )
+            for _ in range(num_samples)
+        ]
+    )
+
+    mean_diff = np.abs(jda.mean(axis=0) - exact.mean(axis=0))
+    std_of_diff = np.sqrt((jda.var(axis=0) + exact.var(axis=0)) / num_samples)
+    assert np.all(mean_diff[1:] < 5 * std_of_diff[1:] + 1e-3)
+    assert np.allclose(jda.std(axis=0)[1:], exact.std(axis=0)[1:], rtol=0.15)

@@ -25,7 +25,7 @@ def _numba_jda(
     c_store = np.zeros((t_eval.shape[0], n_states))
     c_store[0] = c_init
 
-    jump_channels = np.zeros((n_states, n_states), dtype=bool)
+    jump_channels = np.zeros((n_states, n_states), dtype=np.bool_)
     jump_thresholds = np.zeros((n_states, n_states))
     jump_integrated_times = np.zeros((n_states, n_states))
 
@@ -36,7 +36,6 @@ def _numba_jda(
     next_t_store = t_eval[next_store_index]
 
     c = np.copy(c_init)
-    c_buf = np.zeros(n_states)
 
     while True:
         if t + delta_t >= next_t_store:
@@ -58,7 +57,6 @@ def _numba_jda(
         )
         _numba_compute_timestep(
             c,
-            c_buf,
             propensities,
             this_delta_t,
             jump_channels,
@@ -68,6 +66,8 @@ def _numba_jda(
             r_tilde,
             num_agents,
         )
+
+        t += this_delta_t
 
         if store:
             c_store[next_store_index] = c
@@ -114,7 +114,6 @@ def _numba_update_channels(
 @njit()
 def _numba_compute_timestep(
     c: NDArray,
-    c_buf: NDArray,
     propensities: NDArray,
     delta_t: float,
     jump_channels: NDArray,
@@ -137,8 +136,6 @@ def _numba_compute_timestep(
     ----------
     c : NDArray
         Shape = (n_states,). Current state, overwritten with the new state.
-    c_buf : NDArray
-        Shape = (n_states,). Buffer for the intermediate state.
     propensities : NDArray
         Shape = (n_states, n_states). Propensities evaluated at `c`,
         overwritten with the propensities evaluated at the new state.
@@ -157,7 +154,6 @@ def _numba_compute_timestep(
     std = np.sqrt(delta_t)
 
     # Diffusion step
-    c_buf[:] = c
     for i in range(n_states):
         for j in range(n_states):
             if i == j or jump_channels[i, j]:
@@ -167,9 +163,9 @@ def _numba_compute_timestep(
                 0, std
             )
             # Clip increment such that the trajectory ends up on the boundary
-            increment = min(max(increment, -c_buf[j]), c_buf[i])
-            c_buf[i] -= increment
-            c_buf[j] += increment
+            increment = min(max(increment, -c[j]), c[i])
+            c[i] -= increment
+            c[j] += increment
 
     # Jump step
     for i in range(n_states):
@@ -181,14 +177,12 @@ def _numba_compute_timestep(
             # which allows multiple jumps per step.
             while jump_integrated_times[i, j] > jump_thresholds[i, j]:
                 # Clip jump such that the trajectory ends up on the boundary
-                jump_size = min(1 / num_agents, c_buf[i])
-                c_buf[i] -= jump_size
-                c_buf[j] += jump_size
+                jump_size = min(1 / num_agents, c[i])
+                c[i] -= jump_size
+                c[j] += jump_size
 
                 jump_integrated_times[i, j] -= jump_thresholds[i, j]
                 jump_thresholds[i, j] = np.random.exponential(1)
-
-    c[:] = c_buf
 
 
 @njit(inline="always")
