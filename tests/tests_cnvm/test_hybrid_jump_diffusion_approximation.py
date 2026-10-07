@@ -278,7 +278,9 @@ def test_timestep_jump_fired(c, jump_thresholds, jump_integrated_times, rates):
     propensities[0, 1] = 0.5
     jump_channels = np.zeros((3, 3), dtype=bool)
     jump_channels[0, 1] = True
-    jump_integrated_times[0, 1] = 4.9
+    # integrated time exceeds the threshold 5.0 only marginally, so the carried-over
+    # excess is negligible and a second jump is practically impossible
+    jump_integrated_times[0, 1] = 4.5 + 1e-9
     c_old = c.copy()
 
     _numba_compute_timestep(
@@ -294,7 +296,7 @@ def test_timestep_jump_fired(c, jump_thresholds, jump_integrated_times, rates):
         num_agents,
     )
     assert np.allclose(c, c_old + np.array([-0.1, 0.1, 0]))
-    assert jump_integrated_times[0, 1] == 0
+    assert np.isclose(jump_integrated_times[0, 1], 0, atol=1e-8)
     assert jump_thresholds[0, 1] != 5.0
     assert jump_thresholds[0, 1] > 0
 
@@ -306,6 +308,7 @@ def test_timestep_jump_clipped(jump_thresholds, jump_integrated_times, rates):
     propensities[0, 2] = 1.0
     jump_channels = np.zeros((3, 3), dtype=bool)
     jump_channels[0, 2] = True
+    jump_integrated_times[0, 2] = 0
 
     _numba_compute_timestep(
         c,
@@ -374,7 +377,7 @@ def test_timestep_jump_channels_do_not_diffuse(c, rates):
     )
 
 
-def test_timestep_jump_fires_at_threshold(c, rates):
+def test_timestep_jump_not_fired_at_threshold(c, rates):
     r, r_tilde = rates
     propensities = np.zeros((3, 3))
     propensities[1, 2] = 0.5
@@ -384,7 +387,7 @@ def test_timestep_jump_fires_at_threshold(c, rates):
     jump_integrated_times = np.zeros((3, 3))
     c_old = c.copy()
 
-    # integrated time = 10 * 0.5 * 0.1 = 0.5 = threshold
+    # integrated time = 10 * 0.5 * 0.1 = 0.5 = threshold, which is not exceeded
     _numba_compute_timestep(
         c,
         np.zeros(3),
@@ -397,8 +400,35 @@ def test_timestep_jump_fires_at_threshold(c, rates):
         r_tilde,
         10,
     )
-    assert np.allclose(c, c_old + np.array([0, -0.1, 0.1]))
-    assert jump_integrated_times[1, 2] == 0
+    assert np.all(c == c_old)
+    assert np.isclose(jump_integrated_times[1, 2], 0.5)
+    assert jump_thresholds[1, 2] == 0.5
+
+
+def test_timestep_zero_propensity_never_jumps():
+    """
+    A jump channel with zero propensity must not fire, even with a zero threshold.
+    Voter model with extinct opinion 1: it must stay extinct.
+    """
+    r = np.array([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]])
+    r_tilde = np.zeros((3, 3))
+    c = np.array([0.5, 0.0, 0.5])
+    propensities = _expected_propensities(c, r, r_tilde)
+    jump_channels = ~np.eye(3, dtype=bool)
+
+    _numba_compute_timestep(
+        c,
+        np.zeros(3),
+        propensities,
+        0.1,
+        jump_channels,
+        np.zeros((3, 3)),
+        np.zeros((3, 3)),
+        r,
+        r_tilde,
+        10,
+    )
+    assert c[1] == 0
 
 
 def test_timestep_multiple_jumps_clipped_sequentially(rates):
@@ -427,9 +457,9 @@ def test_timestep_multiple_jumps_clipped_sequentially(rates):
     )
     # channel (0, 1) is processed first and takes the remaining mass of opinion 0
     assert np.allclose(c, [0, 0.5, 0.5])
-    # both channels fired, so both are reset
-    assert jump_integrated_times[0, 1] == 0
-    assert jump_integrated_times[0, 2] == 0
+    # both channels fired, so both have new thresholds that are not yet exceeded
+    assert jump_integrated_times[0, 1] < jump_thresholds[0, 1]
+    assert jump_integrated_times[0, 2] < jump_thresholds[0, 2]
     assert jump_thresholds[0, 1] != 5.0
     assert jump_thresholds[0, 2] != 5.0
 
@@ -531,3 +561,82 @@ def test_timestep_diffusion_moments(rates):
     std_of_mean = np.sqrt(np.diag(cov) / num_samples)
     assert np.all(np.abs(increments.mean(axis=0) - drift * delta_t) < 5 * std_of_mean)
     assert np.allclose(np.cov(increments.T), cov, rtol=0.05, atol=1e-7)
+
+
+@pytest.mark.parametrize("jumps_per_step", [0.5, 2.0])
+def test_timestep_jump_count_poisson(rates, jumps_per_step):
+    """
+    With fixed propensity the number of jumps per step is Poisson distributed
+    with mean num_agents * propensity * delta_t, which requires carrying over
+    the excess integrated time and allowing multiple jumps per step.
+    """
+    r, r_tilde = rates
+    _seed_numba(3)
+    num_agents = 100
+    delta_t = 0.1
+    num_steps = 20000
+    c0 = np.array([0.5, 0.5, 0.0])
+    propensity = jumps_per_step / (num_agents * delta_t)
+
+    c = np.zeros(3)
+    c_buf = np.zeros(3)
+    propensities = np.zeros((3, 3))
+    jump_channels = np.zeros((3, 3), dtype=bool)
+    jump_channels[0, 1] = True
+    jump_thresholds = np.full((3, 3), np.random.default_rng(3).exponential())
+    jump_integrated_times = np.zeros((3, 3))
+    num_jumps = np.zeros(num_steps)
+    for k in range(num_steps):
+        c[:] = c0
+        propensities[:] = 0
+        propensities[0, 1] = propensity
+        _numba_compute_timestep(
+            c,
+            c_buf,
+            propensities,
+            delta_t,
+            jump_channels,
+            jump_thresholds,
+            jump_integrated_times,
+            r,
+            r_tilde,
+            num_agents,
+        )
+        num_jumps[k] = np.round((c0[0] - c[0]) * num_agents)
+
+    std_of_mean = np.sqrt(jumps_per_step / num_steps)
+    assert abs(num_jumps.mean() - jumps_per_step) < 5 * std_of_mean
+    assert np.isclose(num_jumps.var(), jumps_per_step, rtol=0.1)
+
+
+def test_timestep_diffusion_clipping_only_affects_channel(rates):
+    """
+    Clipping a diffusion increment must not change opinions
+    that are not involved in the channel.
+    """
+    r, r_tilde = rates
+    _seed_numba(4)
+    jump_channels = ~np.eye(3, dtype=bool)
+    jump_channels[0, 1] = False
+    clipped = False
+    for _ in range(100):
+        c = np.array([0.001, 0.5, 0.499])
+        propensities = np.zeros((3, 3))
+        propensities[0, 1] = 1.0
+        _numba_compute_timestep(
+            c,
+            np.zeros(3),
+            propensities,
+            1.0,
+            jump_channels,
+            np.full((3, 3), np.inf),
+            np.zeros((3, 3)),
+            r,
+            r_tilde,
+            10,
+        )
+        assert c[2] == 0.499
+        assert np.all(c >= 0)
+        assert np.isclose(np.sum(c), 1)
+        clipped |= c[0] == 0
+    assert clipped
