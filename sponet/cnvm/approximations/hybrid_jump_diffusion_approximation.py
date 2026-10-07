@@ -1,11 +1,43 @@
 import numpy as np
-from numba import njit
+from numba import njit, prange
 from numpy.typing import ArrayLike, NDArray
 
 
 def sample_hybrid_jump_diffusion() -> tuple[NDArray, NDArray]:
     # TODO: execute many simulations
     pass
+
+
+@njit(parallel=True, cache=True)
+def _numba_sample_jda(
+    c_init: NDArray,
+    delta_t: float,
+    t_eval: NDArray,
+    num_agents: int,
+    r: NDArray,
+    r_tilde: NDArray,
+    num_samples: int,
+    switch_propensity_threshold: float,
+    switch_boundary_thresholds: NDArray,
+    seed: int,
+) -> tuple[NDArray, NDArray]:
+    n_states = c_init.shape[0]
+    c_out = np.zeros((num_samples, t_eval.shape[0], n_states))
+
+    for i in prange(num_samples):
+        np.random.seed(seed + i)
+        c_out[i] = _numba_jda(
+            c_init,
+            delta_t,
+            t_eval,
+            num_agents,
+            r,
+            r_tilde,
+            switch_propensity_threshold,
+            switch_boundary_thresholds,
+        )
+
+    return t_eval, c_out
 
 
 @njit()
