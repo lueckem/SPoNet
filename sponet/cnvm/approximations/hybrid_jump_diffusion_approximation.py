@@ -46,7 +46,7 @@ def _numba_jda(
             this_delta_t = delta_t
             store = False
 
-        _numba_compute_propensities(propensities, c, r, r_tilde)
+        _numba_update_propensities(propensities, c, r, r_tilde)
         _numba_update_channels(
             c,
             propensities,
@@ -59,6 +59,7 @@ def _numba_jda(
         _numba_compute_timestep(
             c,
             c_buf,
+            propensities,
             this_delta_t,
             jump_channels,
             jump_thresholds,
@@ -76,18 +77,6 @@ def _numba_jda(
             next_t_store = t_eval[next_store_index]
 
     return c_store
-
-
-@njit()
-def _numba_compute_propensities(
-    propensities: NDArray, c: NDArray, r: NDArray, r_tilde: NDArray
-):
-    n_states = c.shape[0]
-    for i in range(n_states):
-        for j in range(n_states):
-            if i == j:
-                continue
-            propensities[i, j] = c[i] * (r[i, j] * c[j] + r_tilde[i, j])
 
 
 @njit()
@@ -200,7 +189,6 @@ def _numba_compute_timestep(
                 jump_thresholds[i, j] = np.random.exponential(1)
 
     c[:] = c_buf
-    _numba_update_propensities(propensities, c, r, r_tilde)
 
 
 @njit(inline="always")
@@ -211,6 +199,5 @@ def _numba_update_propensities(
     for i in range(n_states):
         for j in range(n_states):
             if i == j:
-                propensities[i, j] = 0
                 continue
             propensities[i, j] = c[i] * (r[i, j] * c[j] + r_tilde[i, j])
