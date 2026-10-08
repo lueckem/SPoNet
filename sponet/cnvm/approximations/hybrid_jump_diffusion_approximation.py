@@ -71,7 +71,7 @@ def sample_hybrid_jump_diffusion(
         jump_times = jump_times[0]
         jump_counts = jump_counts[0]
     if return_channel_stats:
-        return t, c, jump_times, jump_counts
+        return t, c, jump_times, jump_counts  # type: ignore
     return t, c  # type: ignore
 
 
