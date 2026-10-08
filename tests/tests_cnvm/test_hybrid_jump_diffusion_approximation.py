@@ -218,6 +218,7 @@ def test_timestep_zero_propensities_no_change(
         jump_thresholds,
         jump_integrated_times,
         10,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.allclose(c, c_old)
 
@@ -243,6 +244,7 @@ def test_timestep_does_not_change_propensities(
         jump_thresholds,
         jump_integrated_times,
         100,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.all(propensities == old_propensities)
 
@@ -266,6 +268,7 @@ def test_timestep_jump_not_fired(c, jump_thresholds, jump_integrated_times, rate
         jump_thresholds,
         jump_integrated_times,
         num_agents,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.allclose(c, c_old)
     assert np.isclose(jump_integrated_times[0, 1], num_agents * 0.5 * delta_t)
@@ -292,6 +295,7 @@ def test_timestep_jump_fired(c, jump_thresholds, jump_integrated_times, rates):
         jump_thresholds,
         jump_integrated_times,
         num_agents,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.allclose(c, c_old + np.array([-0.1, 0.1, 0]))
     assert np.isclose(jump_integrated_times[0, 1], 0, atol=1e-8)
@@ -316,6 +320,7 @@ def test_timestep_jump_clipped(jump_thresholds, jump_integrated_times, rates):
         jump_thresholds,
         jump_integrated_times,
         10,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.allclose(c, [0, 0.45, 0.55])
 
@@ -333,6 +338,7 @@ def test_timestep_diffusion_stays_in_simplex(rates):
             np.zeros((3, 3)),
             np.zeros((3, 3)),
             10,
+            np.zeros((3, 3), dtype=np.int64),
         )
         assert np.all(c >= 0)
         assert np.isclose(np.sum(c), 1)
@@ -359,6 +365,7 @@ def test_timestep_jump_channels_do_not_diffuse(c, rates):
         jump_thresholds,
         jump_integrated_times,
         10,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.all(c == c_old)
     assert np.allclose(
@@ -385,6 +392,7 @@ def test_timestep_jump_not_fired_at_threshold(c, rates):
         jump_thresholds,
         jump_integrated_times,
         10,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert np.all(c == c_old)
     assert np.isclose(jump_integrated_times[1, 2], 0.5)
@@ -410,6 +418,7 @@ def test_timestep_zero_propensity_never_jumps():
         np.zeros((3, 3)),
         np.zeros((3, 3)),
         10,
+        np.zeros((3, 3), dtype=np.int64),
     )
     assert c[1] == 0
 
@@ -434,6 +443,7 @@ def test_timestep_multiple_jumps_clipped_sequentially(rates):
         jump_thresholds,
         jump_integrated_times,
         10,
+        np.zeros((3, 3), dtype=np.int64),
     )
     # channel (0, 1) is processed first and takes the remaining mass of opinion 0
     assert np.allclose(c, [0, 0.5, 0.5])
@@ -463,6 +473,7 @@ def test_timestep_mixed_conserves_mass(rates):
             jump_thresholds,
             jump_integrated_times,
             num_agents,
+            np.zeros((3, 3), dtype=np.int64),
         )
         assert np.all(c >= 0)
         assert np.isclose(np.sum(c), 1)
@@ -498,6 +509,7 @@ def test_timestep_diffusion_moments(rates):
             jump_thresholds,
             jump_integrated_times,
             num_agents,
+            np.zeros((3, 3), dtype=np.int64),
         )
         increments[k] = c - c0
 
@@ -551,6 +563,7 @@ def test_timestep_jump_count_poisson(rates, jumps_per_step):
             jump_thresholds,
             jump_integrated_times,
             num_agents,
+            np.zeros((3, 3), dtype=np.int64),
         )
         num_jumps[k] = np.round((c0[0] - c[0]) * num_agents)
 
@@ -581,6 +594,7 @@ def test_timestep_diffusion_clipping_only_affects_channel(rates):
             np.full((3, 3), np.inf),
             np.zeros((3, 3)),
             10,
+            np.zeros((3, 3), dtype=np.int64),
         )
         assert c[2] == 0.499
         assert np.all(c >= 0)
@@ -601,7 +615,7 @@ def _run_jda(c_init, delta_t, t_eval, num_agents, rates, seed):
         r_tilde,
         0.01,
         np.full((3, 3), 2 / num_agents),
-    )
+    )[0]
 
 
 @pytest.mark.parametrize(
@@ -686,7 +700,7 @@ def test_jda_agrees_with_exact_count_chain(rates):
                 r_tilde,
                 0.01,
                 np.full((3, 3), 2 / num_agents),
-            )
+            )[0]
             for _ in range(num_samples)
         ]
     )
@@ -695,3 +709,65 @@ def test_jda_agrees_with_exact_count_chain(rates):
     std_of_diff = np.sqrt((jda.var(axis=0) + exact.var(axis=0)) / num_samples)
     assert np.all(mean_diff[1:] < 5 * std_of_diff[1:] + 1e-3)
     assert np.allclose(jda.std(axis=0)[1:], exact.std(axis=0)[1:], rtol=0.15)
+
+
+def _sample_with_stats(rates, switch_propensity_threshold, boundary_threshold, t_max):
+    from sponet import CNVMParameters
+    from sponet.cnvm.approximations import sample_hybrid_jump_diffusion
+
+    r, r_tilde = rates
+    params = CNVMParameters(num_opinions=3, num_agents=30, r=r, r_tilde=r_tilde)
+    return sample_hybrid_jump_diffusion(
+        params,
+        np.array([0.1, 0.3, 0.6]),
+        t_max,
+        20,
+        switch_propensity_threshold,
+        np.full((3, 3), boundary_threshold),
+        delta_t=0.01,
+        seed=1,
+        return_channel_stats=True,
+    )
+
+
+def test_channel_stats_all_jump(rates):
+    t_max = 2.0
+    t, c, jump_times, jump_counts = _sample_with_stats(rates, np.inf, 0.0, t_max)
+    assert c.shape == (20, len(t), 3)
+    assert jump_times.shape == (20, 3, 3)
+    assert jump_counts.shape == (20, 3, 3)
+    off_diag = ~np.eye(3, dtype=bool)
+    assert np.allclose(jump_times[:, off_diag], t_max)
+    assert np.all(jump_times[:, ~off_diag] == 0)
+    assert np.all(jump_counts[:, ~off_diag] == 0)
+    assert np.all(jump_counts[:, off_diag] >= 0)
+    assert np.sum(jump_counts) > 0
+
+
+def test_channel_stats_all_diffusion(rates):
+    _, _, jump_times, jump_counts = _sample_with_stats(rates, -1.0, -1.0, 2.0)
+    assert np.all(jump_times == 0)
+    assert np.all(jump_counts == 0)
+
+
+def test_channel_stats_mixed(rates):
+    t_max = 2.0
+    _, _, jump_times, jump_counts = _sample_with_stats(rates, 0.01, 2 / 30, t_max)
+    assert np.all(jump_times >= 0)
+    assert np.all(jump_times <= t_max + 1e-9)
+    assert np.all(jump_counts >= 0)
+    # a channel without time in jump mode cannot have fired jumps
+    assert np.all(jump_counts[jump_times == 0] == 0)
+    assert np.any(jump_times > 0) and np.any(jump_times < t_max)
+
+
+def test_channel_stats_not_returned_by_default(rates):
+    from sponet import CNVMParameters
+    from sponet.cnvm.approximations import sample_hybrid_jump_diffusion
+
+    r, r_tilde = rates
+    params = CNVMParameters(num_opinions=3, num_agents=30, r=r, r_tilde=r_tilde)
+    out = sample_hybrid_jump_diffusion(
+        params, [0.1, 0.3, 0.6], 1.0, 5, 0.01, np.full((3, 3), 0.1), delta_t=0.01, seed=1
+    )
+    assert len(out) == 2

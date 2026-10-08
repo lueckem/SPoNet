@@ -19,8 +19,12 @@ def sample_hybrid_jump_diffusion(
     t_eval: ArrayLike | None = None,
     rng: Generator | None = None,
     seed: int | None = None,
-) -> tuple[NDArray, NDArray]:
+    return_channel_stats: bool = False,
+) -> tuple[NDArray, ...]:
     # TODO: docs
+    # If `return_channel_stats` is True, additionally returns the time each channel i -> j
+    # spent in jump mode and the number of jumps it fired over the whole simulation,
+    # each with shape (num_initial_states, num_samples, n_states, n_states).
     if rng is not None:
         seed = int(rng.integers(1, 2**24))
     elif seed is None:
@@ -43,9 +47,13 @@ def sample_hybrid_jump_diffusion(
             initial_states.shape[1],
         )
     )
+    jump_times = np.zeros(
+        (num_states, num_samples, initial_states.shape[1], initial_states.shape[1])
+    )
+    jump_counts = np.zeros(jump_times.shape, dtype=np.int64)
 
     for i in range(num_states):
-        t, c[i] = _numba_sample_jda(
+        t, c[i], jump_times[i], jump_counts[i] = _numba_sample_jda(
             initial_states[i],
             delta_t,
             t_eval,
@@ -60,6 +68,10 @@ def sample_hybrid_jump_diffusion(
 
     if is_1d:
         c = c[0]
+        jump_times = jump_times[0]
+        jump_counts = jump_counts[0]
+    if return_channel_stats:
+        return t, c, jump_times, jump_counts
     return t, c  # type: ignore
 
 
@@ -97,13 +109,15 @@ def _numba_sample_jda(
     switch_propensity_threshold: float,
     switch_boundary_thresholds: NDArray,
     seed: int,
-) -> tuple[NDArray, NDArray]:
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     n_states = c_init.shape[0]
     c_out = np.zeros((num_samples, t_eval.shape[0], n_states))
+    jump_times_out = np.zeros((num_samples, n_states, n_states))
+    jump_counts_out = np.zeros((num_samples, n_states, n_states), dtype=np.int64)
 
     for i in prange(num_samples):
         np.random.seed(seed + i)
-        c_out[i] = _numba_jda(
+        c_out[i], jump_times_out[i], jump_counts_out[i] = _numba_jda(
             c_init,
             delta_t,
             t_eval,
@@ -114,7 +128,7 @@ def _numba_sample_jda(
             switch_boundary_thresholds,
         )
 
-    return t_eval, c_out
+    return t_eval, c_out, jump_times_out, jump_counts_out
 
 
 @njit()
@@ -127,8 +141,10 @@ def _numba_jda(
     r_tilde: NDArray,
     switch_propensity_threshold: float,
     switch_boundary_thresholds: NDArray,
-) -> NDArray:
-    # Execute one simulation
+) -> tuple[NDArray, NDArray, NDArray]:
+    # Execute one simulation. Returns the stored states, shape = (len(t_eval), n_states),
+    # the time each channel spent in jump mode and the number of jumps each channel fired,
+    # both with shape = (n_states, n_states).
 
     n_states = c_init.shape[0]
     c_store = np.zeros((t_eval.shape[0], n_states))
@@ -137,6 +153,8 @@ def _numba_jda(
     jump_channels = np.zeros((n_states, n_states), dtype=np.bool_)
     jump_thresholds = np.zeros((n_states, n_states))
     jump_integrated_times = np.zeros((n_states, n_states))
+    jump_times = np.zeros((n_states, n_states))
+    jump_counts = np.zeros((n_states, n_states), dtype=np.int64)
 
     propensities = np.zeros((n_states, n_states))
 
@@ -164,6 +182,10 @@ def _numba_jda(
             switch_propensity_threshold,
             switch_boundary_thresholds,
         )
+        for i in range(n_states):
+            for j in range(n_states):
+                if jump_channels[i, j]:
+                    jump_times[i, j] += this_delta_t
         _numba_compute_timestep(
             c,
             propensities,
@@ -172,6 +194,7 @@ def _numba_jda(
             jump_thresholds,
             jump_integrated_times,
             num_agents,
+            jump_counts,
         )
 
         t += this_delta_t
@@ -183,7 +206,7 @@ def _numba_jda(
                 break
             next_t_store = t_eval[next_store_index]
 
-    return c_store
+    return c_store, jump_times, jump_counts
 
 
 @njit()
@@ -227,6 +250,7 @@ def _numba_compute_timestep(
     jump_thresholds: NDArray,
     jump_integrated_times: NDArray,
     num_agents: int,
+    jump_counts: NDArray,
 ):
     """
     Advance the hybrid process by one step of size `delta_t` in place.
@@ -252,6 +276,8 @@ def _numba_compute_timestep(
     jump_integrated_times : NDArray
         Shape = (n_states, n_states).
     num_agents : int
+    jump_counts : NDArray
+        Shape = (n_states, n_states). Incremented in place for every fired jump.
     """
     n_states = c.shape[0]
     std = np.sqrt(delta_t)
@@ -286,6 +312,7 @@ def _numba_compute_timestep(
 
                 jump_integrated_times[i, j] -= jump_thresholds[i, j]
                 jump_thresholds[i, j] = np.random.exponential(1)
+                jump_counts[i, j] += 1
 
 
 @njit(inline="always")
