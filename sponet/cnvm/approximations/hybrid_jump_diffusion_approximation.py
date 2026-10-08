@@ -1,7 +1,10 @@
+import math
+
 import numpy as np
 from numba import njit, prange
 from numpy.random import Generator, default_rng
 from numpy.typing import ArrayLike, NDArray
+from scipy.stats import norm
 
 from sponet.cnvm.parameters import CNVMParameters
 from sponet.utils import t_eval_to_ndarray
@@ -14,7 +17,7 @@ def sample_hybrid_jump_diffusion(
     t_max: float,
     num_samples: int,
     switch_propensity_threshold: float,
-    switch_boundary_thresholds: NDArray,
+    switch_exit_probability_threshold: float,
     delta_t: float | None = None,
     t_eval: ArrayLike | None = None,
     rng: Generator | None = None,
@@ -22,6 +25,10 @@ def sample_hybrid_jump_diffusion(
     return_channel_stats: bool = False,
 ) -> tuple[NDArray, ...]:
     # TODO: docs
+    # A channel i -> j is a jump channel if its propensity is below
+    # `switch_propensity_threshold` or if the probability that a full
+    # Euler-Maruyama step (over all channels) leaves the simplex in the opinion i or j,
+    # computed from the current state, exceeds `switch_exit_probability_threshold`.
     # If `return_channel_stats` is True, additionally returns the time each channel i -> j
     # spent in jump mode and the number of jumps it fired over the whole simulation,
     # each with shape (num_initial_states, num_samples, n_states, n_states).
@@ -52,6 +59,8 @@ def sample_hybrid_jump_diffusion(
     )
     jump_counts = np.zeros(jump_times.shape, dtype=np.int64)
 
+    switch_exit_quantile = _exit_quantile(switch_exit_probability_threshold)
+
     for i in range(num_states):
         t, c[i], jump_times[i], jump_counts[i] = _numba_sample_jda(
             initial_states[i],
@@ -62,7 +71,7 @@ def sample_hybrid_jump_diffusion(
             params.r_tilde,
             num_samples,
             switch_propensity_threshold,
-            switch_boundary_thresholds,
+            switch_exit_quantile,
             seed,
         )
 
@@ -73,6 +82,18 @@ def sample_hybrid_jump_diffusion(
     if return_channel_stats:
         return t, c, jump_times, jump_counts
     return t, c  # type: ignore
+
+
+def _exit_quantile(switch_exit_probability_threshold: float) -> float:
+    """
+    Standard normal quantile z of the exit probability threshold.
+
+    With mean and std of the share of an opinion after a full Euler-Maruyama step,
+    P(exit) = Phi(-mean / std) > threshold  <=>  mean < -z * std.
+    Comparing with the quantile avoids evaluating the normal CDF in every step.
+    A threshold >= 1 yields z = inf, which disables the criterion.
+    """
+    return float(norm.ppf(min(max(switch_exit_probability_threshold, 0.0), 1.0)))
 
 
 def _sanitize_delta_t_and_t_eval(
@@ -107,7 +128,7 @@ def _numba_sample_jda(
     r_tilde: NDArray,
     num_samples: int,
     switch_propensity_threshold: float,
-    switch_boundary_thresholds: NDArray,
+    switch_exit_quantile: float,
     seed: int,
 ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     n_states = c_init.shape[0]
@@ -125,7 +146,7 @@ def _numba_sample_jda(
             r,
             r_tilde,
             switch_propensity_threshold,
-            switch_boundary_thresholds,
+            switch_exit_quantile,
         )
 
     return t_eval, c_out, jump_times_out, jump_counts_out
@@ -140,7 +161,7 @@ def _numba_jda(
     r: NDArray,
     r_tilde: NDArray,
     switch_propensity_threshold: float,
-    switch_boundary_thresholds: NDArray,
+    switch_exit_quantile: float,
 ) -> tuple[NDArray, NDArray, NDArray]:
     # Execute one simulation. Returns the stored states, shape = (len(t_eval), n_states),
     # the time each channel spent in jump mode and the number of jumps each channel fired,
@@ -157,6 +178,7 @@ def _numba_jda(
     jump_counts = np.zeros((n_states, n_states), dtype=np.int64)
 
     propensities = np.zeros((n_states, n_states))
+    exit_likely = np.zeros(n_states, dtype=np.bool_)
 
     t = 0.0
     next_store_index = 1
@@ -176,11 +198,14 @@ def _numba_jda(
         _numba_update_channels(
             c,
             propensities,
+            this_delta_t,
             jump_channels,
             jump_thresholds,
             jump_integrated_times,
             switch_propensity_threshold,
-            switch_boundary_thresholds,
+            switch_exit_quantile,
+            num_agents,
+            exit_likely,
         )
         for i in range(n_states):
             for j in range(n_states):
@@ -213,21 +238,45 @@ def _numba_jda(
 def _numba_update_channels(
     c: NDArray,
     propensities: NDArray,
+    delta_t: float,
     jump_channels: NDArray,
     jump_thresholds: NDArray,
     jump_integrated_times: NDArray,
     switch_propensity_threshold: float,
-    switch_boundary_thresholds: NDArray,
+    switch_exit_quantile: float,
+    num_agents: int,
+    exit_likely: NDArray,
 ):
+    """
+    Decide for every channel i -> j whether it is a jump or a diffusion channel.
+
+    A channel is a jump channel if its propensity is below `switch_propensity_threshold`
+    or if the probability that an Euler-Maruyama step of size `delta_t` leaves the simplex
+    in the opinion i or j exceeds the threshold whose standard normal quantile is
+    `switch_exit_quantile` (see `_exit_quantile`, inf disables the second criterion).
+    `exit_likely` is a work array of shape (n_states,).
+    """
     n_states = c.shape[0]
+    check_exit = switch_exit_quantile < np.inf
+    for m in range(n_states):
+        exit_likely[m] = False
+        if check_exit:
+            mean, std = _numba_exit_mean_std(c, propensities, delta_t, num_agents, m)
+            if std > 0:
+                # P(exit) = Phi(-mean / std) > threshold  <=>  mean < -quantile * std
+                exit_likely[m] = mean < -switch_exit_quantile * std
+            else:
+                # deterministic step: P(exit) is 1 if mean < 0, else 0
+                exit_likely[m] = mean < 0
+
     for i in range(n_states):
         for j in range(n_states):
             if i == j:
                 continue
             if (
                 propensities[i, j] <= switch_propensity_threshold
-                or c[i] <= switch_boundary_thresholds[i, j]
-                or c[j] <= switch_boundary_thresholds[j, i]
+                or exit_likely[i]
+                or exit_likely[j]
             ):
                 if jump_channels[i, j] == 0:
                     # Start new jump phase
@@ -239,6 +288,31 @@ def _numba_update_channels(
                 jump_channels[i, j] = 0
 
     return
+
+
+@njit(inline="always")
+def _numba_exit_mean_std(
+    c: NDArray, propensities: NDArray, delta_t: float, num_agents: int, m: int
+) -> tuple[float, float]:
+    """
+    Mean and standard deviation of the share of opinion m after a full Euler-Maruyama step.
+
+    Given the current state, the new share is normally distributed with
+    mean c_m + (inflow_m - outflow_m) * delta_t and variance (inflow_m + outflow_m) * delta_t / N,
+    where in-/outflow are the sums of the propensities into/out of m.
+    The probability to leave the simplex is P(new share < 0) = Phi(-mean / std).
+    """
+    n_states = c.shape[0]
+    inflow = 0.0
+    outflow = 0.0
+    for k in range(n_states):
+        if k == m:
+            continue
+        inflow += propensities[k, m]
+        outflow += propensities[m, k]
+    mean = c[m] + (inflow - outflow) * delta_t
+    std = math.sqrt((inflow + outflow) * delta_t / num_agents)
+    return mean, std
 
 
 @njit()

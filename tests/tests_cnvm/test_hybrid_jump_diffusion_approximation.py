@@ -3,7 +3,9 @@ import pytest
 from numba import njit
 
 from sponet.cnvm.approximations.hybrid_jump_diffusion_approximation import (
+    _exit_quantile,
     _numba_compute_timestep,
+    _numba_exit_mean_std,
     _numba_jda,
     _numba_update_channels,
     _numba_update_propensities,
@@ -18,11 +20,6 @@ def c() -> np.ndarray:
 @pytest.fixture
 def propensities() -> np.ndarray:
     return np.ones((3, 3))
-
-
-@pytest.fixture
-def boundary_thresholds() -> np.ndarray:
-    return np.zeros((3, 3))
 
 
 @pytest.fixture
@@ -43,7 +40,6 @@ def jump_integrated_times() -> np.ndarray:
 def test_leave_jump_phase(
     c,
     propensities,
-    boundary_thresholds,
     jump_channels,
     jump_thresholds,
     jump_integrated_times,
@@ -52,11 +48,14 @@ def test_leave_jump_phase(
     _numba_update_channels(
         c,
         propensities,
+        0.01,
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
         0.1,
-        boundary_thresholds,
+        np.inf,
+        100,
+        np.zeros(c.shape[0], dtype=bool),
     )
     assert not np.any(jump_channels)
     assert np.all(jump_thresholds == 5.0)
@@ -74,7 +73,6 @@ def test_leave_jump_phase(
 def test_start_jump_phase(
     c,
     propensities,
-    boundary_thresholds,
     jump_channels,
     jump_thresholds,
     jump_integrated_times,
@@ -85,11 +83,14 @@ def test_start_jump_phase(
     _numba_update_channels(
         c,
         propensities,
+        0.01,
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
         0.1,
-        boundary_thresholds,
+        np.inf,
+        100,
+        np.zeros(c.shape[0], dtype=bool),
     )
     expected_channels = np.zeros((3, 3), dtype=bool)
     expected_channels[channel] = True
@@ -109,7 +110,6 @@ def test_start_jump_phase(
 def test_continue_jump_phase(
     c,
     propensities,
-    boundary_thresholds,
     jump_channels,
     jump_thresholds,
     jump_integrated_times,
@@ -120,59 +120,24 @@ def test_continue_jump_phase(
     _numba_update_channels(
         c,
         propensities,
+        0.01,
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
         0.1,
-        boundary_thresholds,
+        np.inf,
+        100,
+        np.zeros(c.shape[0], dtype=bool),
     )
     assert np.all(jump_channels == old_channels)
     assert np.all(jump_thresholds == 5.0)
     assert np.all(jump_integrated_times == 7.0)
 
 
-@pytest.mark.parametrize(
-    "boundary_index,boundary,expected_channels",
-    [
-        ((0, 1), 0.5, [(0, 1), (1, 0)]),
-        ((0, 1), 0.35, []),  # c[1] <= 0.35 but boundary[0, 1] belongs to c[0]
-        ((2, 1), 0.25, [(2, 1), (1, 2)]),
-        ((1, 0), 0.3, [(1, 0), (0, 1)]),
-        ((2, 0), 0.1, []),
-    ],
-)
-def test_boundary_thresholds(
-    c,
-    propensities,
-    boundary_thresholds,
-    jump_channels,
-    jump_thresholds,
-    jump_integrated_times,
-    boundary_index,
-    boundary,
-    expected_channels,
-):
-    boundary_thresholds[boundary_index] = boundary
-    _numba_update_channels(
-        c,
-        propensities,
-        jump_channels,
-        jump_thresholds,
-        jump_integrated_times,
-        0.1,
-        boundary_thresholds,
-    )
-    expected = np.zeros((3, 3), dtype=bool)
-    for channel in expected_channels:
-        expected[channel] = True
-    assert np.all(jump_channels == expected)
-
-
 def test_new_thresholds_exponentially_distributed():
     num_states = 60
     c = np.full(num_states, 1 / num_states)
     propensities = np.zeros((num_states, num_states))
-    boundary_thresholds = np.zeros((num_states, num_states))
     jump_channels = np.zeros((num_states, num_states), dtype=bool)
     jump_thresholds = np.zeros((num_states, num_states))
     jump_integrated_times = np.ones((num_states, num_states))
@@ -180,11 +145,14 @@ def test_new_thresholds_exponentially_distributed():
     _numba_update_channels(
         c,
         propensities,
+        0.01,
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
         0.1,
-        boundary_thresholds,
+        np.inf,
+        100,
+        np.zeros(c.shape[0], dtype=bool),
     )
     assert np.sum(jump_channels) == num_states * (num_states - 1)
     assert np.all(jump_thresholds[jump_channels] > 0)
@@ -614,7 +582,7 @@ def _run_jda(c_init, delta_t, t_eval, num_agents, rates, seed):
         r,
         r_tilde,
         0.01,
-        np.full((3, 3), 2 / num_agents),
+        _exit_quantile(0.01),
     )[0]
 
 
@@ -699,7 +667,7 @@ def test_jda_agrees_with_exact_count_chain(rates):
                 r,
                 r_tilde,
                 0.01,
-                np.full((3, 3), 2 / num_agents),
+                _exit_quantile(0.01),
             )[0]
             for _ in range(num_samples)
         ]
@@ -711,7 +679,7 @@ def test_jda_agrees_with_exact_count_chain(rates):
     assert np.allclose(jda.std(axis=0)[1:], exact.std(axis=0)[1:], rtol=0.15)
 
 
-def _sample_with_stats(rates, switch_propensity_threshold, boundary_threshold, t_max):
+def _sample_with_stats(rates, switch_propensity_threshold, exit_threshold, t_max):
     from sponet import CNVMParameters
     from sponet.cnvm.approximations import sample_hybrid_jump_diffusion
 
@@ -723,7 +691,7 @@ def _sample_with_stats(rates, switch_propensity_threshold, boundary_threshold, t
         t_max,
         20,
         switch_propensity_threshold,
-        np.full((3, 3), boundary_threshold),
+        exit_threshold,
         delta_t=0.01,
         seed=1,
         return_channel_stats=True,
@@ -732,7 +700,7 @@ def _sample_with_stats(rates, switch_propensity_threshold, boundary_threshold, t
 
 def test_channel_stats_all_jump(rates):
     t_max = 2.0
-    t, c, jump_times, jump_counts = _sample_with_stats(rates, np.inf, 0.0, t_max)
+    t, c, jump_times, jump_counts = _sample_with_stats(rates, np.inf, 1.0, t_max)
     assert c.shape == (20, len(t), 3)
     assert jump_times.shape == (20, 3, 3)
     assert jump_counts.shape == (20, 3, 3)
@@ -745,14 +713,14 @@ def test_channel_stats_all_jump(rates):
 
 
 def test_channel_stats_all_diffusion(rates):
-    _, _, jump_times, jump_counts = _sample_with_stats(rates, -1.0, -1.0, 2.0)
+    _, _, jump_times, jump_counts = _sample_with_stats(rates, -1.0, 1.0, 2.0)
     assert np.all(jump_times == 0)
     assert np.all(jump_counts == 0)
 
 
 def test_channel_stats_mixed(rates):
     t_max = 2.0
-    _, _, jump_times, jump_counts = _sample_with_stats(rates, 0.01, 2 / 30, t_max)
+    _, _, jump_times, jump_counts = _sample_with_stats(rates, 0.01, 0.01, t_max)
     assert np.all(jump_times >= 0)
     assert np.all(jump_times <= t_max + 1e-9)
     assert np.all(jump_counts >= 0)
@@ -768,6 +736,120 @@ def test_channel_stats_not_returned_by_default(rates):
     r, r_tilde = rates
     params = CNVMParameters(num_opinions=3, num_agents=30, r=r, r_tilde=r_tilde)
     out = sample_hybrid_jump_diffusion(
-        params, [0.1, 0.3, 0.6], 1.0, 5, 0.01, np.full((3, 3), 0.1), delta_t=0.01, seed=1
+        params, [0.1, 0.3, 0.6], 1.0, 5, 0.01, 0.1, delta_t=0.01, seed=1
     )
     assert len(out) == 2
+
+
+def test_exit_mean_std():
+    rng = np.random.default_rng(0)
+    c = np.array([0.02, 0.38, 0.6])
+    propensities = rng.uniform(0.1, 1, (3, 3))
+    np.fill_diagonal(propensities, 0)
+    delta_t, num_agents = 0.05, 40
+    for m in range(3):
+        inflow = propensities[:, m].sum()
+        outflow = propensities[m, :].sum()
+        mean, std = _numba_exit_mean_std(c, propensities, delta_t, num_agents, m)
+        assert np.isclose(mean, c[m] + (inflow - outflow) * delta_t)
+        assert np.isclose(std, np.sqrt((inflow + outflow) * delta_t / num_agents))
+
+
+@pytest.mark.parametrize("threshold", [0.0, 1e-6, 0.01, 0.3, 0.5, 0.9, 1.0])
+def test_exit_quantile_criterion_matches_normal_cdf(threshold):
+    """mean < -z * std is equivalent to Phi(-mean / std) > threshold."""
+    from scipy.stats import norm
+
+    z = _exit_quantile(threshold)
+    rng = np.random.default_rng(1)
+    mean = rng.uniform(-0.2, 0.5, 2000)
+    std = rng.uniform(1e-3, 0.2, 2000)
+    p_exit = norm.cdf(-mean / std)
+    # exclude values on the decision boundary up to float precision
+    clear = np.abs(p_exit - threshold) > 1e-9
+    assert np.all((mean < -z * std)[clear] == (p_exit > threshold)[clear])
+
+
+def test_update_channels_exit_probability():
+    c = np.array([0.001, 0.5, 0.499])
+    propensities = np.ones((3, 3))
+
+    def run(exit_threshold):
+        jump_channels = np.zeros((3, 3), dtype=bool)
+        _numba_update_channels(
+            c,
+            propensities,
+            0.1,
+            jump_channels,
+            np.zeros((3, 3)),
+            np.zeros((3, 3)),
+            0.1,
+            _exit_quantile(exit_threshold),
+            10,
+            np.zeros(3, dtype=bool),
+        )
+        return jump_channels
+
+    # P(exit) is about 0.5 for opinion 0 and about 0.006 for the others
+    expected = np.zeros((3, 3), dtype=bool)
+    expected[0, 1] = expected[0, 2] = expected[1, 0] = expected[2, 0] = True
+    assert np.all(run(0.1) == expected)
+    assert not np.any(run(1.0))
+    assert not np.any(run(0.9))
+    assert np.all(run(0.001)[~np.eye(3, dtype=bool)])
+
+
+def test_update_channels_deterministic_exit():
+    """Without noise, an opinion exits iff its deterministic step ends below zero."""
+    c = np.array([0.001, 0.5, 0.499])
+    propensities = np.zeros((3, 3))
+    propensities[0, 1] = 0.1  # c_0 + (0 - 0.1) * 0.1 < 0
+    jump_channels = np.zeros((3, 3), dtype=bool)
+    _numba_update_channels(
+        c,
+        propensities,
+        0.1,
+        jump_channels,
+        np.zeros((3, 3)),
+        np.zeros((3, 3)),
+        -1.0,  # no channel is a jump channel because of its propensity
+        _exit_quantile(0.5),
+        np.inf,  # infinitely many agents: no noise
+        np.zeros(3, dtype=bool),
+    )
+    expected = np.zeros((3, 3), dtype=bool)
+    expected[0, 1] = expected[0, 2] = expected[1, 0] = expected[2, 0] = True
+    assert np.all(jump_channels == expected)
+
+
+def test_exit_probability_criterion_in_sampling(rates):
+    t_max = 2.0
+    kwargs = dict(
+        initial_states=np.array([0.1, 0.3, 0.6]),
+        t_max=t_max,
+        num_samples=20,
+        switch_propensity_threshold=0.0,
+        delta_t=0.01,
+        seed=1,
+        return_channel_stats=True,
+    )
+    from sponet import CNVMParameters
+    from sponet.cnvm.approximations import sample_hybrid_jump_diffusion
+
+    r, r_tilde = rates
+    params = CNVMParameters(num_opinions=3, num_agents=30, r=r, r_tilde=r_tilde)
+
+    # threshold 1.0 disables the criterion, jump mode is then only entered by propensities
+    # of exactly zero (extinct opinions)
+    _, _, jump_times_off, _ = sample_hybrid_jump_diffusion(
+        params, switch_exit_probability_threshold=1.0, **kwargs
+    )
+
+    _, c, jump_times, jump_counts = sample_hybrid_jump_diffusion(
+        params, switch_exit_probability_threshold=1e-3, **kwargs
+    )
+    assert np.all(jump_times <= t_max + 1e-9)
+    assert jump_times.sum() > 1.5 * jump_times_off.sum()
+    assert np.any(jump_counts > 0)
+    assert np.all(c >= 0)
+    assert np.allclose(c.sum(axis=2), 1)
