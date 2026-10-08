@@ -217,8 +217,6 @@ def test_timestep_zero_propensities_no_change(
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         10,
     )
     assert np.allclose(c, c_old)
@@ -244,8 +242,6 @@ def test_timestep_does_not_change_propensities(
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         100,
     )
     assert np.all(propensities == old_propensities)
@@ -269,8 +265,6 @@ def test_timestep_jump_not_fired(c, jump_thresholds, jump_integrated_times, rate
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         num_agents,
     )
     assert np.allclose(c, c_old)
@@ -297,8 +291,6 @@ def test_timestep_jump_fired(c, jump_thresholds, jump_integrated_times, rates):
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         num_agents,
     )
     assert np.allclose(c, c_old + np.array([-0.1, 0.1, 0]))
@@ -323,8 +315,6 @@ def test_timestep_jump_clipped(jump_thresholds, jump_integrated_times, rates):
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         10,
     )
     assert np.allclose(c, [0, 0.45, 0.55])
@@ -342,8 +332,6 @@ def test_timestep_diffusion_stays_in_simplex(rates):
             np.zeros((3, 3), dtype=bool),
             np.zeros((3, 3)),
             np.zeros((3, 3)),
-            r,
-            r_tilde,
             10,
         )
         assert np.all(c >= 0)
@@ -370,8 +358,6 @@ def test_timestep_jump_channels_do_not_diffuse(c, rates):
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         10,
     )
     assert np.all(c == c_old)
@@ -398,8 +384,6 @@ def test_timestep_jump_not_fired_at_threshold(c, rates):
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         10,
     )
     assert np.all(c == c_old)
@@ -425,8 +409,6 @@ def test_timestep_zero_propensity_never_jumps():
         jump_channels,
         np.zeros((3, 3)),
         np.zeros((3, 3)),
-        r,
-        r_tilde,
         10,
     )
     assert c[1] == 0
@@ -451,8 +433,6 @@ def test_timestep_multiple_jumps_clipped_sequentially(rates):
         jump_channels,
         jump_thresholds,
         jump_integrated_times,
-        r,
-        r_tilde,
         10,
     )
     # channel (0, 1) is processed first and takes the remaining mass of opinion 0
@@ -482,8 +462,6 @@ def test_timestep_mixed_conserves_mass(rates):
             jump_channels,
             jump_thresholds,
             jump_integrated_times,
-            r,
-            r_tilde,
             num_agents,
         )
         assert np.all(c >= 0)
@@ -519,8 +497,6 @@ def test_timestep_diffusion_moments(rates):
             jump_channels,
             jump_thresholds,
             jump_integrated_times,
-            r,
-            r_tilde,
             num_agents,
         )
         increments[k] = c - c0
@@ -574,8 +550,6 @@ def test_timestep_jump_count_poisson(rates, jumps_per_step):
             jump_channels,
             jump_thresholds,
             jump_integrated_times,
-            r,
-            r_tilde,
             num_agents,
         )
         num_jumps[k] = np.round((c0[0] - c[0]) * num_agents)
@@ -606,8 +580,6 @@ def test_timestep_diffusion_clipping_only_affects_channel(rates):
             jump_channels,
             np.full((3, 3), np.inf),
             np.zeros((3, 3)),
-            r,
-            r_tilde,
             10,
         )
         assert c[2] == 0.499
